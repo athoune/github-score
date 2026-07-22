@@ -35,6 +35,11 @@ def _is_bot(login: str) -> bool:
     )
 
 
+def _contributor_is_bot(c: Contributor) -> bool:
+    """Check if a contributor is a bot, combining explicit flag and heuristic."""
+    return c.is_bot or _is_bot(c.login)
+
+
 def _compute_bus_factor(contributors: list[Contributor], threshold: float = 0.5) -> int:
     """Compute bus factor: smallest N contributors accounting for threshold% of commits.
 
@@ -57,7 +62,7 @@ def _compute_bus_factor(contributors: list[Contributor], threshold: float = 0.5)
     count = 0
 
     for c in contributors:
-        if c.is_bot:
+        if _contributor_is_bot(c):
             continue
         cumulative += c.commits
         count += 1
@@ -79,7 +84,7 @@ def _classify_contributors(
         (lead, historical_lead, minor_count)
     """
     # Filter out bots
-    humans = [c for c in contributors if not c.is_bot and not _is_bot(c.login)]
+    humans = [c for c in contributors if not _contributor_is_bot(c)]
 
     if not humans:
         return None, None, 0
@@ -172,7 +177,7 @@ def _compute_bot_ratio(contributors: list[Contributor]) -> float:
     if total_commits == 0:
         return 0.0
 
-    bot_commits = sum(c.commits for c in contributors if c.is_bot or _is_bot(c.login))
+    bot_commits = sum(c.commits for c in contributors if _contributor_is_bot(c))
     return bot_commits / total_commits
 
 
@@ -192,7 +197,7 @@ def analyze_contributors(repo: Repository) -> ContributorsIndicator:
     contributors = repo.contributors.contributors
 
     # Filter out bots for author count
-    humans = [c for c in contributors if not c.is_bot and not _is_bot(c.login)]
+    humans = [c for c in contributors if not _contributor_is_bot(c)]
     total_authors = len(humans)
 
     # Bus factor

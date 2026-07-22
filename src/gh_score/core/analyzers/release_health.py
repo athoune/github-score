@@ -9,7 +9,6 @@ import re
 from datetime import datetime, timezone
 
 from gh_score.core.models import (
-    ReleaseHealth,
     ReleaseHealthIndicator,
     Repository,
     Status,

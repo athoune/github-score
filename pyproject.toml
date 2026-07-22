@@ -29,3 +29,11 @@ dev = [
     "pytest-httpx>=0.30",
     "ruff>=0.5",
 ]
+
+[tool.prospector]
+# Ignore mccabe complexity warnings
+disable = ["MC0001"]
+
+[tool.pylint]
+# Ignore import errors for optional dependencies
+ignored-modules = ["git"]

@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 import click
 from rich.console import Console
+from rich.table import Table
 
 from gh_score.config import Config
 from gh_score.core.api import analyze_repo
+from gh_score.core.cache import Cache
 from gh_score.core.models import RepoUrl
 from gh_score.cli.tui import render_dashboard
 
@@ -22,6 +26,8 @@ from gh_score.cli.tui import render_dashboard
 @click.option("--config", "config_path", help="Path to config file")
 @click.option("--format", "output_format", type=click.Choice(["tui", "json", "markdown"]), default="tui")
 @click.pass_context
+# pylint: disable=too-many-arguments,too-many-locals,too-many-branches,too-many-statements,too-many-positional-arguments
+# mccabe: MC0001
 def cli(ctx: click.Context, url_or_path: str | None, local: bool, refresh: bool,
         no_llm: bool, config_path: str | None, output_format: str) -> None:
     """GitHub Project Health Scorer.
@@ -69,7 +75,6 @@ def cli(ctx: click.Context, url_or_path: str | None, local: bool, refresh: bool,
 
     if refresh:
         # Clear cache
-        from gh_score.core.cache import Cache
         cache = Cache(config.cache.dir)
         cache.clear()
         console.print("[dim]Cache cleared[/dim]")
@@ -86,8 +91,6 @@ def cli(ctx: click.Context, url_or_path: str | None, local: bool, refresh: bool,
         if output_format == "tui":
             render_dashboard(result, console)
         elif output_format == "json":
-            import json
-            from dataclasses import asdict
             console.print_json(json.dumps(asdict(result), default=str))
         elif output_format == "markdown":
             _render_markdown(result, console)
@@ -99,6 +102,7 @@ def cli(ctx: click.Context, url_or_path: str | None, local: bool, refresh: bool,
         sys.exit(1)
 
 
+# pylint: disable=too-many-branches
 def _render_markdown(result, console: Console) -> None:
     """Render results as Markdown."""
     console.print(f"# GitHub Health Report: {result.url}\n")
@@ -178,8 +182,6 @@ def report(url: str | None) -> None:
 @cli.command()
 def config() -> None:
     """Show current configuration."""
-    from rich.table import Table
-
     cfg = Config.load()
     console = Console()
 
@@ -199,4 +201,4 @@ def config() -> None:
 
 
 if __name__ == "__main__":
-    cli()
+    cli()  # pylint: disable=no-value-for-parameter

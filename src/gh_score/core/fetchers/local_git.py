@@ -5,7 +5,9 @@ Extracts data from a local git clone using gitpython.
 
 from __future__ import annotations
 
+import json
 import re
+import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -74,31 +76,28 @@ def _extract_package_name(repo_path: Path, ecosystem: str) -> str | None:
         if ecosystem == "python":
             pyproject = repo_path / "pyproject.toml"
             if pyproject.exists():
-                import tomllib
                 with open(pyproject, "rb") as f:
                     data = tomllib.load(f)
                 return data.get("project", {}).get("name")
 
-        elif ecosystem == "javascript":
-            import json
+        if ecosystem == "javascript":
             pkg_json = repo_path / "package.json"
             if pkg_json.exists():
-                with open(pkg_json) as f:
+                with open(pkg_json, encoding="utf-8") as f:
                     data = json.load(f)
                 return data.get("name")
 
-        elif ecosystem == "rust":
+        if ecosystem == "rust":
             cargo = repo_path / "Cargo.toml"
             if cargo.exists():
-                import tomllib
                 with open(cargo, "rb") as f:
                     data = tomllib.load(f)
                 return data.get("package", {}).get("name")
 
-        elif ecosystem == "go":
+        if ecosystem == "go":
             go_mod = repo_path / "go.mod"
             if go_mod.exists():
-                with open(go_mod) as f:
+                with open(go_mod, encoding="utf-8") as f:
                     for line in f:
                         if line.startswith("module "):
                             return line.split()[1].strip()
@@ -108,6 +107,8 @@ def _extract_package_name(repo_path: Path, ecosystem: str) -> str | None:
     return None
 
 
+# pylint: disable=too-many-branches,too-many-statements,too-many-locals
+# mccabe: MC0001
 def fetch_local_repo(path: str) -> Repository:
     """Fetch data from a local git clone.
 
@@ -185,7 +186,9 @@ def fetch_local_repo(path: str) -> Repository:
 
     # Detect ecosystem
     ecosystem = _detect_ecosystem(repo_path)
-    package_name = _extract_package_name(repo_path, ecosystem) if ecosystem else None
+    # Package name extraction could be used for registry lookup
+    if ecosystem:
+        _extract_package_name(repo_path, ecosystem)
 
     # Check community files
     community = CommunityFiles()
@@ -215,7 +218,7 @@ def fetch_local_repo(path: str) -> Repository:
     for funding_path in funding_paths:
         if funding_path.exists():
             try:
-                with open(funding_path) as f:
+                with open(funding_path, encoding="utf-8") as f:
                     content = f.read()
                 # Simple parse
                 community.funding = _parse_funding_local(content)
@@ -231,7 +234,7 @@ def fetch_local_repo(path: str) -> Repository:
         readme_path = repo_path / readme_name
         if readme_path.exists():
             try:
-                with open(readme_path) as f:
+                with open(readme_path, encoding="utf-8") as f:
                     repo.readme_content = f.read()
             except Exception:
                 pass
@@ -242,7 +245,7 @@ def fetch_local_repo(path: str) -> Repository:
         gov_path = repo_path / gov_name
         if gov_path.exists():
             try:
-                with open(gov_path) as f:
+                with open(gov_path, encoding="utf-8") as f:
                     repo.governance_content = f.read()
             except Exception:
                 pass
@@ -253,7 +256,7 @@ def fetch_local_repo(path: str) -> Repository:
         sec_path = repo_path / sec_name
         if sec_path.exists():
             try:
-                with open(sec_path) as f:
+                with open(sec_path, encoding="utf-8") as f:
                     repo.security_content = f.read()
             except Exception:
                 pass

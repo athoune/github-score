@@ -21,7 +21,7 @@ from gh_score.core.cache import Cache
 from gh_score.core.fetchers.github import GitHubFetcher
 from gh_score.core.fetchers.local_git import fetch_local_repo
 from gh_score.core.fetchers.registries import fetch_registry_info
-from gh_score.core.models import AnalysisResult, RepoUrl, Repository
+from gh_score.core.models import AnalysisResult, RepoUrl
 from gh_score.llm.provider import analyze_sustainability_with_llm
 
 
@@ -84,7 +84,7 @@ async def analyze_repo_async(
 
     # Optional LLM analysis for sustainability
     if config.llm.enabled:
-        llm_signals = await analyze_sustainability_with_llm(repo, config.llm)
+        await analyze_sustainability_with_llm(repo, config.llm)
         # LLM signals could enrich the sustainability indicator
         # For now, we just run the rule-based analyzer
 

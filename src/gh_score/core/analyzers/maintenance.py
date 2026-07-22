@@ -92,8 +92,7 @@ def _compute_issue_velocity(repo: Repository) -> float | None:
     n = len(close_times)
     if n % 2 == 0:
         return (close_times[n // 2 - 1] + close_times[n // 2]) / 2
-    else:
-        return close_times[n // 2]
+    return close_times[n // 2]
 
 
 def _compute_stale_issue_ratio(repo: Repository, now: datetime) -> float | None:
@@ -262,10 +261,7 @@ def _build_interpretation(ind: MaintenanceIndicator) -> str:
             parts.append(f"issues closed: {ind.issue_velocity_days:.0f}d (slow)")
 
     # Stale issues
-    if ind.stale_issue_ratio is not None:
-        if ind.stale_issue_ratio > 0.5:
-            parts.append(f"{ind.stale_issue_ratio:.0%} stale issues")
-        elif ind.stale_issue_ratio > 0.2:
-            parts.append(f"{ind.stale_issue_ratio:.0%} stale issues")
+    if ind.stale_issue_ratio is not None and ind.stale_issue_ratio > 0.2:
+        parts.append(f"{ind.stale_issue_ratio:.0%} stale issues")
 
     return ", ".join(parts)

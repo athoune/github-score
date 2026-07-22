@@ -21,12 +21,11 @@ def _status_glyph(status: Status) -> tuple[str, str]:
     """Return (glyph, color) for a status."""
     if status == Status.HEALTHY:
         return "✓", "green"
-    elif status == Status.WARNING:
+    if status == Status.WARNING:
         return "⚠", "yellow"
-    elif status == Status.CRITICAL:
+    if status == Status.CRITICAL:
         return "✗", "red"
-    else:
-        return "?", "dim"
+    return "?", "dim"
 
 
 def _render_release_health(result: AnalysisResult) -> Panel:
@@ -181,8 +180,8 @@ def _render_languages(result: AnalysisResult) -> Panel:
 
         for lang_name, pct in sorted_langs:
             bar_len = int(pct / 5)  # Scale to 20 chars max
-            bar = "█" * bar_len
-            content.append(f"{lang_name:12} {pct:5.1f}% {bar}\n")
+            progress_bar = "█" * bar_len
+            content.append(f"{lang_name:12} {pct:5.1f}% {progress_bar}\n")
 
     if lang.ecosystem:
         content.append(f"\necosystem: {lang.ecosystem}\n", style="dim")

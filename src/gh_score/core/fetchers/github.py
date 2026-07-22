@@ -5,10 +5,12 @@ Fetches all repository data needed for health analysis.
 
 from __future__ import annotations
 
+import asyncio
+import base64
+import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 import httpx
 
@@ -53,7 +55,7 @@ def _parse_datetime(s: str | None) -> datetime | None:
         return None
 
 
-def _classify_license(spdx_id: str | None, osi: bool) -> LicenseFamily:
+def _classify_license(spdx_id: str | None) -> LicenseFamily:
     """Classify a license into a family based on SPDX ID."""
     if not spdx_id or spdx_id == "NOASSERTMENT":
         return LicenseFamily.OTHER
@@ -199,7 +201,7 @@ class GitHubFetcher:
             spdx_id=spdx_id if spdx_id != "NOASSERTMENT" else None,
             name=license_data.get("name"),
             osi_approved=osi,
-            family=_classify_license(spdx_id, osi),
+            family=_classify_license(spdx_id),
         )
 
     async def fetch_releases(self, url: RepoUrl) -> ReleaseHealth:
@@ -350,7 +352,6 @@ class GitHubFetcher:
         if funding_data and isinstance(funding_data, dict):
             community.has_funding = True  # type: ignore[attr-defined]
             # Decode base64 content if available
-            import base64
             content = funding_data.get("content", "")
             encoding = funding_data.get("encoding", "")
             if content and encoding == "base64":
@@ -367,7 +368,6 @@ class GitHubFetcher:
         data = await self._get(f"{url.api_url}/readme")
         if not data or not isinstance(data, dict):
             return None
-        import base64
         content = data.get("content", "")
         encoding = data.get("encoding", "")
         if content and encoding == "base64":
@@ -382,8 +382,6 @@ class GitHubFetcher:
         repo = Repository(url=url)
 
         # Fetch everything concurrently
-        import asyncio
-
         (
             repo.meta,
             repo.license,
@@ -441,7 +439,3 @@ def _parse_funding_yml(content: str) -> dict[str, list[str]]:
                 result.setdefault(current_key, []).append(item)
 
     return result
-
-
-# Convenience import for json (used in _get cache key)
-import json  # noqa: E402

@@ -36,9 +36,6 @@ def analyze_languages(repo: Repository) -> LanguagesIndicator:
 
 def _infer_ecosystem(repo: Repository) -> str | None:
     """Infer ecosystem from languages and community files."""
-    # Check community files for manifest presence
-    community = repo.community
-
     # Map of file checks to ecosystems
     # (We don't have direct access to file list, but we can infer from languages)
     primary = repo.languages.primary
@@ -47,15 +44,15 @@ def _infer_ecosystem(repo: Repository) -> str | None:
         primary_lower = primary.lower()
         if primary_lower == "python":
             return "python"
-        elif primary_lower in ("javascript", "typescript"):
+        if primary_lower in ("javascript", "typescript"):
             return "javascript"
-        elif primary_lower == "rust":
+        if primary_lower == "rust":
             return "rust"
-        elif primary_lower == "go":
+        if primary_lower == "go":
             return "go"
-        elif primary_lower == "java":
+        if primary_lower == "java":
             return "java"
-        elif primary_lower == "ruby":
+        if primary_lower == "ruby":
             return "ruby"
 
     return None

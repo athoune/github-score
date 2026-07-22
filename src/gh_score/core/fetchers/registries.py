@@ -5,11 +5,15 @@ Detects ecosystem and queries package registries for metadata.
 
 from __future__ import annotations
 
+import json
 import re
+import tomllib
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
+from platformdirs import user_cache_dir
 
 from gh_score.core.cache import Cache
 from gh_score.core.models import RegistryInfo, Repository
@@ -46,47 +50,46 @@ def _detect_ecosystems(repo_path: Path | None) -> list[str]:
     return ecosystems
 
 
+# pylint: disable=too-many-branches
+# mccabe: MC0001
 def _extract_package_name(repo_path: Path, ecosystem: str) -> str | None:
     """Extract package name from manifest files."""
     try:
         if ecosystem == "pypi":
             pyproject = repo_path / "pyproject.toml"
             if pyproject.exists():
-                import tomllib
                 with open(pyproject, "rb") as f:
                     data = tomllib.load(f)
                 return data.get("project", {}).get("name")
 
-        elif ecosystem == "npm":
-            import json
+        if ecosystem == "npm":
             pkg_json = repo_path / "package.json"
             if pkg_json.exists():
-                with open(pkg_json) as f:
+                with open(pkg_json, encoding="utf-8") as f:
                     data = json.load(f)
                 name = data.get("name", "")
                 # Handle scoped packages (@org/name)
                 return name
 
-        elif ecosystem == "crates.io":
+        if ecosystem == "crates.io":
             cargo = repo_path / "Cargo.toml"
             if cargo.exists():
-                import tomllib
                 with open(cargo, "rb") as f:
                     data = tomllib.load(f)
                 return data.get("package", {}).get("name")
 
-        elif ecosystem == "go":
+        if ecosystem == "go":
             go_mod = repo_path / "go.mod"
             if go_mod.exists():
-                with open(go_mod) as f:
+                with open(go_mod, encoding="utf-8") as f:
                     for line in f:
                         if line.startswith("module "):
                             return line.split()[1].strip()
 
-        elif ecosystem == "rubygems":
+        if ecosystem == "rubygems":
             # Look for .gemspec files
             for gemspec in repo_path.glob("*.gemspec"):
-                with open(gemspec) as f:
+                with open(gemspec, encoding="utf-8") as f:
                     content = f.read()
                 # Simple regex to extract name
                 match = re.search(r'\.name\s*=\s*["\']([^"\']+)["\']', content)
@@ -135,7 +138,6 @@ def _parse_pypi_response(data: dict[str, Any], info: RegistryInfo) -> RegistryIn
         if version_files:
             upload_time = version_files[0].get("upload_time_iso_8601")
             if upload_time:
-                from datetime import datetime
                 try:
                     info.latest_date = datetime.fromisoformat(
                         upload_time.replace("Z", "+00:00")
@@ -178,7 +180,6 @@ def _parse_npm_response(data: dict[str, Any], info: RegistryInfo) -> RegistryInf
     # Get time of latest version
     times = data.get("time", {})
     if info.latest_version and info.latest_version in times:
-        from datetime import datetime
         try:
             time_str = times[info.latest_version]
             info.latest_date = datetime.fromisoformat(
@@ -226,7 +227,6 @@ def _parse_crates_response(data: dict[str, Any], info: RegistryInfo) -> Registry
         # Updated date
         updated = crate.get("updated_at")
         if updated:
-            from datetime import datetime
             try:
                 info.latest_date = datetime.fromisoformat(
                     updated.replace("Z", "+00:00")
@@ -251,8 +251,6 @@ async def fetch_registry_info(
         List of RegistryInfo for each detected ecosystem
     """
     if cache is None:
-        from gh_score.core.cache import Cache
-        from platformdirs import user_cache_dir
         cache = Cache(str(Path(user_cache_dir("gh-score")) / "cache"))
 
     repo_path = Path(local_path) if local_path else None

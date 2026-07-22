@@ -67,6 +67,7 @@ def _compute_bus_factor(contributors: list[Contributor], threshold: float = 0.5)
     return count
 
 
+# pylint: disable=too-many-locals
 def _classify_contributors(
     contributors: list[Contributor],
     commits: list,

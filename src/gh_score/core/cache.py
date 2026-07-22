@@ -45,7 +45,7 @@ class Cache:
             return None
 
         try:
-            with open(meta_path) as f:
+            with open(meta_path, encoding="utf-8") as f:
                 meta = json.load(f)
 
             # Check TTL
@@ -84,7 +84,7 @@ class Cache:
                 "expires_at": time.time() + ttl,
                 "size": len(data),
             }
-            with open(meta_path, "w") as f:
+            with open(meta_path, "w", encoding="utf-8") as f:
                 json.dump(meta, f)
         except OSError:
             # Silently fail on write errors

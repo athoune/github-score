@@ -207,7 +207,10 @@ def _render_sustainability(result: AnalysisResult) -> Panel:
         content.append(f"funding: {', '.join(sust.funding_platforms)}\n")
 
     if sust.corporate_backing:
-        content.append(f"corporate: {sust.corporate_backing}\n")
+        backing = sust.corporate_backing
+        if len(backing) > 25:
+            backing = backing[:22] + "..."
+        content.append(f"corporate: {backing}\n")
 
     if sust.governance_model:
         content.append(f"governance: {sust.governance_model}\n")

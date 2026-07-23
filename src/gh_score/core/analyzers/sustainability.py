@@ -120,7 +120,7 @@ def _detect_corporate_backing(repo: Repository) -> str | None:
     major_contributors = repo.contributors.contributors[:5]
     domains = {}
     for c in major_contributors:
-        if c.email_domain and not _is_free_email(c.email_domain):
+        if c.email_domain and not _is_masked_or_free_email(c.email_domain):
             domains[c.email_domain] = domains.get(c.email_domain, 0) + c.commits
 
     if domains:
@@ -130,13 +130,25 @@ def _detect_corporate_backing(repo: Repository) -> str | None:
     return None
 
 
-def _is_free_email(domain: str) -> bool:
-    """Check if email domain is a free email provider."""
+def _is_masked_or_free_email(domain: str) -> bool:
+    """Check if email domain is a free provider or a masked/protected domain.
+
+    Masked domains (like users.noreply.github.com) are used by GitHub
+    and other platforms to protect contributor privacy. They must not
+    be treated as corporate affiliations.
+    """
+    domain_lower = domain.lower()
     free_domains = {
         "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
         "protonmail.com", "icloud.com", "mail.com",
     }
-    return domain.lower() in free_domains
+    # GitHub masked/protected email domains
+    masked_domains = {
+        "users.noreply.github.com",
+        "noreply.github.com",
+        "github.com",
+    }
+    return domain_lower in free_domains or domain_lower in masked_domains
 
 
 def _detect_governance_model(repo: Repository) -> str | None:

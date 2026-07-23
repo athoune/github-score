@@ -86,9 +86,8 @@ async def analyze_repo_async(
     if config.llm.enabled:
         llm_signals = await analyze_sustainability_with_llm(repo, config.llm)
         # LLM signals will be attached to the sustainability indicator
-        # We store them temporarily on the repo for the analyzer to pick up
         if llm_signals:
-            repo._llm_signals = llm_signals  # type: ignore[attr-defined]
+            repo.llm_signals = llm_signals
 
     # Run all analyzers
     result = AnalysisResult(

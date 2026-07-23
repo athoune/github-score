@@ -264,6 +264,7 @@ class Repository:
     readme_content: str | None = None
     governance_content: str | None = None
     security_content: str | None = None
+    llm_signals: dict[str, str | list[str] | None] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

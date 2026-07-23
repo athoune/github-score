@@ -180,9 +180,7 @@ def analyze_sustainability(repo: Repository) -> SustainabilityIndicator:
     has_funding = len(funding_platforms) > 0 or hasattr(repo.community, "has_funding")
 
     # Pick up LLM signals if available
-    llm_signals: dict[str, str | list[str] | None] = {}
-    if hasattr(repo, "_llm_signals"):
-        llm_signals = repo._llm_signals  # type: ignore[attr-defined]
+    llm_signals: dict[str, str | list[str] | None] = repo.llm_signals
 
     indicator = SustainabilityIndicator(
         has_funding=has_funding,

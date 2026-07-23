@@ -85,22 +85,97 @@ The tool **must not** clone repositories automatically. The user can provide an 
 
 Detect whether the project is published on official registries based on repository contents and naming:
 
-| Ecosystem | Registry | Detection inputs |
-|-----------|----------|------------------|
-| Python    | PyPI     | `pyproject.toml`, `setup.py`, `setup.cfg` |
-| JavaScript/Node | npm | `package.json` |
-| Rust      | crates.io | `Cargo.toml` |
-| Go        | pkg.go.dev | `go.mod` |
-| Java      | Maven Central | `pom.xml`, `build.gradle*` |
-| Ruby      | RubyGems | `*.gemspec` |
-| Docker    | Docker Hub | `Dockerfile`, GitHub Container Registry links |
-| Containers | GitHub Packages | `ghcr.io` references |
+| Ecosystem | Registry | Detection inputs | Base API URL |
+|-----------|----------|------------------|--------------|
+| Python    | PyPI     | `pyproject.toml`, `setup.py`, `setup.cfg` | `https://pypi.org/pypi/{package}/json` |
+| JavaScript/Node | npm | `package.json` | `https://registry.npmjs.org/{package}` |
+| Rust      | crates.io | `Cargo.toml` | `https://crates.io/api/v1/crates/{crate}` |
+| Go        | pkg.go.dev | `go.mod` | `https://pkg.go.dev/v1beta/package/{path}` |
+| Ruby      | RubyGems | `*.gemspec`, `Gemfile` | `https://rubygems.org/api/v1/gems/{gem}.json` |
+| Java      | Maven Central | `pom.xml`, `build.gradle*` | `https://search.maven.org/solrsearch/select?q=g:{group}+AND+a:{artifact}` |
+| Docker    | Docker Hub | `Dockerfile`, `docker-compose.yml` | `https://hub.docker.com/v2/repositories/{namespace}/{name}` |
+| Containers | GitHub Packages | `ghcr.io` references | GitHub API (`GET /user/packages/{type}/{name}`) |
+
+#### 6.3.1 Python — PyPI
+
+- **API**: JSON endpoint at `https://pypi.org/pypi/{package}/json`.
+- **Available data**:
+  - Latest version and all releases with upload dates.
+  - `requires_python` (minimum Python version).
+  - License classifier.
+  - `home_page`, `project_urls` (docs, changelog, source).
+  - `info.author`, `info.maintainer`.
+- **Download stats**: Available via [pypistats](https://pypistats.org/) API (`https://pypistats.org/api/packages/{package}/recent`) or BigQuery. Reports downloads per day/month/year.
+- **Scope support**: No namespace/scope mechanism. Package names are global and case-insensitive.
+
+#### 6.3.2 Node.js — npm
+
+- **API**: Registry at `https://registry.npmjs.org/{package}` (full metadata) or `https://registry.npmjs.org/{package}/latest` (latest version only).
+- **Available data**:
+  - All versions with timestamps.
+  - `maintainers` list.
+  - `repository.url`, `homepage`, `bugs.url`.
+  - Deprecated flag per version.
+  - `dist-tags` (latest, beta, next, etc.).
+- **Download stats**: Dedicated API at `https://api.npmjs.org/downloads/point/{period}/{package}` where period is `last-day`, `last-week`, or `last-month`. Also supports range: `https://api.npmjs.org/downloads/range/{start}:{end}/{package}`.
+- **Scope support**: Scoped packages use `@scope/name` syntax (e.g., `@angular/core`). The API URL encodes the scope as `@scope%2Fname`.
+
+#### 6.3.3 Ruby — RubyGems
+
+- **API**: JSON endpoint at `https://rubygems.org/api/v1/gems/{gem}.json`.
+- **Available data**:
+  - `version`, `created_at`, `updated_at`.
+  - `downloads` (total) and `version_downloads` (for current version).
+  - `license` (SPDX string or array).
+  - `source_code_uri`, `changelog_uri`, `documentation_uri`, `homepage_uri`, `bug_tracker_uri`.
+  - `authors`, `maintainers`.
+  - `dependencies` (runtime and development).
+- **Download stats**: Included in the main API response. No separate endpoint needed.
+- **Scope support**: No namespace mechanism. Gem names are global.
+
+#### 6.3.4 Go — pkg.go.dev
+
+- **API**: REST API at `https://pkg.go.dev/v1beta/` (beta, subject to change).
+- **Endpoints**:
+  - `/v1beta/module/{path}` — module metadata, latest version, licenses.
+  - `/v1beta/package/{path}` — package-level docs, imports, imported-by list.
+  - `/v1beta/imported-by/{path}` — list of modules importing this package. Key metric for ecosystem adoption.
+  - `/v1beta/versions/{path}` — available versions with timestamps.
+  - `/v1beta/search?q={query}` — package search.
+  - `/v1beta/vulns/{path}` — known vulnerabilities.
+- **Download stats**: Not directly available. Proxy.golang.org does not publish download counts. Popularity is inferred via `imported-by` count and GitHub stars.
+- **Scope support**: Module paths are URLs by convention (e.g., `github.com/owner/repo`). No formal namespace, but path prefix indicates hosting.
+
+#### 6.3.5 Rust — crates.io
+
+- **API**: REST API at `https://crates.io/api/v1/crates/{crate}`.
+- **Available data**:
+  - `max_version`, `max_stable_version`, `newest_version`.
+  - `downloads` (total), `recent_downloads` (last 90 days).
+  - `created_at`, `updated_at`.
+  - `license` (SPDX string).
+  - `repository`, `homepage`, `documentation`.
+  - `categories`, `keywords`, `ategories` (featured status).
+  - `versions` array with per-version download counts.
+- **Download stats**: Included in the main response (`downloads`, `recent_downloads`). Per-version stats available in the `versions` array.
+- **Scope support**: No namespace mechanism. Crate names are global, lowercase, using hyphens or underscores (which are equivalent).
+
+#### 6.3.6 Common registry metrics
 
 For each detected registry, the tool reports:
-- Whether the package exists.
-- Latest published version.
-- Date of latest publish.
-- Approximate download/pull count when available through public APIs.
+- Whether the package exists on the registry.
+- Latest published version and publication date.
+- Download/download count when available through public APIs.
+- Deprecated/archived status if the registry exposes it.
+- License declared on the registry (compared against GitHub-detected license).
+
+#### 6.3.7 Package name resolution from repository
+
+To link a GitHub repository to its registry package(s), the tool attempts:
+
+1. **Manifest detection**: Parse `pyproject.toml` (`[project].name`), `package.json` (`name`), `Cargo.toml` (`[package].name`), `go.mod` (module path), `*.gemspec` (`spec.name`).
+2. **Naming heuristics**: When no manifest is available locally, infer the package name from the repository name (lowercased, dashes normalized). This is unreliable and should be flagged as a heuristic.
+3. **Cross-reference**: Query the registry API to confirm existence. Report `exists: false` if not found.
 
 ## 7. Indicator families
 

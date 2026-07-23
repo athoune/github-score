@@ -148,7 +148,13 @@ def _is_masked_or_free_email(domain: str) -> bool:
         "noreply.github.com",
         "github.com",
     }
-    return domain_lower in free_domains or domain_lower in masked_domains
+    # Reserved/example/test domains (RFC 2606 and common placeholders)
+    reserved_domains = {
+        "example.com", "example.org", "example.net",
+        "example.io", "example.dev",
+        "localhost", "test", "invalid",
+    }
+    return domain_lower in free_domains or domain_lower in masked_domains or domain_lower in reserved_domains
 
 
 def _detect_governance_model(repo: Repository) -> str | None:

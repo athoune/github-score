@@ -229,15 +229,18 @@ cli = DefaultGroup(
     default="tui",
 )
 @click.pass_context
-def analyze(ctx: click.Context, url_or_path: str | None) -> None:
+def analyze(
+    ctx: click.Context,
+    url_or_path: str | None,
+    local: bool,
+    remote: bool,
+    refresh: bool,
+    no_llm: bool,
+    config_path: str | None,
+    output_format: str,
+) -> None:
     """Analyze a repository (default command)."""
     console = Console()
-    local = ctx.params.get("local", False)
-    remote = ctx.params.get("remote", False)
-    refresh = ctx.params.get("refresh", False)
-    no_llm = ctx.params.get("no_llm", False)
-    config_path = ctx.params.get("config_path")
-    output_format = ctx.params.get("output_format", "tui")
 
     resolved, is_local = _resolve_target(url_or_path, force_remote=remote)
     if resolved is None:

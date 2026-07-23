@@ -173,12 +173,21 @@ def fetch_local_repo(path: str) -> Repository:
     repo.commits = commits
 
     # Build contributor stats
-    contributors = [
-        Contributor(login=login, commits=count)
-        for login, count in sorted(
-            contributor_commits.items(), key=lambda x: x[1], reverse=True
-        )
-    ]
+    contributors = []
+    for login, count in sorted(
+        contributor_commits.items(), key=lambda x: x[1], reverse=True
+    ):
+        # Find email for this contributor from commits
+        email_domain = None
+        for c in commits:
+            if c.author_login == login and c.author_email and "@" in c.author_email:
+                email_domain = c.author_email.split("@")[-1].lower()
+                break
+        contributors.append(Contributor(
+            login=login,
+            commits=count,
+            email_domain=email_domain,
+        ))
     repo.contributors = ContributorStats(
         contributors=contributors,
         total_commit_count=len(commits),

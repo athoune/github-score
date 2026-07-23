@@ -246,6 +246,18 @@ class GitHubFetcher:
                 is_bot=is_bot,
             ))
 
+        # Enrich contributors with email domains from commits
+        commits = await self.fetch_commits(url, months=12)
+        email_by_login: dict[str, str] = {}
+        for commit in commits:
+            if commit.author_login and commit.author_email:
+                email_by_login[commit.author_login] = commit.author_email
+
+        for contributor in contributors:
+            email = email_by_login.get(contributor.login)
+            if email and "@" in email:
+                contributor.email_domain = email.split("@")[-1].lower()
+
         return ContributorStats(
             contributors=contributors,
             total_commit_count=total_commits,

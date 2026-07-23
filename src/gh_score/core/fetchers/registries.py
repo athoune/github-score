@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from platformdirs import user_cache_dir
 
 from gh_score.core.cache import Cache
 from gh_score.core.models import RegistryInfo, Repository
@@ -50,81 +51,109 @@ def _detect_ecosystems(repo_path: Path | None) -> list[str]:
     return ecosystems
 
 
+def _extract_python_package_name(repo_path: Path) -> str | None:
+    """Extract Python package name from pyproject.toml or setup.cfg."""
+    pyproject = repo_path / "pyproject.toml"
+    if pyproject.exists():
+        with open(pyproject, "rb") as f:
+            data = tomllib.load(f)
+        return data.get("project", {}).get("name")
+
+    setup_cfg = repo_path / "setup.cfg"
+    if setup_cfg.exists():
+        with open(setup_cfg, encoding="utf-8") as f:
+            content = f.read()
+        match = re.search(r"name\s*=\s*(.+)", content)
+        if match:
+            return match.group(1).strip()
+    return None
+
+
+def _extract_npm_package_name(repo_path: Path) -> str | None:
+    """Extract npm package name from package.json."""
+    pkg_json = repo_path / "package.json"
+    if pkg_json.exists():
+        with open(pkg_json, encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("name", "")
+    return None
+
+
+def _extract_crate_name(repo_path: Path) -> str | None:
+    """Extract Rust crate name from Cargo.toml."""
+    cargo = repo_path / "Cargo.toml"
+    if cargo.exists():
+        with open(cargo, "rb") as f:
+            data = tomllib.load(f)
+        return data.get("package", {}).get("name")
+    return None
+
+
+def _extract_go_module_path(repo_path: Path) -> str | None:
+    """Extract Go module path from go.mod."""
+    go_mod = repo_path / "go.mod"
+    if go_mod.exists():
+        with open(go_mod, encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("module "):
+                    return line.split()[1].strip()
+    return None
+
+
+def _extract_gem_name(repo_path: Path) -> str | None:
+    """Extract Ruby gem name from .gemspec files."""
+    for gemspec in repo_path.glob("*.gemspec"):
+        with open(gemspec, encoding="utf-8") as f:
+            content = f.read()
+        match = re.search(r'\.name\s*=\s*["\']([^"\']+)["\']', content)
+        if match:
+            return match.group(1)
+    return None
+
+
+def _extract_maven_coordinates(repo_path: Path) -> str | None:
+    """Extract Maven groupId:artifactId from pom.xml."""
+    pom = repo_path / "pom.xml"
+    if pom.exists():
+        with open(pom, encoding="utf-8") as f:
+            content = f.read()
+        group_match = re.search(r"<groupId>([^<]+)</groupId>", content)
+        artifact_match = re.search(r"<artifactId>([^<]+)</artifactId>", content)
+        if group_match and artifact_match:
+            return f"{group_match.group(1)}:{artifact_match.group(1)}"
+    return None
+
+
+def _extract_docker_image_name(repo_path: Path) -> str | None:
+    """Extract Docker image name from docker-compose files."""
+    for compose_name in ("docker-compose.yml", "docker-compose.yaml"):
+        compose = repo_path / compose_name
+        if compose.exists():
+            with open(compose, encoding="utf-8") as f:
+                content = f.read()
+            match = re.search(r"image:\s*(\S+)", content)
+            if match:
+                return match.group(1)
+    return None
+
+
 def _extract_package_name(repo_path: Path, ecosystem: str) -> str | None:
-    """Extract package name from manifest files."""
+    """Extract package name from manifest files for a given ecosystem."""
+    extractors = {
+        "pypi": _extract_python_package_name,
+        "npm": _extract_npm_package_name,
+        "crates.io": _extract_crate_name,
+        "go": _extract_go_module_path,
+        "rubygems": _extract_gem_name,
+        "maven": _extract_maven_coordinates,
+        "docker": _extract_docker_image_name,
+    }
     try:
-        if ecosystem == "pypi":
-            pyproject = repo_path / "pyproject.toml"
-            if pyproject.exists():
-                with open(pyproject, "rb") as f:
-                    data = tomllib.load(f)
-                return data.get("project", {}).get("name")
-            # Fallback: setup.py
-            setup_cfg = repo_path / "setup.cfg"
-            if setup_cfg.exists():
-                with open(setup_cfg, encoding="utf-8") as f:
-                    content = f.read()
-                match = re.search(r"name\s*=\s*(.+)", content)
-                if match:
-                    return match.group(1).strip()
-
-        if ecosystem == "npm":
-            pkg_json = repo_path / "package.json"
-            if pkg_json.exists():
-                with open(pkg_json, encoding="utf-8") as f:
-                    data = json.load(f)
-                return data.get("name", "")
-
-        if ecosystem == "crates.io":
-            cargo = repo_path / "Cargo.toml"
-            if cargo.exists():
-                with open(cargo, "rb") as f:
-                    data = tomllib.load(f)
-                return data.get("package", {}).get("name")
-
-        if ecosystem == "go":
-            go_mod = repo_path / "go.mod"
-            if go_mod.exists():
-                with open(go_mod, encoding="utf-8") as f:
-                    for line in f:
-                        if line.startswith("module "):
-                            return line.split()[1].strip()
-
-        if ecosystem == "rubygems":
-            for gemspec in repo_path.glob("*.gemspec"):
-                with open(gemspec, encoding="utf-8") as f:
-                    content = f.read()
-                match = re.search(r'\.name\s*=\s*["\']([^"\']+)["\']', content)
-                if match:
-                    return match.group(1)
-
-        if ecosystem == "maven":
-            pom = repo_path / "pom.xml"
-            if pom.exists():
-                with open(pom, encoding="utf-8") as f:
-                    content = f.read()
-                # Simple XML parsing for groupId and artifactId
-                group_match = re.search(r"<groupId>([^<]+)</groupId>", content)
-                artifact_match = re.search(r"<artifactId>([^<]+)</artifactId>", content)
-                if group_match and artifact_match:
-                    return f"{group_match.group(1)}:{artifact_match.group(1)}"
-
-        if ecosystem == "docker":
-            # Try to extract image name from docker-compose or Dockerfile
-            compose = repo_path / "docker-compose.yml"
-            if not compose.exists():
-                compose = repo_path / "docker-compose.yaml"
-            if compose.exists():
-                with open(compose, encoding="utf-8") as f:
-                    content = f.read()
-                # Look for image: directives
-                match = re.search(r"image:\s*(\S+)", content)
-                if match:
-                    return match.group(1)
-
+        extractor = extractors.get(ecosystem)
+        if extractor:
+            return extractor(repo_path)
     except Exception:
         pass
-
     return None
 
 
@@ -615,7 +644,6 @@ async def fetch_registry_info(
         List of RegistryInfo for each detected ecosystem
     """
     if cache is None:
-        from platformdirs import user_cache_dir
         cache = Cache(str(Path(user_cache_dir("gh-score")) / "cache"))
 
     repo_path = Path(local_path) if local_path else None

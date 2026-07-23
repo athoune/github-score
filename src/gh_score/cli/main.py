@@ -221,9 +221,8 @@ cli = DefaultGroup(
     type=click.Choice(["tui", "json", "markdown"]),
     default="tui",
 )
-@click.pass_context
+# pylint: disable=too-many-arguments,too-many-positional-arguments
 def analyze(
-    ctx: click.Context,
     url_or_path: str | None,
     local: bool,
     remote: bool,

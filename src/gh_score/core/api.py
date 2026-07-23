@@ -84,9 +84,11 @@ async def analyze_repo_async(
 
     # Optional LLM analysis for sustainability
     if config.llm.enabled:
-        await analyze_sustainability_with_llm(repo, config.llm)
-        # LLM signals could enrich the sustainability indicator
-        # For now, we just run the rule-based analyzer
+        llm_signals = await analyze_sustainability_with_llm(repo, config.llm)
+        # LLM signals will be attached to the sustainability indicator
+        # We store them temporarily on the repo for the analyzer to pick up
+        if llm_signals:
+            repo._llm_signals = llm_signals  # type: ignore[attr-defined]
 
     # Run all analyzers
     result = AnalysisResult(

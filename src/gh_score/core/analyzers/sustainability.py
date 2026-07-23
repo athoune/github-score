@@ -169,6 +169,7 @@ def analyze_sustainability(repo: Repository) -> SustainabilityIndicator:
     - Corporate backing
     - Foundation membership
     - Governance model
+    - LLM-extracted signals (if available)
     - Status and interpretation
     """
     funding_platforms = _detect_funding_platforms(repo)
@@ -178,12 +179,18 @@ def analyze_sustainability(repo: Repository) -> SustainabilityIndicator:
 
     has_funding = len(funding_platforms) > 0 or hasattr(repo.community, "has_funding")
 
+    # Pick up LLM signals if available
+    llm_signals: dict[str, str | list[str] | None] = {}
+    if hasattr(repo, "_llm_signals"):
+        llm_signals = repo._llm_signals  # type: ignore[attr-defined]
+
     indicator = SustainabilityIndicator(
         has_funding=has_funding,
         funding_platforms=funding_platforms,
         corporate_backing=corporate_backing,
         foundation=foundation,
         governance_model=governance_model,
+        llm_signals=llm_signals,
     )
 
     indicator.status = _compute_status(indicator)

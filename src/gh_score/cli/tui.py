@@ -212,6 +212,21 @@ def _render_sustainability(result: AnalysisResult) -> Panel:
     if sust.governance_model:
         content.append(f"governance: {sust.governance_model}\n")
 
+    # LLM-extracted signals
+    if sust.llm_signals:
+        sponsors = sust.llm_signals.get("sponsors")
+        if sponsors and isinstance(sponsors, list):
+            content.append(f"LLM sponsors: {', '.join(sponsors)}\n", style="dim")
+        roadmap = sust.llm_signals.get("roadmap")
+        if roadmap and isinstance(roadmap, str):
+            content.append(f"LLM roadmap: {roadmap[:80]}...\n", style="dim")
+        security = sust.llm_signals.get("security_policy")
+        if security and isinstance(security, str):
+            content.append(f"LLM security: {security[:80]}...\n", style="dim")
+        commercial = sust.llm_signals.get("commercial_support")
+        if commercial and isinstance(commercial, str):
+            content.append(f"LLM commercial: {commercial[:80]}...\n", style="dim")
+
     if not any([sust.foundation, sust.funding_platforms, sust.corporate_backing]):
         content.append("no backing detected\n", style="yellow")
 
@@ -235,6 +250,27 @@ def _render_registries(result: AnalysisResult) -> Panel | None:
             if reg.latest_version:
                 content.append(f" @ {reg.latest_version}")
             content.append("\n")
+
+            # Download stats
+            if reg.downloads is not None:
+                content.append(f"  downloads: {reg.downloads:,}\n", style="dim")
+            if reg.recent_downloads is not None:
+                content.append(f"  recent: {reg.recent_downloads:,}\n", style="dim")
+
+            # License info
+            if reg.registry_license:
+                content.append(f"  license: {reg.registry_license}\n", style="dim")
+                if reg.license_matches_github is not None:
+                    match_str = "matches" if reg.license_matches_github else "differs"
+                    content.append(f"  GitHub license: {match_str}\n", style="dim")
+
+            # Deprecated flag
+            if reg.deprecated:
+                content.append("  ⚠ deprecated\n", style="yellow")
+
+            # Heuristic warning
+            if reg.is_heuristic:
+                content.append("  (name inferred from repo)\n", style="dim")
         else:
             content.append(f"{reg.ecosystem}: ", style="bold")
             content.append(f"✗ {reg.package_name} (not found)\n", style="dim")

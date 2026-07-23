@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_target(url_or_path: str | None) -> tuple[str | None, bool]:
+def _resolve_target(url_or_path: str | None, force_remote: bool = False) -> tuple[str | None, bool]:
     """Determine what to analyze and whether to use local mode.
 
     Returns:
@@ -35,11 +35,14 @@ def _resolve_target(url_or_path: str | None) -> tuple[str | None, bool]:
     """
     if url_or_path is not None:
         path = Path(url_or_path)
-        if path.exists() and (path / ".git").exists():
+        if path.exists() and (path / ".git").exists() and not force_remote:
             return str(path), True
         return url_or_path, False
 
     # No argument provided: try current directory
+    if force_remote:
+        return None, False
+
     cwd = Path.cwd()
     if (cwd / ".git").exists():
         return str(cwd), True
@@ -215,6 +218,7 @@ cli = DefaultGroup(
 @cli.command(name="analyze")
 @click.argument("url_or_path", required=False)
 @click.option("--local", is_flag=True, help="Force local analysis")
+@click.option("--remote", is_flag=True, help="Force remote API analysis even when inside a clone")
 @click.option("--refresh", is_flag=True, help="Bypass cache")
 @click.option("--no-llm", is_flag=True, help="Disable LLM analysis")
 @click.option("--config", "config_path", help="Path to config file")
@@ -229,12 +233,13 @@ def analyze(ctx: click.Context, url_or_path: str | None) -> None:
     """Analyze a repository (default command)."""
     console = Console()
     local = ctx.params.get("local", False)
+    remote = ctx.params.get("remote", False)
     refresh = ctx.params.get("refresh", False)
     no_llm = ctx.params.get("no_llm", False)
     config_path = ctx.params.get("config_path")
     output_format = ctx.params.get("output_format", "tui")
 
-    resolved, is_local = _resolve_target(url_or_path)
+    resolved, is_local = _resolve_target(url_or_path, force_remote=remote)
     if resolved is None:
         console.print(
             "[red]Error:[/red] No URL provided and current directory is not a git repository."

@@ -6,7 +6,6 @@ import json
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import click
 from rich.console import Console
@@ -17,9 +16,6 @@ from gh_score.core.api import analyze_repo
 from gh_score.core.cache import Cache
 from gh_score.core.models import AnalysisResult, RepoUrl
 from gh_score.cli.tui import render_dashboard
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 
 # ---------------------------------------------------------------------------
@@ -197,15 +193,12 @@ class DefaultGroup(click.Group):
         super().__init__(*args, **kwargs)
         self.default_command = default_command
 
-    def resolve_command(
-        self, ctx: click.Context, args: Sequence[str]
-    ) -> tuple[str | None, click.Command, Sequence[str]]:
-        # If the first arg is a known command, use it normally.
-        if args and args[0] in self.commands:
-            return super().resolve_command(ctx, args)
-
-        # Otherwise inject the default command name so Click routes to it.
-        return super().resolve_command(ctx, [self.default_command, *args])
+    def invoke(self, ctx: click.Context) -> None:
+        """Invoke the default command when no subcommand is provided."""
+        if ctx.invoked_subcommand is None and self.default_command:
+            ctx.invoke(self.commands[self.default_command])
+        else:
+            super().invoke(ctx)
 
 
 cli = DefaultGroup(

@@ -236,7 +236,12 @@ class RegistryInfo:
     exists: bool = False
     latest_version: str | None = None
     latest_date: datetime | None = None
-    downloads: int | None = None  # approximate
+    downloads: int | None = None  # approximate total downloads
+    recent_downloads: int | None = None  # recent downloads (last 90 days or similar)
+    deprecated: bool = False  # whether the package is marked deprecated
+    registry_license: str | None = None  # license declared on the registry (SPDX)
+    license_matches_github: bool | None = None  # comparison with GitHub-detected license
+    is_heuristic: bool = False  # True if package name was inferred from repo name
 
 
 # ---------------------------------------------------------------------------
@@ -356,6 +361,8 @@ class SustainabilityIndicator:
     corporate_backing: str | None = None
     foundation: str | None = None
     governance_model: str | None = None
+    llm_signals: dict[str, str | list[str] | None] = field(default_factory=dict)
+    # e.g. {"sponsors": ["Company X"], "roadmap": "...", "security_policy": "..."}
     status: Status = Status.UNKNOWN
     interpretation: str = ""
 

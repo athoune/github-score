@@ -157,11 +157,6 @@ def _extract_package_name(repo_path: Path, ecosystem: str) -> str | None:
     return None
 
 
-def _infer_package_name(repo: Repository) -> str:
-    """Infer package name from repository name as a heuristic fallback."""
-    return repo.url.repo.lower().replace("_", "-")
-
-
 # ---------------------------------------------------------------------------
 # PyPI
 # ---------------------------------------------------------------------------
@@ -656,44 +651,36 @@ async def fetch_registry_info(
 
     for ecosystem in ecosystems:
         package_name = _extract_package_name(repo_path, ecosystem) if repo_path else None
-        is_heuristic = False
 
         if not package_name:
-            # Try to infer from repo name (heuristic)
-            package_name = _infer_package_name(repo)
-            is_heuristic = True
+            # No manifest file or no name inside it — skip this ecosystem
+            # rather than guessing from the repository name (risk of homonyms).
+            continue
 
         if ecosystem == "pypi":
             info = await _fetch_pypi(package_name, cache)
-            info.is_heuristic = is_heuristic
             # Fetch download stats
             info.downloads = await _fetch_pypi_downloads(package_name, cache)
             results.append(info)
         elif ecosystem == "npm":
             info = await _fetch_npm(package_name, cache)
-            info.is_heuristic = is_heuristic
             # Fetch download stats
             info.recent_downloads = await _fetch_npm_downloads(package_name, cache)
             results.append(info)
         elif ecosystem == "crates.io":
             info = await _fetch_crates(package_name, cache)
-            info.is_heuristic = is_heuristic
             results.append(info)
         elif ecosystem == "go":
             info = await _fetch_go(package_name, cache)
-            info.is_heuristic = is_heuristic
             results.append(info)
         elif ecosystem == "rubygems":
             info = await _fetch_rubygems(package_name, cache)
-            info.is_heuristic = is_heuristic
             results.append(info)
         elif ecosystem == "maven":
             info = await _fetch_maven(package_name, cache)
-            info.is_heuristic = is_heuristic
             results.append(info)
         elif ecosystem == "docker":
             info = await _fetch_docker(package_name, cache)
-            info.is_heuristic = is_heuristic
             results.append(info)
 
     # Compare registry licenses with GitHub license

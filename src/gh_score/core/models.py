@@ -241,7 +241,7 @@ class RegistryInfo:
     deprecated: bool = False  # whether the package is marked deprecated
     registry_license: str | None = None  # license declared on the registry (SPDX)
     license_matches_github: bool | None = None  # comparison with GitHub-detected license
-    is_heuristic: bool = False  # True if package name was inferred from repo name
+    is_heuristic: bool = False  # kept for backward compat; always False now
 
 
 # ---------------------------------------------------------------------------

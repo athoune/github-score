@@ -4,7 +4,7 @@
 
 A Python library and CLI that evaluates the maturity, maintenance state, community health, and long-term sustainability of a GitHub project from its repository URL.
 
-The primary output is a **dashboard in the terminal** (TUI). Structured outputs (JSON, Markdown) are planned for a later phase to enable programmatic comparison and LLM-assisted decision making.
+The primary output is a **dashboard in the terminal** (TUI). Structured outputs are also available: **JSON** for programmatic comparison and LLM-assisted decision making, and **Markdown** for human-readable reports in pull requests, wikis, and documentation.
 
 The tool favors **quantitative signals** extracted through code. Optional LLM inference is used only for qualitative signals that cannot be reliably derived from APIs or local files.
 
@@ -40,7 +40,7 @@ gh-score
 │   └── cache           # persistent HTTP + analysis cache
 ├── cli
 │   ├── commands        # main, report, config
-│   └── tui             # dashboard renderer
+│   └── renderers       # TUI dashboard, JSON, Markdown
 ├── llm                 # optional provider abstraction
 └── config              # settings, credentials, provider selection
 ```
@@ -289,9 +289,13 @@ gh-score config
 - `--local PATH`: analyze an existing local clone without using the GitHub API for git data.
 - `--remote`: force remote API analysis even when inside a clone.
 - `--no-llm`: disable LLM analysis even if configured.
-- `--format tui|json|markdown`: default is `tui`. JSON and Markdown are planned.
+- `--format tui|json|markdown`: default is `tui`. All three formats are supported.
 
 ### 9.3 Output
+
+Three output formats are available via `--format`:
+
+#### TUI (default)
 
 The default TUI dashboard displays one panel per indicator family. Each panel shows:
 
@@ -314,6 +318,26 @@ Example skeleton:
 │ lead: alice (12m)                │ └───────────────────────┘
 └──────────────────────────────────┘
 ```
+
+#### JSON
+
+Machine-readable output via `--format json`. Emits a single JSON object containing all indicator families as nested dataclasses (serialized with `dataclasses.asdict`). Suitable for:
+
+- Programmatic comparison of multiple repositories.
+- Feeding into dashboards, databases, or LLM pipelines.
+- CI/CD quality gates.
+
+The JSON output contains the same data as the TUI dashboard: `url`, `meta`, `release_health`, `license`, `contributors`, `maintenance`, `languages`, `sustainability`, and `registries`.
+
+#### Markdown
+
+Human-readable report via `--format markdown`. Emits a structured Markdown document suitable for:
+
+- Pull request comments and reviews.
+- Project wikis and documentation.
+- READMEs and comparison tables.
+
+The Markdown output includes section headings per indicator family, key metrics as bullet points, and license/registry status.
 
 ## 10. Library API
 
@@ -389,11 +413,11 @@ thresholds = { stale_days = 180, maintenance_commits_per_month = 2 }
 - GitHub API fetchers with caching.
 - Local git fallback when inside a clone.
 - TUI dashboard for all indicator families.
+- JSON and Markdown export formats.
 - No global score; interpretive status glyphs only.
 
-### Phase 2 — Structured outputs
+### Phase 2 — Batch and comparison
 
-- `json` and `markdown` export formats.
 - Batch analysis of multiple repositories.
 - Comparison view.
 

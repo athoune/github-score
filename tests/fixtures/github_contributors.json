@@ -1,0 +1,37 @@
+[
+  {
+    "login": "alice",
+    "id": 1001,
+    "avatar_url": "https://avatars.githubusercontent.com/u/1001",
+    "contributions": 250,
+    "type": "User"
+  },
+  {
+    "login": "bob",
+    "id": 1002,
+    "avatar_url": "https://avatars.githubusercontent.com/u/1002",
+    "contributions": 120,
+    "type": "User"
+  },
+  {
+    "login": "charlie",
+    "id": 1003,
+    "avatar_url": "https://avatars.githubusercontent.com/u/1003",
+    "contributions": 45,
+    "type": "User"
+  },
+  {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "avatar_url": "https://avatars.githubusercontent.com/u/49699333",
+    "contributions": 30,
+    "type": "Bot"
+  },
+  {
+    "login": "lando",
+    "id": 50000000,
+    "avatar_url": "https://avatars.githubusercontent.com/u/50000000",
+    "contributions": 15,
+    "type": "User"
+  }
+]

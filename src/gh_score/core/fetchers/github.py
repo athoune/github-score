@@ -39,6 +39,7 @@ _BOT_LOGINS = frozenset({
     "github-actions[bot]", "greenkeeper[bot]", "snyk-bot",
     "codecov[bot]", "allcontributors[bot]", "imgbot[bot]",
     "stale[bot]", "mergify[bot]", "pre-commit-ci[bot]",
+    "lando",
 })
 
 

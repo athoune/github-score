@@ -21,7 +21,7 @@ from gh_score.core.models import (
 _BOT_PATTERNS = frozenset({
     "dependabot", "renovate", "github-actions", "greenkeeper",
     "snyk-bot", "codecov", "allcontributors", "imgbot",
-    "stale", "mergify", "pre-commit-ci",
+    "stale", "mergify", "pre-commit-ci", "lando",
 })
 
 

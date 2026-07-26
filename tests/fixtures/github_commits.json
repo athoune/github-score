@@ -1,0 +1,42 @@
+[
+  {
+    "sha": "abc123",
+    "commit": {
+      "author": {"name": "Alice", "email": "alice@example.com", "date": "2025-06-15T10:00:00Z"},
+      "message": "fix: resolve race condition in fetcher"
+    },
+    "author": {"login": "alice"}
+  },
+  {
+    "sha": "def456",
+    "commit": {
+      "author": {"name": "Bob", "email": "bob@example.com", "date": "2025-06-14T09:00:00Z"},
+      "message": "feat: add caching layer"
+    },
+    "author": {"login": "bob"}
+  },
+  {
+    "sha": "ghi789",
+    "commit": {
+      "author": {"name": "Alice", "email": "alice@example.com", "date": "2025-06-13T08:00:00Z"},
+      "message": "docs: update README"
+    },
+    "author": {"login": "alice"}
+  },
+  {
+    "sha": "jkl012",
+    "commit": {
+      "author": {"name": "dependabot", "email": "noreply@github.com", "date": "2025-06-12T07:00:00Z"},
+      "message": "chore(deps): bump lodash from 4.17.20 to 4.17.21"
+    },
+    "author": {"login": "dependabot[bot]"}
+  },
+  {
+    "sha": "mno345",
+    "commit": {
+      "author": {"name": "Charlie", "email": "charlie@example.com", "date": "2025-06-11T06:00:00Z"},
+      "message": "test: add integration tests"
+    },
+    "author": {"login": "charlie"}
+  }
+]

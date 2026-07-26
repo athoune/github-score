@@ -187,23 +187,49 @@ _RENDERERS = {
 
 
 class DefaultGroup(click.Group):
-    """Click group that falls back to a default command."""
+    """Click group that routes unrecognized tokens to a default command.
+
+    When the first argument is a known subcommand (``config``, ``report``,
+    ``analyze``), Click dispatches normally.  When it is something else
+    (a URL, a path), it is forwarded as a positional argument to the
+    default command (``analyze``).
+    """
 
     def __init__(self, *args, default_command: str = "analyze", **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, invoke_without_command=True, **kwargs)
         self.default_command = default_command
 
-    def invoke(self, ctx: click.Context) -> None:
-        """Invoke the default command when no subcommand is provided."""
-        if ctx.invoked_subcommand is None and self.default_command:
-            ctx.invoke(self.commands[self.default_command])
-        else:
-            super().invoke(ctx)
+    def resolve_command(self, ctx, args):
+        if not args:
+            return super().resolve_command(ctx, args)
+
+        cmd_name = args[0]
+        cmd = self.get_command(ctx, cmd_name)
+
+        if cmd is not None:
+            return cmd_name, cmd, args[1:]
+
+        # Unknown token (URL, path, …) → route to the default command.
+        default = self.commands.get(self.default_command)
+        if default is not None:
+            return self.default_command, default, args
+
+        return super().resolve_command(ctx, args)
+
+
+def _default_analyze() -> None:
+    """Group callback: invoked when ``gh-score`` is called without a
+    subcommand (``invoke_without_command=True``)."""
+    ctx = click.get_current_context()
+    if ctx.invoked_subcommand is not None:
+        return  # a real subcommand will handle it
+    ctx.invoke(analyze)
 
 
 cli = DefaultGroup(
     default_command="analyze",
     name="gh-score",
+    callback=_default_analyze,
     help="GitHub Project Health Scorer.\n\nAnalyze a GitHub repository's health, maturity, and sustainability.",
 )
 
@@ -239,8 +265,8 @@ def analyze(
         console.print(
             "[red]Error:[/red] No URL provided and current directory is not a git repository."
         )
-        console.print("Usage: gh-score analyze [URL] [OPTIONS]")
-        console.print("       gh-score https://github.com/owner/repo")
+        console.print("Usage: gh-score [URL] [OPTIONS]")
+        console.print("       gh-score analyze [URL] [OPTIONS]")
         sys.exit(1)
 
     # If user forced local mode, override

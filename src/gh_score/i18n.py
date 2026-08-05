@@ -38,7 +38,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         # ------------------------------------------------------------------
         "rec_archived": "Projet archivé — plus aucun développement",
         "rec_disabled": "Projet désactivé",
-        "rec_deprecated": "Projet déprécié sur le registre",
+        "rec_deprecated": "Projet déprécié dans son index de paquets",
         "rec_ephemeral": "Projet éphémère accompagnant un article",
         "rec_abandoned_popular": "Grand projet, mais maintenant abandonné",
         "rec_abandoned_months": "Projet abandonné — pas de commit depuis {months} mois",
@@ -113,9 +113,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         # Contributors interpretation
         # ------------------------------------------------------------------
         "int_authors": "{count} auteurs",
-        "int_bus_factor": "facteur de bus : {count}",
+        "int_bus_factor": "facteur du bus : {count}",
         "int_bots": "bots : {ratio:.0%}",
-        "int_lead": "lead : {login}",
+        "int_lead": "développeur principal : {login}",
         "int_historical_lead": "historique : {login}",
         "int_minor": "{count} mineurs",
         "int_commits_3m": "{count} commits (3m)",
@@ -133,11 +133,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_cpm_active": "{rate:.1f} commits/mois (actif)",
         "int_cpm_low": "{rate:.1f} commits/mois (faible)",
         "int_cpm_none": "aucun commit récent",
-        "int_issues_lt1d": "issues fermées : <1 j",
-        "int_issues_days": "issues fermées : {days:.0f} j",
-        "int_issues_moderate": "issues fermées : {days:.0f} j (modéré)",
-        "int_issues_slow": "issues fermées : {days:.0f} j (lent)",
-        "int_stale_issues": "{ratio:.0%} d'issues en souffrance",
+        "int_issues_lt1d": "tickets fermés : <1 j",
+        "int_issues_days": "tickets fermés : {days:.0f} j",
+        "int_issues_moderate": "tickets fermés : {days:.0f} j (modéré)",
+        "int_issues_slow": "tickets fermés : {days:.0f} j (lent)",
+        "int_stale_issues": "{ratio:.0%} de tickets en souffrance",
 
         # ------------------------------------------------------------------
         # Languages interpretation
@@ -171,7 +171,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         # ------------------------------------------------------------------
         # TUI dashboard
         # ------------------------------------------------------------------
-        "tui_header": "Tableau de bord de santé GitHub",
+        "tui_header": "Tableau de bord de la santé d'un projet GitHub",
         "tui_no_description": "Aucune description",
         "tui_stars": "Étoiles : {count:,}",
         "tui_forks": "Forks : {count:,}",
@@ -236,16 +236,16 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_sustainability": "## Durabilité",
         "md_header_stars": "**Étoiles :** {count:,}",
         "md_header_forks": "**Forks :** {count:,}",
-        "md_latest": "**Dernière :** {version}",
+        "md_latest": "**Dernière version :** {version}",
         "md_age": "**Âge :** {days} jours",
         "md_cadence": "**Cadence :** {days:.0f} jours/release",
         "md_status": "**Statut :** {status}",
         "md_license_label": "**Licence :** {spdx} ({family})",
         "md_license_none": "**Licence :** Non détectée",
-        "md_total_authors": "**Total auteurs :** {count}",
+        "md_total_authors": "**Nombre d'auteurs :** {count}",
         "md_bus_factor": "**Facteur de bus :** {count}",
         "md_bot_ratio": "**Ratio de bots :** {ratio:.0%}",
-        "md_lead": "**Lead :** {login}",
+        "md_lead": "**Développeur principal :** {login}",
         "md_state": "**État :** {state}",
         "md_last_commit": "**Dernier commit :** il y a {days} jours",
         "md_frequency": "**Fréquence :** {rate:.1f} commits/mois",
@@ -273,7 +273,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cli_cfg_token": "Token GitHub",
         "cli_cfg_set": "défini",
         "cli_cfg_not_set": "non défini",
-        "cli_cfg_cache_dir": "Répertoire du cache",
+        "cli_cfg_cache_dir": "Dossier de cache",
         "cli_cfg_cache_ttl": "TTL du cache",
         "cli_cfg_llm_enabled": "LLM activé",
         "cli_cfg_llm_provider": "Fournisseur LLM",

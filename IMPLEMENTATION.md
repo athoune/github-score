@@ -10,6 +10,7 @@ src/gh_score/
 ├── __init__.py              # Package entry point
 ├── __main__.py              # CLI entry point for `python -m gh_score`
 ├── config.py                # Configuration management (TOML + env vars)
+├── i18n.py                  # Lightweight i18n (FR/EN, from $LANG / LC_ALL)
 ├── core/
 │   ├── api.py               # Main API orchestration
 │   ├── cache.py             # Persistent filesystem cache with TTL
@@ -20,7 +21,8 @@ src/gh_score/
 │   │   ├── contributors.py      # Contributor patterns & bus factor
 │   │   ├── maintenance.py       # Maintenance state detection
 │   │   ├── languages.py         # Language breakdown & ecosystem
-│   │   └── sustainability.py    # Funding & backing detection
+│   │   ├── sustainability.py    # Funding & backing detection
+│   │   └── recommendation.py    # Cross-cutting traffic-light verdict
 │   └── fetchers/
 │       ├── github.py            # GitHub REST API fetcher
 │       ├── local_git.py         # Local git repository analyzer
@@ -40,18 +42,19 @@ src/gh_score/
 - **Package Registry Fetcher**: Detects and queries PyPI, npm, crates.io
 - **Caching**: Filesystem-based cache with configurable TTL (24h default)
 
-### 2. Analysis (6 Indicator Families)
+### 2. Analysis (7 Indicator Families)
 - **Release Health**: Latest version, age, cadence, semver compliance
 - **License**: SPDX ID, family classification (permissive/copyleft/public domain), OSI approval
 - **Contributors**: Bus factor, bot ratio, lead detection, activity trends
 - **Maintenance**: State classification (active/maintenance/abandoned), commit frequency, issue velocity
 - **Languages**: Primary language, breakdown percentages, ecosystem inference
 - **Sustainability**: Funding platforms, corporate backing, foundation membership
+- **Recommendation**: Cross-cutting traffic-light verdict (green/orange/red) aggregating all families, with a localized message, confidence (data completeness) and reasoning. Decision tree and thresholds documented in [`RULES.md`](RULES.md).
 
 ### 3. Output Formats
-- **TUI Dashboard**: Rich terminal UI with color-coded status indicators
-- **JSON**: Structured output for programmatic use
-- **Markdown**: Human-readable reports
+- **TUI Dashboard**: Rich terminal UI with color-coded status indicators; the traffic-light recommendation panel is displayed first
+- **JSON**: Structured output for programmatic use (includes `recommendation`)
+- **Markdown**: Human-readable reports (recommendation section first)
 
 ### 4. CLI Commands
 ```bash
@@ -65,16 +68,24 @@ gh-score report [URL]        # Generate detailed report
 - Environment variables (`GITHUB_TOKEN`, `GH_SCORE_*`)
 - CLI flags override config file
 
-### 6. LLM Integration (Optional)
+### 6. Internationalization
+- Lightweight, dependency-free i18n in `gh_score/i18n.py` (no gettext catalogs)
+- Language from environment with standard precedence: `LC_ALL` > `LC_MESSAGES` > `LANG`
+- Locale strings normalized (`fr_FR.UTF-8` / `fr-FR` → `fr`); unknown/unset fall back to English
+- Supported languages: French (`fr`) and English (`en`)
+- Covers recommendation messages, reasoning lines, facts and UI labels
+
+### 7. LLM Integration (Optional)
 - Ollama (default, local)
 - OpenAI-compatible APIs
 - Extracts qualitative signals from README/GOVERNANCE/SECURITY
 
 ## Testing
 
-**42 unit tests** covering:
+**123 unit tests** covering:
 - Core models (RepoUrl, ReleaseHealth, LanguageBreakdown)
-- All 6 analyzers
+- All 7 analyzers (incl. the recommendation decision tree)
+- Internationalization (locale parsing, translations, fallbacks)
 - Cache operations
 - Configuration loading
 
@@ -121,6 +132,11 @@ print(result.maintenance.state)
 - ⚠ **Warning** (yellow) - Needs attention
 - ✗ **Critical** (red) - Significant issues
 - ? **Unknown** (dim) - Insufficient data
+
+## Recommendation (traffic light)
+- 🟢 **Green** - Active project, safe to bet on
+- 🟠 **Orange** - Potential but not stable, or widely used despite low maintenance
+- 🔴 **Red** - Risky: lack of maintenance
 
 ## Implementation Notes
 - All network calls are cached to respect API rate limits

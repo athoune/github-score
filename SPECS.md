@@ -241,6 +241,44 @@ Composite signal based on:
 - Mentions in README/GOVERNANCE of corporate backing, maintainers, governance model.
 - Optional LLM pass: read README, GOVERNANCE, SECURITY to extract sustainability hints.
 
+### 7.7 Recommendation
+
+Cross-cutting verdict that aggregates every other indicator family into a
+single traffic-light judgment. It answers the question *"should I bet on
+this project?"* rather than evaluating one indicator in isolation.
+
+Output:
+
+- **Level**: `green` / `orange` / `red` (traffic light).
+- **Message**: a contextual, localized sentence (e.g. "Large project, but
+  now abandoned").
+- **Confidence**: 0.0 → 1.0, the fraction of core indicators whose status
+  is known (data completeness, not project quality).
+- **Reasoning**: the triggering signal plus objective facts (stars, author
+  count).
+
+Decision tree (first matching branch wins):
+
+| # | Condition | Level | Message |
+|---|-----------|-------|---------|
+| 1 | Archived / disabled / registry deprecated | red | Archived / Disabled / Deprecated |
+| 2 | Young, tiny, ≤ 3 authors (article demo) | orange | Ephemeral project |
+| 3 | Abandoned + widely used | orange | Large project, but now abandoned |
+| 4 | Abandoned | red | No commit for N months |
+| 5 | Active + ≥ 80% bots | orange | Maintained only by bots |
+| 6 | Active + no stable release | orange | Active but not stabilized |
+| 7 | Active + declining activity | orange | Well-maintained but in decline |
+| 8 | Active + large community | green | Active project with a large community |
+| 9 | Active | green | Active project |
+| 10 | Maintenance + no release for 6+ months | orange | No new features for N months |
+| 11 | Maintenance mode | orange | Project in maintenance mode |
+| 12 | Unknown + widely used | orange | Widely used despite low maintenance |
+| 13 | Unknown | orange | Insufficient data |
+
+All thresholds are heuristics, defined as constants in
+`src/gh_score/core/analyzers/recommendation.py` and documented in
+[`RULES.md`](RULES.md).
+
 ## 8. LLM integration
 
 The LLM module is optional and disabled by default.
@@ -303,9 +341,20 @@ The default TUI dashboard displays one panel per indicator family. Each panel sh
 - A short interpretation (e.g., “Latest release 3 months ago”, “Bus factor: 2”).
 - A status glyph: healthy, warning, or critical, based on configurable thresholds.
 
+A **traffic-light recommendation panel** (green/orange/red) is displayed
+prominently at the top, summarizing the overall verdict with the message,
+reasoning and confidence.
+
 Example skeleton:
 
 ```
+┌─ Recommendation ─────────────────────────────────┐
+│ 🟢 Active project with a large community          │
+│   • active state, regular development             │
+│   • 15,000 stars                                  │
+│   • 150 authors                                   │
+│   confidence: 100%                                │
+└───────────────────────────────────────────────────┘
 ┌─ Release Health ─────────────────┐ ┌─ License ─────────────┐
 │ latest: v2.4.1 (2025-05-10)      │ │ MIT (permissive, OSI) │
 │ cadence: 14 days/release         │ └───────────────────────┘
@@ -327,7 +376,7 @@ Machine-readable output via `--format json`. Emits a single JSON object containi
 - Feeding into dashboards, databases, or LLM pipelines.
 - CI/CD quality gates.
 
-The JSON output contains the same data as the TUI dashboard: `url`, `meta`, `release_health`, `license`, `contributors`, `maintenance`, `languages`, `sustainability`, and `registries`.
+The JSON output contains the same data as the TUI dashboard: `url`, `meta`, `release_health`, `license`, `contributors`, `maintenance`, `languages`, `sustainability`, `registries`, and `recommendation`.
 
 #### Markdown
 
@@ -337,7 +386,7 @@ Human-readable report via `--format markdown`. Emits a structured Markdown docum
 - Project wikis and documentation.
 - READMEs and comparison tables.
 
-The Markdown output includes section headings per indicator family, key metrics as bullet points, and license/registry status.
+The Markdown output includes section headings per indicator family, key metrics as bullet points, and license/registry status. The **Recommendation** section (traffic-light verdict) is emitted first.
 
 ## 10. Library API
 
@@ -399,6 +448,26 @@ colors = true
 thresholds = { stale_days = 180, maintenance_commits_per_month = 2 }
 ```
 
+### 12.1 Internationalization
+
+User-facing strings (recommendation messages, confidence label) are
+localized. The language is derived from the environment using standard
+locale precedence:
+
+1. `LC_ALL`
+2. `LC_MESSAGES`
+3. `LANG`
+
+The locale string is reduced to its language code (`fr_FR.UTF-8` →
+`fr`). Supported languages: **French** (`fr`) and **English** (`en`).
+Unset or unknown locales fall back to English.
+
+The lightweight translation layer (`gh_score.i18n`) is dependency-free:
+messages live in a plain catalog dict keyed by stable identifiers, with
+one entry per language. The catalog and the decision tree are documented
+in [`RULES.md`](RULES.md). Adding a language means adding a catalog dict
+plus a test.
+
 ## 13. Security and privacy
 
 - The tool reads only public repository data and local files.
@@ -413,6 +482,7 @@ thresholds = { stale_days = 180, maintenance_commits_per_month = 2 }
 - GitHub API fetchers with caching.
 - Local git fallback when inside a clone.
 - TUI dashboard for all indicator families.
+- Traffic-light recommendation aggregating all indicators (green/orange/red).
 - JSON and Markdown export formats.
 - No global score; interpretive status glyphs only.
 
@@ -423,8 +493,8 @@ thresholds = { stale_days = 180, maintenance_commits_per_month = 2 }
 
 ### Phase 3 — Scoring model
 
-- Collect examples and tune thresholds.
-- Introduce an optional weighted global score.
+- Collect examples and tune recommendation thresholds.
+- Introduce an optional weighted global score, building on the recommendation model.
 - Per-family drill-down explanations.
 
 ### Phase 4 — Ecosystem depth

@@ -9,10 +9,19 @@ from gh_score.core.models import (
     LanguagesIndicator,
     Repository,
 )
+from gh_score.i18n import t
 
 
-def analyze_languages(repo: Repository) -> LanguagesIndicator:
+def analyze_languages(
+    repo: Repository,
+    lang: str | None = None,
+) -> LanguagesIndicator:
     """Analyze language breakdown from repository data.
+
+    Args:
+        repo: Repository with raw language data.
+        lang: Language for the interpretation; defaults to the
+            env-derived language.
 
     Returns a LanguagesIndicator with:
     - Primary language
@@ -29,7 +38,7 @@ def analyze_languages(repo: Repository) -> LanguagesIndicator:
 
     # Infer ecosystem from primary language or manifest files
     indicator.ecosystem = _infer_ecosystem(repo)
-    indicator.interpretation = _build_interpretation(indicator)
+    indicator.interpretation = _build_interpretation(indicator, lang)
 
     return indicator
 
@@ -58,12 +67,15 @@ def _infer_ecosystem(repo: Repository) -> str | None:
     return None
 
 
-def _build_interpretation(ind: LanguagesIndicator) -> str:
+def _build_interpretation(
+    ind: LanguagesIndicator,
+    lang: str | None = None,
+) -> str:
     """Build human-readable interpretation."""
     parts = []
 
     if ind.primary:
-        parts.append(f"primary: {ind.primary}")
+        parts.append(t("int_primary", lang=lang, language=ind.primary))
 
     # Top 3 languages
     if ind.breakdown:
@@ -74,9 +86,9 @@ def _build_interpretation(ind: LanguagesIndicator) -> str:
         )[:3]
 
         lang_strs = [f"{lang} ({pct:.0f}%)" for lang, pct in sorted_langs]
-        parts.append("breakdown: " + ", ".join(lang_strs))
+        parts.append(t("int_breakdown", lang=lang, langs=", ".join(lang_strs)))
 
     if ind.ecosystem:
-        parts.append(f"ecosystem: {ind.ecosystem}")
+        parts.append(t("int_ecosystem", lang=lang, ecosystem=ind.ecosystem))
 
-    return ", ".join(parts) if parts else "No language data"
+    return ", ".join(parts) if parts else t("int_no_language", lang=lang)

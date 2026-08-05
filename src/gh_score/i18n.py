@@ -8,6 +8,17 @@ code (``fr``).  Unset or unknown locales fall back to English.
 This is intentionally dependency-free: no gettext catalogs, no build
 step.  Messages live in a plain dict keyed by stable identifiers, with
 one catalog per supported language.
+
+Conventions:
+- ``rec_*``   — recommendation verdicts and reasoning
+- ``int_*``   — analyzer interpretations (stored on indicators)
+- ``state_*`` / ``status_*`` — enum value display labels
+- ``tui_*``   — TUI dashboard labels
+- ``md_*``    — Markdown report labels
+- ``cli_*``   — CLI console messages
+
+Technical/exception strings (error messages, click help, enum values in
+JSON) intentionally stay in English.
 """
 
 from __future__ import annotations
@@ -18,11 +29,13 @@ import os
 # Message catalog
 # ---------------------------------------------------------------------------
 # Keys are stable identifiers used by the code.  Values may contain
-# str.format placeholders, e.g. "{months}".
+# str.format placeholders, e.g. "{months}" or "{ratio:.0%}".
 
 MESSAGES: dict[str, dict[str, str]] = {
     "fr": {
+        # ------------------------------------------------------------------
         # Recommendation verdicts
+        # ------------------------------------------------------------------
         "rec_archived": "Projet archivé — plus aucun développement",
         "rec_disabled": "Projet désactivé",
         "rec_deprecated": "Projet déprécié sur le registre",
@@ -44,7 +57,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_widely_used_unmaintained": "Projet largement utilisé même si peu maintenu",
         "rec_insufficient_data": "Données insuffisantes pour une recommandation fiable",
 
-        # Reasoning lines
+        # Recommendation reasoning lines
         "reason_archived": "le dépôt est marqué comme archivé sur GitHub",
         "reason_disabled": "le dépôt est désactivé sur GitHub",
         "reason_deprecated": "le paquet est marqué comme déprécié",
@@ -68,12 +81,209 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_stars": "{stars:,} étoiles",
         "fact_authors": "{authors} auteurs",
 
-        # UI labels
-        "ui_confidence": "confiance: {conf:.0%}",
-        "md_confidence": "Confiance: {conf:.0%}",
+        # ------------------------------------------------------------------
+        # Release health interpretation
+        # ------------------------------------------------------------------
+        "int_release_latest": "Dernière : {version}",
+        "int_released_today": "publiée aujourd'hui",
+        "int_released_yesterday": "publiée hier",
+        "int_released_days_ago": "publiée il y a {days} jours",
+        "int_cadence_very_active": "cadence : ~{days:.0f}d/release (très actif)",
+        "int_cadence_active": "cadence : ~{days:.0f}d/release (actif)",
+        "int_cadence_moderate": "cadence : ~{days:.0f}d/release (modéré)",
+        "int_cadence_slow": "cadence : ~{days:.0f}d/release (lent)",
+        "int_semver_yes": "semver : oui",
+        "int_semver_no": "semver : non",
+        "int_prerelease": "pré-release",
+        "int_no_release_data": "Aucune donnée de release",
+
+        # ------------------------------------------------------------------
+        # License interpretation
+        # ------------------------------------------------------------------
+        "int_lic_family_permissive": "permissive",
+        "int_lic_family_copyleft": "copyleft",
+        "int_lic_family_public_domain": "domaine public",
+        "int_lic_family_proprietary": "propriétaire",
+        "int_lic_family_other": "autre",
+        "int_lic_family_unknown": "inconnue",
+        "int_lic_osi_approved": "approuvée OSI",
+        "int_lic_none": "Aucune licence détectée",
+
+        # ------------------------------------------------------------------
+        # Contributors interpretation
+        # ------------------------------------------------------------------
+        "int_authors": "{count} auteurs",
+        "int_bus_factor": "facteur de bus : {count}",
+        "int_bots": "bots : {ratio:.0%}",
+        "int_lead": "lead : {login}",
+        "int_historical_lead": "historique : {login}",
+        "int_minor": "{count} mineurs",
+        "int_commits_3m": "{count} commits (3m)",
+        "int_commits_12m": "{count} commits (12m)",
+        "int_no_activity": "aucune activité récente",
+
+        # ------------------------------------------------------------------
+        # Maintenance interpretation
+        # ------------------------------------------------------------------
+        "int_state": "état : {state}",
+        "int_last_commit_today": "dernier commit : aujourd'hui",
+        "int_last_commit_yesterday": "dernier commit : hier",
+        "int_last_commit_days": "dernier commit : il y a {days} j",
+        "int_cpm_very_active": "{rate:.1f} commits/mois (très actif)",
+        "int_cpm_active": "{rate:.1f} commits/mois (actif)",
+        "int_cpm_low": "{rate:.1f} commits/mois (faible)",
+        "int_cpm_none": "aucun commit récent",
+        "int_issues_lt1d": "issues fermées : <1 j",
+        "int_issues_days": "issues fermées : {days:.0f} j",
+        "int_issues_moderate": "issues fermées : {days:.0f} j (modéré)",
+        "int_issues_slow": "issues fermées : {days:.0f} j (lent)",
+        "int_stale_issues": "{ratio:.0%} d'issues en souffrance",
+
+        # ------------------------------------------------------------------
+        # Languages interpretation
+        # ------------------------------------------------------------------
+        "int_primary": "principal : {language}",
+        "int_breakdown": "répartition : {langs}",
+        "int_ecosystem": "écosystème : {ecosystem}",
+        "int_no_language": "Aucune donnée de langage",
+
+        # ------------------------------------------------------------------
+        # Sustainability interpretation
+        # ------------------------------------------------------------------
+        "int_foundation": "fondation : {name}",
+        "int_funding": "financement : {platforms}",
+        "int_corporate": "entreprise : {company}",
+        "int_governance": "gouvernance : {model}",
+        "int_no_backing": "aucun soutien détecté",
+
+        # ------------------------------------------------------------------
+        # Status / state display labels
+        # ------------------------------------------------------------------
+        "status_healthy": "sain",
+        "status_warning": "attention",
+        "status_critical": "critique",
+        "status_unknown": "inconnu",
+        "state_active": "actif",
+        "state_maintenance": "maintenance",
+        "state_abandoned": "abandonné",
+        "state_unknown": "inconnu",
+
+        # ------------------------------------------------------------------
+        # TUI dashboard
+        # ------------------------------------------------------------------
+        "tui_header": "Tableau de bord de santé GitHub",
+        "tui_no_description": "Aucune description",
+        "tui_stars": "Étoiles : {count:,}",
+        "tui_forks": "Forks : {count:,}",
+        "tui_created": "Créé : {date}",
+        "panel_release_health": "Santé des releases",
+        "panel_license": "Licence",
+        "panel_contributors": "Contributeurs",
+        "panel_maintenance": "Maintenance",
+        "panel_languages": "Langages",
+        "panel_sustainability": "Durabilité",
+        "panel_registries": "Registres de paquets",
+        "tui_latest": "dernière : {version}",
+        "tui_age": "âge : {days} jours",
+        "tui_cadence": "cadence : {days:.0f} jours/release",
+        "tui_semver_yes": "semver : oui",
+        "tui_semver_no": "semver : non",
+        "tui_prerelease": "statut : pré-release",
+        "tui_no_license": "Aucune licence détectée",
+        "tui_total": "total : {count}",
+        "tui_bus_factor": "facteur de bus : {count}",
+        "tui_bots": "bots : {ratio:.0%}",
+        "tui_lead": "lead : {login}",
+        "tui_historical": "historique : {login}",
+        "tui_minor": "mineurs : {count}",
+        "tui_activity_3m": "activité : {count} commits (3m)",
+        "tui_activity_12m": "activité : {count} commits (12m)",
+        "tui_state": "état : {state}",
+        "tui_last_commit": "dernier commit : il y a {days} j",
+        "tui_frequency": "fréquence : {rate:.1f} commits/mois",
+        "tui_issues_closed": "issues fermées : {days:.0f} j",
+        "tui_stale_issues": "issues en souffrance : {ratio:.0%}",
+        "tui_primary": "principal : {language}",
+        "tui_ecosystem": "écosystème : {ecosystem}",
+        "tui_foundation": "fondation : {name}",
+        "tui_funding": "financement : {platforms}",
+        "tui_corporate": "entreprise : {company}",
+        "tui_governance": "gouvernance : {model}",
+        "tui_no_backing": "aucun soutien détecté",
+        "tui_llm_sponsors": "sponsors (LLM) : {list}",
+        "tui_llm_roadmap": "roadmap (LLM) : {text}...",
+        "tui_llm_security": "sécurité (LLM) : {text}...",
+        "tui_llm_commercial": "support commercial (LLM) : {text}...",
+        "tui_downloads": "téléchargements : {count:,}",
+        "tui_recent": "récents : {count:,}",
+        "tui_registry_license": "licence : {license}",
+        "tui_gh_license_match": "licence GitHub : identique",
+        "tui_gh_license_diff": "licence GitHub : différente",
+        "tui_deprecated": "⚠ déprécié",
+        "tui_heuristic": "(nom déduit du dépôt)",
+        "tui_not_found": "(introuvable)",
+        "ui_confidence": "confiance : {conf:.0%}",
+
+        # ------------------------------------------------------------------
+        # Markdown report
+        # ------------------------------------------------------------------
+        "md_section_recommendation": "## Recommendation",
+        "md_section_release_health": "## Santé des releases",
+        "md_section_license": "## Licence",
+        "md_section_contributors": "## Contributeurs",
+        "md_section_maintenance": "## Maintenance",
+        "md_section_languages": "## Langages",
+        "md_section_sustainability": "## Durabilité",
+        "md_header_stars": "**Étoiles :** {count:,}",
+        "md_header_forks": "**Forks :** {count:,}",
+        "md_latest": "**Dernière :** {version}",
+        "md_age": "**Âge :** {days} jours",
+        "md_cadence": "**Cadence :** {days:.0f} jours/release",
+        "md_status": "**Statut :** {status}",
+        "md_license_label": "**Licence :** {spdx} ({family})",
+        "md_license_none": "**Licence :** Non détectée",
+        "md_total_authors": "**Total auteurs :** {count}",
+        "md_bus_factor": "**Facteur de bus :** {count}",
+        "md_bot_ratio": "**Ratio de bots :** {ratio:.0%}",
+        "md_lead": "**Lead :** {login}",
+        "md_state": "**État :** {state}",
+        "md_last_commit": "**Dernier commit :** il y a {days} jours",
+        "md_frequency": "**Fréquence :** {rate:.1f} commits/mois",
+        "md_primary": "**Principal :** {language}",
+        "md_breakdown": "**Répartition :**",
+        "md_foundation": "**Fondation :** {name}",
+        "md_funding": "**Financement :** {platforms}",
+        "md_corporate": "**Soutien d'entreprise :** {company}",
+        "md_confidence": "Confiance : {conf:.0%}",
+
+        # ------------------------------------------------------------------
+        # CLI console messages
+        # ------------------------------------------------------------------
+        "cli_analyzing": "Analyse du dépôt...",
+        "cli_cache_cleared": "Cache vidé",
+        "cli_error": "Erreur :",
+        "cli_no_target": (
+            "Aucune URL fournie et le répertoire courant n'est pas un dépôt git."
+        ),
+        "cli_usage_1": "Usage : gh-score [URL] [OPTIONS]",
+        "cli_usage_2": "Usage : gh-score analyze [URL] [OPTIONS]",
+        "cli_config_title": "Configuration actuelle",
+        "cli_config_setting": "Paramètre",
+        "cli_config_value": "Valeur",
+        "cli_cfg_token": "Token GitHub",
+        "cli_cfg_set": "défini",
+        "cli_cfg_not_set": "non défini",
+        "cli_cfg_cache_dir": "Répertoire du cache",
+        "cli_cfg_cache_ttl": "TTL du cache",
+        "cli_cfg_llm_enabled": "LLM activé",
+        "cli_cfg_llm_provider": "Fournisseur LLM",
+        "cli_cfg_llm_model": "Modèle LLM",
+        "cli_cfg_llm_base_url": "URL de base LLM",
     },
     "en": {
+        # ------------------------------------------------------------------
         # Recommendation verdicts
+        # ------------------------------------------------------------------
         "rec_archived": "Archived project — no further development",
         "rec_disabled": "Disabled project",
         "rec_deprecated": "Project deprecated on the registry",
@@ -92,7 +302,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_widely_used_unmaintained": "Widely used project despite low maintenance",
         "rec_insufficient_data": "Insufficient data for a reliable recommendation",
 
-        # Reasoning lines
+        # Recommendation reasoning lines
         "reason_archived": "repository marked as archived on GitHub",
         "reason_disabled": "repository disabled on GitHub",
         "reason_deprecated": "package marked as deprecated",
@@ -112,9 +322,204 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_stars": "{stars:,} stars",
         "fact_authors": "{authors} authors",
 
-        # UI labels
+        # ------------------------------------------------------------------
+        # Release health interpretation
+        # ------------------------------------------------------------------
+        "int_release_latest": "Latest: {version}",
+        "int_released_today": "released today",
+        "int_released_yesterday": "released yesterday",
+        "int_released_days_ago": "released {days} days ago",
+        "int_cadence_very_active": "cadence: ~{days:.0f}d/release (very active)",
+        "int_cadence_active": "cadence: ~{days:.0f}d/release (active)",
+        "int_cadence_moderate": "cadence: ~{days:.0f}d/release (moderate)",
+        "int_cadence_slow": "cadence: ~{days:.0f}d/release (slow)",
+        "int_semver_yes": "semver: yes",
+        "int_semver_no": "semver: no",
+        "int_prerelease": "pre-release",
+        "int_no_release_data": "No release data",
+
+        # ------------------------------------------------------------------
+        # License interpretation
+        # ------------------------------------------------------------------
+        "int_lic_family_permissive": "permissive",
+        "int_lic_family_copyleft": "copyleft",
+        "int_lic_family_public_domain": "public domain",
+        "int_lic_family_proprietary": "proprietary",
+        "int_lic_family_other": "other",
+        "int_lic_family_unknown": "unknown",
+        "int_lic_osi_approved": "OSI-approved",
+        "int_lic_none": "No license detected",
+
+        # ------------------------------------------------------------------
+        # Contributors interpretation
+        # ------------------------------------------------------------------
+        "int_authors": "{count} authors",
+        "int_bus_factor": "bus factor: {count}",
+        "int_bots": "bots: {ratio:.0%}",
+        "int_lead": "lead: {login}",
+        "int_historical_lead": "historical: {login}",
+        "int_minor": "{count} minor",
+        "int_commits_3m": "{count} commits (3m)",
+        "int_commits_12m": "{count} commits (12m)",
+        "int_no_activity": "no recent activity",
+
+        # ------------------------------------------------------------------
+        # Maintenance interpretation
+        # ------------------------------------------------------------------
+        "int_state": "state: {state}",
+        "int_last_commit_today": "last commit: today",
+        "int_last_commit_yesterday": "last commit: yesterday",
+        "int_last_commit_days": "last commit: {days}d ago",
+        "int_cpm_very_active": "{rate:.1f} commits/month (very active)",
+        "int_cpm_active": "{rate:.1f} commits/month (active)",
+        "int_cpm_low": "{rate:.1f} commits/month (low)",
+        "int_cpm_none": "no recent commits",
+        "int_issues_lt1d": "issues closed: <1d",
+        "int_issues_days": "issues closed: {days:.0f}d",
+        "int_issues_moderate": "issues closed: {days:.0f}d (moderate)",
+        "int_issues_slow": "issues closed: {days:.0f}d (slow)",
+        "int_stale_issues": "{ratio:.0%} stale issues",
+
+        # ------------------------------------------------------------------
+        # Languages interpretation
+        # ------------------------------------------------------------------
+        "int_primary": "primary: {language}",
+        "int_breakdown": "breakdown: {langs}",
+        "int_ecosystem": "ecosystem: {ecosystem}",
+        "int_no_language": "No language data",
+
+        # ------------------------------------------------------------------
+        # Sustainability interpretation
+        # ------------------------------------------------------------------
+        "int_foundation": "foundation: {name}",
+        "int_funding": "funding: {platforms}",
+        "int_corporate": "corporate: {company}",
+        "int_governance": "governance: {model}",
+        "int_no_backing": "no backing detected",
+
+        # ------------------------------------------------------------------
+        # Status / state display labels
+        # ------------------------------------------------------------------
+        "status_healthy": "healthy",
+        "status_warning": "warning",
+        "status_critical": "critical",
+        "status_unknown": "unknown",
+        "state_active": "active",
+        "state_maintenance": "maintenance",
+        "state_abandoned": "abandoned",
+        "state_unknown": "unknown",
+
+        # ------------------------------------------------------------------
+        # TUI dashboard
+        # ------------------------------------------------------------------
+        "tui_header": "GitHub Health Dashboard",
+        "tui_no_description": "No description",
+        "tui_stars": "Stars: {count:,}",
+        "tui_forks": "Forks: {count:,}",
+        "tui_created": "Created: {date}",
+        "panel_release_health": "Release Health",
+        "panel_license": "License",
+        "panel_contributors": "Contributors",
+        "panel_maintenance": "Maintenance",
+        "panel_languages": "Languages",
+        "panel_sustainability": "Sustainability",
+        "panel_registries": "Package Registries",
+        "tui_latest": "latest: {version}",
+        "tui_age": "age: {days} days",
+        "tui_cadence": "cadence: {days:.0f} days/release",
+        "tui_semver_yes": "semver: yes",
+        "tui_semver_no": "semver: no",
+        "tui_prerelease": "status: pre-release",
+        "tui_no_license": "No license detected",
+        "tui_total": "total: {count}",
+        "tui_bus_factor": "bus factor: {count}",
+        "tui_bots": "bots: {ratio:.0%}",
+        "tui_lead": "lead: {login}",
+        "tui_historical": "historical: {login}",
+        "tui_minor": "minor: {count}",
+        "tui_activity_3m": "activity: {count} commits (3m)",
+        "tui_activity_12m": "activity: {count} commits (12m)",
+        "tui_state": "state: {state}",
+        "tui_last_commit": "last commit: {days}d ago",
+        "tui_frequency": "frequency: {rate:.1f} commits/month",
+        "tui_issues_closed": "issues closed: {days:.0f}d",
+        "tui_stale_issues": "stale issues: {ratio:.0%}",
+        "tui_primary": "primary: {language}",
+        "tui_ecosystem": "ecosystem: {ecosystem}",
+        "tui_foundation": "foundation: {name}",
+        "tui_funding": "funding: {platforms}",
+        "tui_corporate": "corporate: {company}",
+        "tui_governance": "governance: {model}",
+        "tui_no_backing": "no backing detected",
+        "tui_llm_sponsors": "LLM sponsors: {list}",
+        "tui_llm_roadmap": "LLM roadmap: {text}...",
+        "tui_llm_security": "LLM security: {text}...",
+        "tui_llm_commercial": "LLM commercial: {text}...",
+        "tui_downloads": "downloads: {count:,}",
+        "tui_recent": "recent: {count:,}",
+        "tui_registry_license": "license: {license}",
+        "tui_gh_license_match": "GitHub license: matches",
+        "tui_gh_license_diff": "GitHub license: differs",
+        "tui_deprecated": "⚠ deprecated",
+        "tui_heuristic": "(name inferred from repo)",
+        "tui_not_found": "(not found)",
         "ui_confidence": "confidence: {conf:.0%}",
+
+        # ------------------------------------------------------------------
+        # Markdown report
+        # ------------------------------------------------------------------
+        "md_section_recommendation": "## Recommendation",
+        "md_section_release_health": "## Release Health",
+        "md_section_license": "## License",
+        "md_section_contributors": "## Contributors",
+        "md_section_maintenance": "## Maintenance",
+        "md_section_languages": "## Languages",
+        "md_section_sustainability": "## Sustainability",
+        "md_header_stars": "**Stars:** {count:,}",
+        "md_header_forks": "**Forks:** {count:,}",
+        "md_latest": "**Latest:** {version}",
+        "md_age": "**Age:** {days} days",
+        "md_cadence": "**Cadence:** {days:.0f} days/release",
+        "md_status": "**Status:** {status}",
+        "md_license_label": "**License:** {spdx} ({family})",
+        "md_license_none": "**License:** Not detected",
+        "md_total_authors": "**Total authors:** {count}",
+        "md_bus_factor": "**Bus factor:** {count}",
+        "md_bot_ratio": "**Bot ratio:** {ratio:.0%}",
+        "md_lead": "**Lead:** {login}",
+        "md_state": "**State:** {state}",
+        "md_last_commit": "**Last commit:** {days} days ago",
+        "md_frequency": "**Frequency:** {rate:.1f} commits/month",
+        "md_primary": "**Primary:** {language}",
+        "md_breakdown": "**Breakdown:**",
+        "md_foundation": "**Foundation:** {name}",
+        "md_funding": "**Funding:** {platforms}",
+        "md_corporate": "**Corporate backing:** {company}",
         "md_confidence": "Confidence: {conf:.0%}",
+
+        # ------------------------------------------------------------------
+        # CLI console messages
+        # ------------------------------------------------------------------
+        "cli_analyzing": "Analyzing repository...",
+        "cli_cache_cleared": "Cache cleared",
+        "cli_error": "Error:",
+        "cli_no_target": (
+            "No URL provided and current directory is not a git repository."
+        ),
+        "cli_usage_1": "Usage: gh-score [URL] [OPTIONS]",
+        "cli_usage_2": "Usage: gh-score analyze [URL] [OPTIONS]",
+        "cli_config_title": "Current Configuration",
+        "cli_config_setting": "Setting",
+        "cli_config_value": "Value",
+        "cli_cfg_token": "GitHub Token",
+        "cli_cfg_set": "set",
+        "cli_cfg_not_set": "not set",
+        "cli_cfg_cache_dir": "Cache Dir",
+        "cli_cfg_cache_ttl": "Cache TTL",
+        "cli_cfg_llm_enabled": "LLM Enabled",
+        "cli_cfg_llm_provider": "LLM Provider",
+        "cli_cfg_llm_model": "LLM Model",
+        "cli_cfg_llm_base_url": "LLM Base URL",
     },
 }
 

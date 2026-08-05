@@ -2,15 +2,28 @@
 
 from datetime import datetime, timedelta, timezone
 
+from gh_score.core.analyzers import (
+    analyze_contributors,
+    analyze_maintenance,
+    analyze_release_health,
+)
+from gh_score.core.analyzers.license_analyzer import license_family_label
 from gh_score.core.analyzers.recommendation import analyze_recommendation
 from gh_score.core.models import (
     AnalysisResult,
+    Commit,
+    Contributor,
+    ContributorStats,
     ContributorsIndicator,
+    LicenseFamily,
     LicenseIndicator,
     MaintenanceIndicator,
     MaintenanceState,
+    Release,
+    ReleaseHealth,
     ReleaseHealthIndicator,
     RepoUrl,
+    Repository,
     RepositoryMeta,
     SustainabilityIndicator,
 )
@@ -125,3 +138,118 @@ class TestRecommendationLanguage:
         rec = analyze_recommendation(result, lang="en")
         assert any("200 stars" in r for r in rec.reasoning)
         assert any("3 authors" in r for r in rec.reasoning)
+
+
+class TestAnalyzerInterpretations:
+    """Analyzer interpretation strings follow the selected language."""
+
+    def test_contributors_interpretation_fr(self):
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            contributors=ContributorStats(
+                contributors=[
+                    Contributor(login="alice", commits=100),
+                    Contributor(login="dependabot[bot]", commits=20, is_bot=True),
+                ],
+                total_commit_count=120,
+            ),
+        )
+        ind = analyze_contributors(repo, lang="fr")
+        assert "1 auteurs" in ind.interpretation
+        assert "facteur de bus : 1" in ind.interpretation
+        assert "bots : 17%" in ind.interpretation
+
+    def test_contributors_interpretation_en(self):
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            contributors=ContributorStats(
+                contributors=[Contributor(login="alice", commits=100)],
+                total_commit_count=100,
+            ),
+        )
+        ind = analyze_contributors(repo, lang="en")
+        assert "1 authors" in ind.interpretation
+        assert "bus factor: 1" in ind.interpretation
+
+    def test_maintenance_interpretation_fr(self):
+        now = datetime.now(timezone.utc)
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            commits=[
+                Commit(sha="a", author_date=now - timedelta(days=30)),
+                Commit(sha="b", author_date=now - timedelta(days=5)),
+            ],
+        )
+        ind = analyze_maintenance(repo, lang="fr")
+        assert "état :" in ind.interpretation
+        assert "dernier commit :" in ind.interpretation
+
+    def test_maintenance_interpretation_en(self):
+        now = datetime.now(timezone.utc)
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            commits=[Commit(sha="a", author_date=now - timedelta(days=30))],
+        )
+        ind = analyze_maintenance(repo, lang="en")
+        assert "state:" in ind.interpretation
+        assert "last commit:" in ind.interpretation
+
+    def test_release_health_interpretation_fr(self):
+        now = datetime.now(timezone.utc)
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            release_health=ReleaseHealth(
+                releases=[
+                    Release(tag_name="v1.0.0", published_at=now - timedelta(days=10)),
+                ]
+            ),
+        )
+        ind = analyze_release_health(repo, lang="fr")
+        assert "Dernière : v1.0.0" in ind.interpretation
+        assert "publiée il y a 10 jours" in ind.interpretation
+
+    def test_release_health_interpretation_en(self):
+        now = datetime.now(timezone.utc)
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            release_health=ReleaseHealth(
+                releases=[
+                    Release(tag_name="v1.0.0", published_at=now - timedelta(days=10)),
+                ]
+            ),
+        )
+        ind = analyze_release_health(repo, lang="en")
+        assert "Latest: v1.0.0" in ind.interpretation
+        assert "released 10 days ago" in ind.interpretation
+
+    def test_license_family_label(self):
+        assert license_family_label(LicenseFamily.PERMISSIVE, lang="fr") == "permissive"
+        assert license_family_label(LicenseFamily.PUBLIC_DOMAIN, lang="fr") == "domaine public"
+        assert license_family_label(LicenseFamily.PROPRIETARY, lang="en") == "proprietary"
+        assert license_family_label(LicenseFamily.OTHER, lang="en") == "other"
+
+
+class TestCliStrings:
+    """CLI console messages are localized."""
+
+    def test_analyzing_fr(self):
+        assert t("cli_analyzing", lang="fr") == "Analyse du dépôt..."
+
+    def test_analyzing_en(self):
+        assert t("cli_analyzing", lang="en") == "Analyzing repository..."
+
+    def test_config_title_fr(self):
+        assert t("cli_config_title", lang="fr") == "Configuration actuelle"
+
+    def test_config_title_en(self):
+        assert t("cli_config_title", lang="en") == "Current Configuration"
+
+    def test_error_label(self):
+        assert t("cli_error", lang="fr") == "Erreur :"
+        assert t("cli_error", lang="en") == "Error:"
+
+    def test_status_labels(self):
+        assert t("status_healthy", lang="fr") == "sain"
+        assert t("status_warning", lang="en") == "warning"
+        assert t("state_abandoned", lang="fr") == "abandonné"
+        assert t("state_abandoned", lang="en") == "abandoned"

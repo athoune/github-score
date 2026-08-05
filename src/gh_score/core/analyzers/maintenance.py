@@ -13,6 +13,7 @@ from gh_score.core.models import (
     Repository,
     Status,
 )
+from gh_score.i18n import t
 
 
 def _compute_last_commit_days(repo: Repository, now: datetime) -> int | None:
@@ -135,8 +136,16 @@ def _classify_state(
     return MaintenanceState.UNKNOWN
 
 
-def analyze_maintenance(repo: Repository) -> MaintenanceIndicator:
+def analyze_maintenance(
+    repo: Repository,
+    lang: str | None = None,
+) -> MaintenanceIndicator:
     """Analyze maintenance state from repository data.
+
+    Args:
+        repo: Repository with raw commit/issue data.
+        lang: Language for the interpretation; defaults to the
+            env-derived language.
 
     Returns a MaintenanceIndicator with:
     - Last commit date and age
@@ -187,7 +196,7 @@ def analyze_maintenance(repo: Repository) -> MaintenanceIndicator:
     )
 
     indicator.status = _compute_status(indicator)
-    indicator.interpretation = _build_interpretation(indicator)
+    indicator.interpretation = _build_interpretation(indicator, lang)
 
     return indicator
 
@@ -216,52 +225,65 @@ def _compute_status(ind: MaintenanceIndicator) -> Status:
     return Status.HEALTHY
 
 
-def _build_interpretation(ind: MaintenanceIndicator) -> str:
+def _state_label(state: MaintenanceState, lang: str | None = None) -> str:
+    """Localized display label for a maintenance state."""
+    return t(f"state_{state.value}", lang=lang)
+
+
+def _build_interpretation(
+    ind: MaintenanceIndicator,
+    lang: str | None = None,
+) -> str:
     """Build human-readable interpretation."""
     parts = []
 
     # State
-    state_desc = {
-        MaintenanceState.ACTIVE: "active",
-        MaintenanceState.MAINTENANCE: "maintenance mode",
-        MaintenanceState.ABANDONED: "abandoned",
-        MaintenanceState.UNKNOWN: "unknown",
-    }
-    parts.append(f"state: {state_desc.get(ind.state, 'unknown')}")
+    parts.append(t("int_state", lang=lang, state=_state_label(ind.state, lang)))
 
     # Last commit
     if ind.last_commit_days_ago is not None:
         if ind.last_commit_days_ago == 0:
-            parts.append("last commit: today")
+            parts.append(t("int_last_commit_today", lang=lang))
         elif ind.last_commit_days_ago == 1:
-            parts.append("last commit: yesterday")
+            parts.append(t("int_last_commit_yesterday", lang=lang))
         else:
-            parts.append(f"last commit: {ind.last_commit_days_ago}d ago")
+            parts.append(
+                t("int_last_commit_days", lang=lang, days=ind.last_commit_days_ago)
+            )
 
     # Commit frequency
     if ind.commits_per_month is not None:
         if ind.commits_per_month >= 10:
-            parts.append(f"{ind.commits_per_month:.1f} commits/month (very active)")
+            key = "int_cpm_very_active"
         elif ind.commits_per_month >= 2:
-            parts.append(f"{ind.commits_per_month:.1f} commits/month (active)")
+            key = "int_cpm_active"
         elif ind.commits_per_month > 0:
-            parts.append(f"{ind.commits_per_month:.1f} commits/month (low)")
+            key = "int_cpm_low"
         else:
-            parts.append("no recent commits")
+            parts.append(t("int_cpm_none", lang=lang))
+            key = None
+        if key:
+            parts.append(t(key, lang=lang, rate=ind.commits_per_month))
 
     # Issue velocity
     if ind.issue_velocity_days is not None:
         if ind.issue_velocity_days < 1:
-            parts.append("issues closed: <1d")
+            parts.append(t("int_issues_lt1d", lang=lang))
         elif ind.issue_velocity_days < 7:
-            parts.append(f"issues closed: {ind.issue_velocity_days:.0f}d")
+            parts.append(
+                t("int_issues_days", lang=lang, days=ind.issue_velocity_days)
+            )
         elif ind.issue_velocity_days < 30:
-            parts.append(f"issues closed: {ind.issue_velocity_days:.0f}d (moderate)")
+            parts.append(
+                t("int_issues_moderate", lang=lang, days=ind.issue_velocity_days)
+            )
         else:
-            parts.append(f"issues closed: {ind.issue_velocity_days:.0f}d (slow)")
+            parts.append(
+                t("int_issues_slow", lang=lang, days=ind.issue_velocity_days)
+            )
 
     # Stale issues
     if ind.stale_issue_ratio is not None and ind.stale_issue_ratio > 0.2:
-        parts.append(f"{ind.stale_issue_ratio:.0%} stale issues")
+        parts.append(t("int_stale_issues", lang=lang, ratio=ind.stale_issue_ratio))
 
     return ", ".join(parts)

@@ -6,8 +6,13 @@ How `gh-score` turns raw indicators into a single traffic-light verdict
 other indicator families (maintenance, contributors, release health,
 sustainability, registries, metadata).
 
-Messages are localized via `gh_score.i18n` (French and English, selected
-from `$LANG` / `LC_ALL` / `LC_MESSAGES`; fallback: English).
+All user-facing strings are localized through `gh_score.i18n` (French
+and English, selected from `$LANG` / `LC_ALL` / `LC_MESSAGES`; fallback:
+English). This includes the recommendation messages below as well as
+every indicator interpretation, TUI label, Markdown heading and CLI
+message. Key groups: `rec_*`, `int_*`, `state_*`/`status_*`, `tui_*`,
+`md_*`, `cli_*`. Technical strings (exceptions, click help, JSON enum
+values) stay in English.
 
 ## Traffic-light colors
 

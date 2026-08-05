@@ -10,6 +10,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from gh_score.core.analyzers.license_analyzer import license_family_label
 from gh_score.core.models import (
     AnalysisResult,
     MaintenanceState,
@@ -67,28 +68,28 @@ def _render_release_health(result: AnalysisResult) -> Panel:
     content.append(f"{glyph} ", style=color)
 
     if rh.latest_version:
-        content.append(f"latest: {rh.latest_version}", style="bold")
+        content.append(t("tui_latest", version=rh.latest_version), style="bold")
         if rh.latest_date:
             content.append(f" ({rh.latest_date.strftime('%Y-%m-%d')})")
         content.append("\n")
 
     if rh.age_days is not None:
-        content.append(f"age: {rh.age_days} days\n")
+        content.append(f"{t('tui_age', days=rh.age_days)}\n")
 
     if rh.cadence_days is not None:
-        content.append(f"cadence: {rh.cadence_days:.0f} days/release\n")
+        content.append(f"{t('tui_cadence', days=rh.cadence_days)}\n")
 
     if rh.semver_compliant is not None:
-        semver_str = "yes" if rh.semver_compliant else "no"
-        content.append(f"semver: {semver_str}\n")
+        key = "tui_semver_yes" if rh.semver_compliant else "tui_semver_no"
+        content.append(f"{t(key)}\n")
 
     if rh.is_prerelease:
-        content.append("status: pre-release\n", style="yellow")
+        content.append(f"{t('tui_prerelease')}\n", style="yellow")
 
     if rh.interpretation:
         content.append(f"\n{rh.interpretation}", style="dim")
 
-    return Panel(content, title="Release Health", border_style=color)
+    return Panel(content, title=t("panel_release_health"), border_style=color)
 
 
 def _render_license(result: AnalysisResult) -> Panel:
@@ -101,17 +102,17 @@ def _render_license(result: AnalysisResult) -> Panel:
 
     if lic.spdx_id:
         content.append(lic.spdx_id, style="bold")
-        content.append(f" ({lic.family.value}")
+        content.append(f" ({license_family_label(lic.family)}")
         if lic.osi_approved:
             content.append(", OSI")
         content.append(")\n")
     else:
-        content.append("No license detected\n", style="red")
+        content.append(f"{t('tui_no_license')}\n", style="red")
 
     if lic.interpretation:
         content.append(f"\n{lic.interpretation}", style="dim")
 
-    return Panel(content, title="License", border_style=color)
+    return Panel(content, title=t("panel_license"), border_style=color)
 
 
 def _render_contributors(result: AnalysisResult) -> Panel:
@@ -122,37 +123,39 @@ def _render_contributors(result: AnalysisResult) -> Panel:
     content = Text()
     content.append(f"{glyph} ", style=color)
 
-    content.append(f"total: {contrib.total_authors}\n")
-    content.append(f"bus factor: {contrib.bus_factor}\n")
+    content.append(f"{t('tui_total', count=contrib.total_authors)}\n")
+    content.append(f"{t('tui_bus_factor', count=contrib.bus_factor)}\n")
 
     if contrib.bot_ratio > 0:
-        content.append(f"bots: {contrib.bot_ratio:.0%}\n")
+        content.append(f"{t('tui_bots', ratio=contrib.bot_ratio)}\n")
 
     if contrib.lead:
-        content.append(f"lead: {contrib.lead.login}")
+        content.append(t("tui_lead", login=contrib.lead.login))
         if contrib.lead.commits > 0:
             content.append(f" ({contrib.lead.commits} commits)")
         content.append("\n")
 
     if contrib.historical_lead:
-        content.append(f"historical: {contrib.historical_lead.login}\n")
+        content.append(
+            f"{t('tui_historical', login=contrib.historical_lead.login)}\n"
+        )
 
     if contrib.minor_count > 0:
-        content.append(f"minor: {contrib.minor_count}\n")
+        content.append(f"{t('tui_minor', count=contrib.minor_count)}\n")
 
     # Activity trend
     if contrib.activity_trend:
         commits_3m = contrib.activity_trend.get("3m", 0)
         commits_12m = contrib.activity_trend.get("12m", 0)
         if commits_3m > 0:
-            content.append(f"activity: {commits_3m} commits (3m)\n")
+            content.append(f"{t('tui_activity_3m', count=commits_3m)}\n")
         elif commits_12m > 0:
-            content.append(f"activity: {commits_12m} commits (12m)\n")
+            content.append(f"{t('tui_activity_12m', count=commits_12m)}\n")
 
     if contrib.interpretation:
         content.append(f"\n{contrib.interpretation}", style="dim")
 
-    return Panel(content, title="Contributors", border_style=color)
+    return Panel(content, title=t("panel_contributors"), border_style=color)
 
 
 def _render_maintenance(result: AnalysisResult) -> Panel:
@@ -171,24 +174,34 @@ def _render_maintenance(result: AnalysisResult) -> Panel:
         MaintenanceState.UNKNOWN: "dim",
     }
     state_color = state_colors.get(maint.state, "dim")
-    content.append(f"state: {maint.state.value}\n", style=state_color)
+    content.append(
+        f"{t('tui_state', state=t(f'state_{maint.state.value}'))}\n",
+        style=state_color,
+    )
 
     if maint.last_commit_days_ago is not None:
-        content.append(f"last commit: {maint.last_commit_days_ago}d ago\n")
+        if maint.last_commit_days_ago == 0:
+            content.append(f"{t('int_last_commit_today')}\n")
+        elif maint.last_commit_days_ago == 1:
+            content.append(f"{t('int_last_commit_yesterday')}\n")
+        else:
+            content.append(
+                f"{t('tui_last_commit', days=maint.last_commit_days_ago)}\n"
+            )
 
     if maint.commits_per_month is not None:
-        content.append(f"frequency: {maint.commits_per_month:.1f} commits/month\n")
+        content.append(f"{t('tui_frequency', rate=maint.commits_per_month)}\n")
 
     if maint.issue_velocity_days is not None:
-        content.append(f"issues closed: {maint.issue_velocity_days:.0f}d\n")
+        content.append(f"{t('tui_issues_closed', days=maint.issue_velocity_days)}\n")
 
     if maint.stale_issue_ratio is not None:
-        content.append(f"stale issues: {maint.stale_issue_ratio:.0%}\n")
+        content.append(f"{t('tui_stale_issues', ratio=maint.stale_issue_ratio)}\n")
 
     if maint.interpretation:
         content.append(f"\n{maint.interpretation}", style="dim")
 
-    return Panel(content, title="Maintenance", border_style=color)
+    return Panel(content, title=t("panel_maintenance"), border_style=color)
 
 
 def _render_languages(result: AnalysisResult) -> Panel:
@@ -198,7 +211,7 @@ def _render_languages(result: AnalysisResult) -> Panel:
     content = Text()
 
     if lang.primary:
-        content.append(f"primary: {lang.primary}\n", style="bold")
+        content.append(f"{t('tui_primary', language=lang.primary)}\n", style="bold")
 
     # Top languages
     if lang.breakdown:
@@ -214,12 +227,12 @@ def _render_languages(result: AnalysisResult) -> Panel:
             content.append(f"{lang_name:12} {pct:5.1f}% {progress_bar}\n")
 
     if lang.ecosystem:
-        content.append(f"\necosystem: {lang.ecosystem}\n", style="dim")
+        content.append(f"\n{t('tui_ecosystem', ecosystem=lang.ecosystem)}\n", style="dim")
 
     if lang.interpretation:
         content.append(f"\n{lang.interpretation}", style="dim")
 
-    return Panel(content, title="Languages", border_style="blue")
+    return Panel(content, title=t("panel_languages"), border_style="blue")
 
 
 def _render_sustainability(result: AnalysisResult) -> Panel:
@@ -231,42 +244,50 @@ def _render_sustainability(result: AnalysisResult) -> Panel:
     content.append(f"{glyph} ", style=color)
 
     if sust.foundation:
-        content.append(f"foundation: {sust.foundation}\n", style="green")
+        content.append(f"{t('tui_foundation', name=sust.foundation)}\n", style="green")
 
     if sust.funding_platforms:
-        content.append(f"funding: {', '.join(sust.funding_platforms)}\n")
+        content.append(
+            f"{t('tui_funding', platforms=', '.join(sust.funding_platforms))}\n"
+        )
 
     if sust.corporate_backing:
         backing = sust.corporate_backing
         if len(backing) > 25:
             backing = backing[:22] + "..."
-        content.append(f"corporate: {backing}\n")
+        content.append(f"{t('tui_corporate', company=backing)}\n")
 
     if sust.governance_model:
-        content.append(f"governance: {sust.governance_model}\n")
+        content.append(f"{t('tui_governance', model=sust.governance_model)}\n")
 
     # LLM-extracted signals
     if sust.llm_signals:
         sponsors = sust.llm_signals.get("sponsors")
         if sponsors and isinstance(sponsors, list):
-            content.append(f"LLM sponsors: {', '.join(sponsors)}\n", style="dim")
+            content.append(
+                f"{t('tui_llm_sponsors', list=', '.join(sponsors))}\n", style="dim"
+            )
         roadmap = sust.llm_signals.get("roadmap")
         if roadmap and isinstance(roadmap, str):
-            content.append(f"LLM roadmap: {roadmap[:80]}...\n", style="dim")
+            content.append(f"{t('tui_llm_roadmap', text=roadmap[:80])}\n", style="dim")
         security = sust.llm_signals.get("security_policy")
         if security and isinstance(security, str):
-            content.append(f"LLM security: {security[:80]}...\n", style="dim")
+            content.append(
+                f"{t('tui_llm_security', text=security[:80])}\n", style="dim"
+            )
         commercial = sust.llm_signals.get("commercial_support")
         if commercial and isinstance(commercial, str):
-            content.append(f"LLM commercial: {commercial[:80]}...\n", style="dim")
+            content.append(
+                f"{t('tui_llm_commercial', text=commercial[:80])}\n", style="dim"
+            )
 
     if not any([sust.foundation, sust.funding_platforms, sust.corporate_backing]):
-        content.append("no backing detected\n", style="yellow")
+        content.append(f"{t('tui_no_backing')}\n", style="yellow")
 
     if sust.interpretation:
         content.append(f"\n{sust.interpretation}", style="dim")
 
-    return Panel(content, title="Sustainability", border_style=color)
+    return Panel(content, title=t("panel_sustainability"), border_style=color)
 
 
 def _render_registries(result: AnalysisResult) -> Panel | None:
@@ -286,29 +307,34 @@ def _render_registries(result: AnalysisResult) -> Panel | None:
 
             # Download stats
             if reg.downloads is not None:
-                content.append(f"  downloads: {reg.downloads:,}\n", style="dim")
+                content.append(f"  {t('tui_downloads', count=reg.downloads)}\n", style="dim")
             if reg.recent_downloads is not None:
-                content.append(f"  recent: {reg.recent_downloads:,}\n", style="dim")
+                content.append(f"  {t('tui_recent', count=reg.recent_downloads)}\n", style="dim")
 
             # License info
             if reg.registry_license:
-                content.append(f"  license: {reg.registry_license}\n", style="dim")
+                content.append(
+                    f"  {t('tui_registry_license', license=reg.registry_license)}\n",
+                    style="dim",
+                )
                 if reg.license_matches_github is not None:
-                    match_str = "matches" if reg.license_matches_github else "differs"
-                    content.append(f"  GitHub license: {match_str}\n", style="dim")
+                    key = "tui_gh_license_match" if reg.license_matches_github else "tui_gh_license_diff"
+                    content.append(f"  {t(key)}\n", style="dim")
 
             # Deprecated flag
             if reg.deprecated:
-                content.append("  ⚠ deprecated\n", style="yellow")
+                content.append(f"  {t('tui_deprecated')}\n", style="yellow")
 
             # Heuristic warning
             if reg.is_heuristic:
-                content.append("  (name inferred from repo)\n", style="dim")
+                content.append(f"  {t('tui_heuristic')}\n", style="dim")
         else:
             content.append(f"{reg.ecosystem}: ", style="bold")
-            content.append(f"✗ {reg.package_name} (not found)\n", style="dim")
+            content.append(
+                f"✗ {reg.package_name} {t('tui_not_found')}\n", style="dim"
+            )
 
-    return Panel(content, title="Package Registries", border_style="blue")
+    return Panel(content, title=t("panel_registries"), border_style="blue")
 
 
 def render_dashboard(result: AnalysisResult, console: Console | None = None) -> None:
@@ -323,15 +349,16 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
 
     # Header
     console.print()
-    console.print(f"[bold]GitHub Health Dashboard[/bold] - {result.url}", style="blue")
-    console.print(f"[dim]{result.meta.description or 'No description'}[/dim]")
+    console.print(f"[bold]{t('tui_header')}[/bold] - {result.url}", style="blue")
+    console.print(f"[dim]{result.meta.description or t('tui_no_description')}[/dim]")
     console.print()
 
     # Summary table
     summary = Table(show_header=False, box=None, padding=(0, 2))
-    summary.add_row(f"[dim]Stars:[/dim] {result.meta.stars:,}")
-    summary.add_row(f"[dim]Forks:[/dim] {result.meta.forks:,}")
-    summary.add_row(f"[dim]Created:[/dim] {result.meta.created_at.strftime('%Y-%m-%d') if result.meta.created_at else 'N/A'}")
+    summary.add_row(t("tui_stars", count=result.meta.stars))
+    summary.add_row(t("tui_forks", count=result.meta.forks))
+    created = result.meta.created_at.strftime("%Y-%m-%d") if result.meta.created_at else "N/A"
+    summary.add_row(t("tui_created", date=created))
     console.print(summary)
     console.print()
 

@@ -450,9 +450,10 @@ thresholds = { stale_days = 180, maintenance_commits_per_month = 2 }
 
 ### 12.1 Internationalization
 
-User-facing strings (recommendation messages, confidence label) are
-localized. The language is derived from the environment using standard
-locale precedence:
+All user-facing strings are localized: recommendation verdicts and
+reasoning, indicator interpretations, TUI dashboard labels, Markdown
+report headings and CLI console messages. The language is derived from
+the environment using standard locale precedence:
 
 1. `LC_ALL`
 2. `LC_MESSAGES`
@@ -464,9 +465,15 @@ Unset or unknown locales fall back to English.
 
 The lightweight translation layer (`gh_score.i18n`) is dependency-free:
 messages live in a plain catalog dict keyed by stable identifiers, with
-one entry per language. The catalog and the decision tree are documented
-in [`RULES.md`](RULES.md). Adding a language means adding a catalog dict
-plus a test.
+one entry per language. Key groups: `rec_*` (recommendation), `int_*`
+(analyzer interpretations), `state_*`/`status_*` (enum display labels),
+`tui_*`, `md_*` and `cli_*`. The catalog and the decision tree are
+documented in [`RULES.md`](RULES.md). Adding a language means adding a
+catalog dict plus a test.
+
+Technical strings (exception messages, click help, enum values in JSON)
+intentionally stay in English: they are machine-oriented and
+language-neutral.
 
 ## 13. Security and privacy
 

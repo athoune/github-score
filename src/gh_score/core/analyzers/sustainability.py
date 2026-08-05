@@ -12,6 +12,7 @@ from gh_score.core.models import (
     Status,
     SustainabilityIndicator,
 )
+from gh_score.i18n import t
 
 
 # Known foundations and organizations
@@ -141,8 +142,16 @@ def _detect_governance_model(repo: Repository) -> str | None:
     return None
 
 
-def analyze_sustainability(repo: Repository) -> SustainabilityIndicator:
+def analyze_sustainability(
+    repo: Repository,
+    lang: str | None = None,
+) -> SustainabilityIndicator:
     """Analyze sustainability signals from repository data.
+
+    Args:
+        repo: Repository with raw community data.
+        lang: Language for the interpretation; defaults to the
+            env-derived language.
 
     Returns a SustainabilityIndicator with:
     - Funding presence and platforms
@@ -172,7 +181,7 @@ def analyze_sustainability(repo: Repository) -> SustainabilityIndicator:
     )
 
     indicator.status = _compute_status(indicator)
-    indicator.interpretation = _build_interpretation(indicator)
+    indicator.interpretation = _build_interpretation(indicator, lang)
 
     return indicator
 
@@ -197,23 +206,28 @@ def _compute_status(ind: SustainabilityIndicator) -> Status:
     return Status.WARNING  # Not critical, just a risk factor
 
 
-def _build_interpretation(ind: SustainabilityIndicator) -> str:
+def _build_interpretation(
+    ind: SustainabilityIndicator,
+    lang: str | None = None,
+) -> str:
     """Build human-readable interpretation."""
     parts = []
 
     if ind.foundation:
-        parts.append(f"foundation: {ind.foundation}")
+        parts.append(t("int_foundation", lang=lang, name=ind.foundation))
 
     if ind.funding_platforms:
-        parts.append(f"funding: {', '.join(ind.funding_platforms)}")
+        parts.append(
+            t("int_funding", lang=lang, platforms=", ".join(ind.funding_platforms))
+        )
 
     if ind.corporate_backing:
-        parts.append(f"corporate: {ind.corporate_backing}")
+        parts.append(t("int_corporate", lang=lang, company=ind.corporate_backing))
 
     if ind.governance_model:
-        parts.append(f"governance: {ind.governance_model}")
+        parts.append(t("int_governance", lang=lang, model=ind.governance_model))
 
     if not parts:
-        parts.append("no backing detected")
+        parts.append(t("int_no_backing", lang=lang))
 
     return ", ".join(parts)

@@ -15,6 +15,7 @@ from gh_score.core.models import (
     Repository,
     Status,
 )
+from gh_score.i18n import t
 
 
 # Known bot patterns
@@ -181,8 +182,16 @@ def _compute_bot_ratio(contributors: list[Contributor]) -> float:
     return bot_commits / total_commits
 
 
-def analyze_contributors(repo: Repository) -> ContributorsIndicator:
+def analyze_contributors(
+    repo: Repository,
+    lang: str | None = None,
+) -> ContributorsIndicator:
     """Analyze contributor patterns from repository data.
+
+    Args:
+        repo: Repository with raw contributor data.
+        lang: Language for the interpretation; defaults to the
+            env-derived language.
 
     Returns a ContributorsIndicator with:
     - Total authors (excluding bots)
@@ -225,7 +234,7 @@ def analyze_contributors(repo: Repository) -> ContributorsIndicator:
     )
 
     indicator.status = _compute_status(indicator)
-    indicator.interpretation = _build_interpretation(indicator)
+    indicator.interpretation = _build_interpretation(indicator, lang)
 
     return indicator
 
@@ -251,33 +260,38 @@ def _compute_status(ind: ContributorsIndicator) -> Status:
     return Status.HEALTHY
 
 
-def _build_interpretation(ind: ContributorsIndicator) -> str:
+def _build_interpretation(
+    ind: ContributorsIndicator,
+    lang: str | None = None,
+) -> str:
     """Build human-readable interpretation."""
     parts = []
 
-    parts.append(f"{ind.total_authors} authors")
-    parts.append(f"bus factor: {ind.bus_factor}")
+    parts.append(t("int_authors", lang=lang, count=ind.total_authors))
+    parts.append(t("int_bus_factor", lang=lang, count=ind.bus_factor))
 
     if ind.bot_ratio > 0:
-        parts.append(f"bots: {ind.bot_ratio:.0%}")
+        parts.append(t("int_bots", lang=lang, ratio=ind.bot_ratio))
 
     if ind.lead:
-        parts.append(f"lead: {ind.lead.login}")
+        parts.append(t("int_lead", lang=lang, login=ind.lead.login))
 
     if ind.historical_lead:
-        parts.append(f"historical: {ind.historical_lead.login}")
+        parts.append(
+            t("int_historical_lead", lang=lang, login=ind.historical_lead.login)
+        )
 
     if ind.minor_count > 0:
-        parts.append(f"{ind.minor_count} minor")
+        parts.append(t("int_minor", lang=lang, count=ind.minor_count))
 
     # Activity summary
     commits_3m = ind.activity_trend.get("3m", 0)
     commits_12m = ind.activity_trend.get("12m", 0)
     if commits_3m > 0:
-        parts.append(f"{commits_3m} commits (3m)")
+        parts.append(t("int_commits_3m", lang=lang, count=commits_3m))
     elif commits_12m > 0:
-        parts.append(f"{commits_12m} commits (12m)")
+        parts.append(t("int_commits_12m", lang=lang, count=commits_12m))
     else:
-        parts.append("no recent activity")
+        parts.append(t("int_no_activity", lang=lang))
 
     return ", ".join(parts)

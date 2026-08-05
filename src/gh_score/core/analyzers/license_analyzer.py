@@ -11,10 +11,16 @@ from gh_score.core.models import (
     Repository,
     Status,
 )
+from gh_score.i18n import t
 
 
-def analyze_license(repo: Repository) -> LicenseIndicator:
+def analyze_license(repo: Repository, lang: str | None = None) -> LicenseIndicator:
     """Analyze license from repository data.
+
+    Args:
+        repo: Repository with raw license data.
+        lang: Language for the interpretation; defaults to the
+            env-derived language.
 
     Returns a LicenseIndicator with:
     - SPDX ID
@@ -30,7 +36,7 @@ def analyze_license(repo: Repository) -> LicenseIndicator:
     )
 
     indicator.status = _compute_status(indicator)
-    indicator.interpretation = _build_interpretation(indicator)
+    indicator.interpretation = _build_interpretation(indicator, lang)
 
     return indicator
 
@@ -60,7 +66,22 @@ def _compute_status(ind: LicenseIndicator) -> Status:
     return Status.WARNING
 
 
-def _build_interpretation(ind: LicenseIndicator) -> str:
+_FAMILY_KEYS = {
+    LicenseFamily.PERMISSIVE: "int_lic_family_permissive",
+    LicenseFamily.COPYLEFT: "int_lic_family_copyleft",
+    LicenseFamily.PUBLIC_DOMAIN: "int_lic_family_public_domain",
+    LicenseFamily.PROPRIETARY: "int_lic_family_proprietary",
+    LicenseFamily.OTHER: "int_lic_family_other",
+}
+
+
+def license_family_label(family: LicenseFamily, lang: str | None = None) -> str:
+    """Localized display label for a license family."""
+    key = _FAMILY_KEYS.get(family, "int_lic_family_unknown")
+    return t(key, lang=lang)
+
+
+def _build_interpretation(ind: LicenseIndicator, lang: str | None = None) -> str:
     """Build human-readable interpretation."""
     parts = []
 
@@ -68,18 +89,11 @@ def _build_interpretation(ind: LicenseIndicator) -> str:
         parts.append(ind.spdx_id)
 
         # Family description
-        family_desc = {
-            LicenseFamily.PERMISSIVE: "permissive",
-            LicenseFamily.COPYLEFT: "copyleft",
-            LicenseFamily.PUBLIC_DOMAIN: "public domain",
-            LicenseFamily.PROPRIETARY: "proprietary",
-            LicenseFamily.OTHER: "other",
-        }
-        parts.append(family_desc.get(ind.family, "unknown"))
+        parts.append(license_family_label(ind.family, lang))
 
         if ind.osi_approved:
-            parts.append("OSI-approved")
+            parts.append(t("int_lic_osi_approved", lang=lang))
     else:
-        parts.append("No license detected")
+        parts.append(t("int_lic_none", lang=lang))
 
     return " (" + ", ".join(parts) + ")" if len(parts) > 1 else parts[0]

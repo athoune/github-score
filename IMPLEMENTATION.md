@@ -73,7 +73,11 @@ gh-score report [URL]        # Generate detailed report
 - Language from environment with standard precedence: `LC_ALL` > `LC_MESSAGES` > `LANG`
 - Locale strings normalized (`fr_FR.UTF-8` / `fr-FR` → `fr`); unknown/unset fall back to English
 - Supported languages: French (`fr`) and English (`en`)
-- Covers recommendation messages, reasoning lines, facts and UI labels
+- Covers every user-facing string: recommendation verdicts, indicator
+  interpretations, TUI labels, Markdown report and CLI messages
+- Analyzers accept an optional `lang` parameter (defaults to the
+  environment); renderers and CLI resolve it through `gh_score.i18n.t()`
+- Technical strings (exceptions, click help, JSON enum values) stay in English
 
 ### 7. LLM Integration (Optional)
 - Ollama (default, local)
@@ -82,10 +86,10 @@ gh-score report [URL]        # Generate detailed report
 
 ## Testing
 
-**123 unit tests** covering:
+**136 unit tests** covering:
 - Core models (RepoUrl, ReleaseHealth, LanguageBreakdown)
 - All 7 analyzers (incl. the recommendation decision tree)
-- Internationalization (locale parsing, translations, fallbacks)
+- Internationalization (locale parsing, translations, fallbacks, localized interpretations)
 - Cache operations
 - Configuration loading
 

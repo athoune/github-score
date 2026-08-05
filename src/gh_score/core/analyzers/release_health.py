@@ -13,6 +13,7 @@ from gh_score.core.models import (
     Repository,
     Status,
 )
+from gh_score.i18n import t
 
 
 # Semver pattern: MAJOR.MINOR.PATCH with optional pre-release
@@ -26,8 +27,16 @@ def _is_semver(tag: str) -> bool:
     return bool(_SEMVER_RE.match(tag))
 
 
-def analyze_release_health(repo: Repository) -> ReleaseHealthIndicator:
+def analyze_release_health(
+    repo: Repository,
+    lang: str | None = None,
+) -> ReleaseHealthIndicator:
     """Analyze release health from repository data.
+
+    Args:
+        repo: Repository with raw release data.
+        lang: Language for the interpretation; defaults to the
+            env-derived language.
 
     Returns a ReleaseHealthIndicator with:
     - Latest version and date
@@ -42,13 +51,13 @@ def analyze_release_health(repo: Repository) -> ReleaseHealthIndicator:
 
     if not rh.releases:
         indicator.status = Status.CRITICAL
-        indicator.interpretation = "No releases found"
+        indicator.interpretation = t("int_no_release_data", lang=lang)
         return indicator
 
     latest = rh.latest
     if not latest:
         indicator.status = Status.CRITICAL
-        indicator.interpretation = "No non-draft releases found"
+        indicator.interpretation = t("int_no_release_data", lang=lang)
         return indicator
 
     indicator.latest_version = latest.tag_name
@@ -81,7 +90,7 @@ def analyze_release_health(repo: Repository) -> ReleaseHealthIndicator:
 
     # Determine status
     indicator.status = _compute_status(indicator)
-    indicator.interpretation = _build_interpretation(indicator)
+    indicator.interpretation = _build_interpretation(indicator, lang)
 
     return indicator
 
@@ -110,37 +119,40 @@ def _compute_status(ind: ReleaseHealthIndicator) -> Status:
     return Status.HEALTHY
 
 
-def _build_interpretation(ind: ReleaseHealthIndicator) -> str:
+def _build_interpretation(ind: ReleaseHealthIndicator, lang: str | None = None) -> str:
     """Build a human-readable interpretation."""
     parts = []
 
     if ind.latest_version:
-        parts.append(f"Latest: {ind.latest_version}")
+        parts.append(t("int_release_latest", lang=lang, version=ind.latest_version))
         if ind.age_days is not None:
             if ind.age_days == 0:
-                parts.append("released today")
+                parts.append(t("int_released_today", lang=lang))
             elif ind.age_days == 1:
-                parts.append("released yesterday")
+                parts.append(t("int_released_yesterday", lang=lang))
             else:
-                parts.append(f"released {ind.age_days} days ago")
+                parts.append(
+                    t("int_released_days_ago", lang=lang, days=ind.age_days)
+                )
 
     if ind.cadence_days is not None:
         if ind.cadence_days < 7:
-            parts.append(f"cadence: ~{ind.cadence_days:.0f}d/release (very active)")
+            key = "int_cadence_very_active"
         elif ind.cadence_days < 30:
-            parts.append(f"cadence: ~{ind.cadence_days:.0f}d/release (active)")
+            key = "int_cadence_active"
         elif ind.cadence_days < 90:
-            parts.append(f"cadence: ~{ind.cadence_days:.0f}d/release (moderate)")
+            key = "int_cadence_moderate"
         else:
-            parts.append(f"cadence: ~{ind.cadence_days:.0f}d/release (slow)")
+            key = "int_cadence_slow"
+        parts.append(t(key, lang=lang, days=ind.cadence_days))
 
     if ind.semver_compliant is not None:
         if ind.semver_compliant:
-            parts.append("semver: yes")
+            parts.append(t("int_semver_yes", lang=lang))
         else:
-            parts.append("semver: no")
+            parts.append(t("int_semver_no", lang=lang))
 
     if ind.is_prerelease:
-        parts.append("pre-release")
+        parts.append(t("int_prerelease", lang=lang))
 
-    return ", ".join(parts) if parts else "No release data"
+    return ", ".join(parts) if parts else t("int_no_release_data", lang=lang)

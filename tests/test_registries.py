@@ -89,9 +89,9 @@ class TestFetchRegistryInfo:
     be skipped entirely."""
 
     @pytest.mark.asyncio
-    async def test_no_ecosystem_returns_empty(self):
+    async def test_no_ecosystem_returns_empty(self, tmp_path):
         repo = _make_repo()
-        cache = Cache("/tmp/gh-score-test-cache")
+        cache = Cache(str(tmp_path))
         result = await fetch_registry_info(repo, local_path=None, cache=cache)
         assert result == []
 
@@ -100,7 +100,7 @@ class TestFetchRegistryInfo:
         """When package.json exists with a valid name, query the registry."""
         (tmp_path / "package.json").write_text(json.dumps({"name": "left-pad"}))
         repo = _make_repo(owner="jake", repo="left-pad")
-        cache = Cache("/tmp/gh-score-test-cache")
+        cache = Cache(str(tmp_path))
 
         # Mock the HTTP call to npm
         mock_response = MagicMock()
@@ -134,7 +134,7 @@ class TestFetchRegistryInfo:
         the package name from config must be used — NOT the repo name."""
         (tmp_path / "package.json").write_text(json.dumps({"name": "completely-different-name"}))
         repo = _make_repo(owner="acme", repo="widgets")
-        cache = Cache("/tmp/gh-score-test-cache")
+        cache = Cache(str(tmp_path))
 
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -162,7 +162,7 @@ class TestFetchRegistryInfo:
         ecosystem, the ecosystem must be skipped — no name inference from
         the repo name."""
         repo = _make_repo(owner="acme", repo="widgets")
-        cache = Cache("/tmp/gh-score-test-cache")
+        cache = Cache(str(tmp_path))
 
         result = await fetch_registry_info(
             repo, local_path=str(tmp_path), cache=cache
@@ -176,7 +176,7 @@ class TestFetchRegistryInfo:
         must NOT fall back to inferring the name from the repo name."""
         (tmp_path / "package.json").write_text("{}")
         repo = _make_repo(owner="acme", repo="widgets")
-        cache = Cache("/tmp/gh-score-test-cache")
+        cache = Cache(str(tmp_path))
 
         mock_response = MagicMock()
         mock_response.status_code = 404

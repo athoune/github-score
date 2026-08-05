@@ -9,6 +9,7 @@ from gh_score.core.analyzers.contributors import analyze_contributors
 from gh_score.core.analyzers.maintenance import analyze_maintenance
 from gh_score.core.analyzers.languages import analyze_languages
 from gh_score.core.analyzers.sustainability import analyze_sustainability
+from gh_score.core.analyzers.recommendation import analyze_recommendation
 
 __all__ = [
     "analyze_release_health",
@@ -17,4 +18,5 @@ __all__ = [
     "analyze_maintenance",
     "analyze_languages",
     "analyze_sustainability",
+    "analyze_recommendation",
 ]

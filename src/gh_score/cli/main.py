@@ -14,7 +14,8 @@ from rich.table import Table
 from gh_score.config import Config
 from gh_score.core.api import analyze_repo
 from gh_score.core.cache import Cache
-from gh_score.core.models import AnalysisResult, RepoUrl
+from gh_score.core.models import AnalysisResult, RecommendationLevel, RepoUrl
+from gh_score.i18n import t
 from gh_score.cli.tui import render_dashboard
 
 
@@ -88,6 +89,25 @@ def _render_json(result: AnalysisResult, console: Console) -> None:
     console.print_json(json.dumps(asdict(result), default=str))
 
 
+_MD_GLYPHS = {
+    RecommendationLevel.GREEN: "🟢",
+    RecommendationLevel.ORANGE: "🟠",
+    RecommendationLevel.RED: "🔴",
+}
+
+
+def _md_recommendation(result: AnalysisResult, console: Console) -> None:
+    """Render the traffic-light recommendation as Markdown."""
+    rec = result.recommendation
+    glyph = _MD_GLYPHS.get(rec.level, "❓")
+    console.print("## Recommendation\n")
+    console.print(f"{glyph} **{rec.message}**\n")
+    for reason in rec.reasoning:
+        console.print(f"- {reason}")
+    if rec.confidence > 0:
+        console.print(f"\n**{t('md_confidence', conf=rec.confidence)}**\n")
+
+
 def _render_markdown(result: AnalysisResult, console: Console) -> None:
     """Render results as Markdown."""
     console.print(f"# GitHub Health Report: {result.url}\n")
@@ -97,6 +117,7 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
 
     console.print(f"**Stars:** {result.meta.stars:,} | **Forks:** {result.meta.forks:,}\n")
 
+    _md_recommendation(result, console)
     _md_release_health(result, console)
     _md_license(result, console)
     _md_contributors(result, console)

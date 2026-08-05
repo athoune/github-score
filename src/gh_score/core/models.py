@@ -368,6 +368,22 @@ class SustainabilityIndicator:
     interpretation: str = ""
 
 
+class RecommendationLevel(Enum):
+    """Traffic-light verdict for the whole repository."""
+    GREEN = "green"    # active project, safe to bet on
+    ORANGE = "orange"  # potential but not stable, or widely used despite low maintenance
+    RED = "red"        # risky: lack of maintenance
+
+
+@dataclass
+class Recommendation:
+    """Synthesized recommendation crossing all indicator families."""
+    level: RecommendationLevel = RecommendationLevel.ORANGE
+    message: str = ""  # e.g. "Projet actif avec une grande communauté"
+    confidence: float = 0.0  # 0.0 to 1.0, based on data completeness
+    reasoning: list[str] = field(default_factory=list)  # human-readable reasons
+
+
 # ---------------------------------------------------------------------------
 # Analysis result: the full dashboard data
 # ---------------------------------------------------------------------------
@@ -384,3 +400,4 @@ class AnalysisResult:
     languages: LanguagesIndicator
     sustainability: SustainabilityIndicator
     registries: list[RegistryInfo] = field(default_factory=list)
+    recommendation: Recommendation = field(default_factory=Recommendation)

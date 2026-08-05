@@ -13,8 +13,18 @@ from rich.text import Text
 from gh_score.core.models import (
     AnalysisResult,
     MaintenanceState,
+    RecommendationLevel,
     Status,
 )
+from gh_score.i18n import t
+
+
+# Traffic-light glyphs and colors for the recommendation verdict.
+_TRAFFIC_LIGHT = {
+    RecommendationLevel.GREEN: ("🟢", "green"),
+    RecommendationLevel.ORANGE: ("🟠", "yellow"),
+    RecommendationLevel.RED: ("🔴", "red"),
+}
 
 
 def _status_glyph(status: Status) -> tuple[str, str]:
@@ -26,6 +36,26 @@ def _status_glyph(status: Status) -> tuple[str, str]:
     if status == Status.CRITICAL:
         return "✗", "red"
     return "?", "dim"
+
+
+def _render_recommendation(result: AnalysisResult) -> Panel:
+    """Render the traffic-light recommendation panel."""
+    rec = result.recommendation
+    glyph, color = _TRAFFIC_LIGHT.get(rec.level, ("❓", "dim"))
+
+    content = Text()
+    content.append(f"{glyph} ", style=color)
+    content.append(rec.message, style=color)
+
+    if rec.reasoning:
+        content.append("\n")
+        for reason in rec.reasoning:
+            content.append(f"  • {reason}\n", style="dim")
+
+    if rec.confidence > 0:
+        content.append(f"\n{t('ui_confidence', conf=rec.confidence)}", style="dim")
+
+    return Panel(content, title="Recommendation", border_style=color)
 
 
 def _render_release_health(result: AnalysisResult) -> Panel:
@@ -303,6 +333,10 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
     summary.add_row(f"[dim]Forks:[/dim] {result.meta.forks:,}")
     summary.add_row(f"[dim]Created:[/dim] {result.meta.created_at.strftime('%Y-%m-%d') if result.meta.created_at else 'N/A'}")
     console.print(summary)
+    console.print()
+
+    # Traffic-light recommendation, front and center
+    console.print(_render_recommendation(result))
     console.print()
 
     # Main panels (2x2 grid)

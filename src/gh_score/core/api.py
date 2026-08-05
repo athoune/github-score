@@ -14,6 +14,7 @@ from gh_score.core.analyzers import (
     analyze_languages,
     analyze_license,
     analyze_maintenance,
+    analyze_recommendation,
     analyze_release_health,
     analyze_sustainability,
 )
@@ -101,6 +102,9 @@ async def analyze_repo_async(
         sustainability=analyze_sustainability(repo),
         registries=repo.registries,
     )
+
+    # Cross-cutting recommendation (needs the full result)
+    result.recommendation = analyze_recommendation(result)
 
     return result
 

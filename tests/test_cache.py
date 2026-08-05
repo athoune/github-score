@@ -17,15 +17,18 @@ class TestCache:
             cache = Cache(tmpdir)
             assert cache.get("nonexistent") is None
 
-    def test_ttl_expiration(self):
+    def test_ttl_expiration(self, monkeypatch):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = Cache(tmpdir, default_ttl_seconds=1)
-            cache.set("test_key", b"test_data", ttl_seconds=1)
+            # Deterministic clock: no real sleeping in the test.
+            clock = {"now": 1000.0}
+            monkeypatch.setattr("gh_score.core.cache.time.time", lambda: clock["now"])
+
+            cache.set("test_key", b"test_data", ttl_seconds=10)
             assert cache.get("test_key") == b"test_data"
 
-            # Wait for expiration
-            import time
-            time.sleep(1.5)
+            # Advance the clock past the TTL
+            clock["now"] += 11
             assert cache.get("test_key") is None
 
     def test_invalidate(self):

@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from gh_score.core.fetchers.github import GitHubFetcher, _BOT_LOGINS
-from gh_score.core.analyzers.contributors import _is_bot, analyze_contributors
+from gh_score.core.analyzers.contributors import _BOT_PATTERNS, _is_bot, analyze_contributors
 from gh_score.core.models import Commit, Contributor, ContributorStats, RepoUrl, Repository
 
 
@@ -46,8 +46,16 @@ class TestBotDetection:
     """Known bots must be detected; normal users must not."""
 
     def test_lando_is_bot(self):
-        """Lando (Mozilla merge bot) must be detected."""
-        assert _is_bot("lando") or "lando" in _BOT_LOGINS
+        """Lando (Mozilla merge bot) must be detected by both bot lists."""
+        assert _is_bot("lando"), "analyzer bot patterns must detect lando"
+        assert "lando" in _BOT_LOGINS, "fetcher bot logins must list lando"
+
+    def test_bot_lists_are_in_sync(self):
+        """The fetcher (_BOT_LOGINS) and analyzer (_BOT_PATTERNS) bot lists
+        must cover the same bots once the "[bot]" suffix is normalized, so
+        one list cannot drift from the other."""
+        normalized_logins = {login.removesuffix("[bot]") for login in _BOT_LOGINS}
+        assert normalized_logins == _BOT_PATTERNS
 
     def test_dependabot_is_bot(self):
         assert _is_bot("dependabot[bot]")

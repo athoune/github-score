@@ -7,11 +7,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from gh_score.core.fetchers.github import GitHubFetcher, _BOT_LOGINS
+from gh_score.core.fetchers.github import _BOT_LOGINS
 from gh_score.core.analyzers.contributors import _BOT_PATTERNS, _is_bot, analyze_contributors
 from gh_score.core.models import Commit, Contributor, ContributorStats, RepoUrl, Repository
 

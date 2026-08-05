@@ -1,8 +1,6 @@
 """Tests for cache module."""
 
-import pytest
 import tempfile
-from pathlib import Path
 
 from gh_score.core.cache import Cache
 

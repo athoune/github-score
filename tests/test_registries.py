@@ -10,12 +10,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from gh_score.core.cache import Cache
 from gh_score.core.fetchers.registries import (
     _detect_ecosystems,
-    _extract_package_name,
     _extract_npm_package_name,
     _extract_python_package_name,
     fetch_registry_info,
 )
-from gh_score.core.models import RepoUrl, Repository, RegistryInfo
+from gh_score.core.models import RepoUrl, Repository
 
 
 # ---------------------------------------------------------------------------

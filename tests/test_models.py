@@ -7,11 +7,7 @@ from gh_score.core.models import (
     RepoUrl,
     Release,
     ReleaseHealth,
-    Contributor,
-    ContributorStats,
     LanguageBreakdown,
-    Status,
-    LicenseFamily,
 )
 
 

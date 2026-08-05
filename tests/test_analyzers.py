@@ -1,6 +1,5 @@
 """Tests for analyzers."""
 
-import pytest
 from datetime import datetime, timedelta, timezone
 
 from gh_score.core.models import (
@@ -13,10 +12,8 @@ from gh_score.core.models import (
     Contributor,
     ContributorStats,
     Commit,
-    Issue,
     LanguageBreakdown,
     CommunityFiles,
-    RepositoryMeta,
     Status,
     MaintenanceState,
 )

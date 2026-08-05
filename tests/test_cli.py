@@ -160,9 +160,24 @@ class TestDefaultGroupForwardsArgs:
             url_arg = mock_analyze.call_args[0][0]
             assert url_arg is not None
 
-    def test_config_command_not_mistaken_for_url(self):
-        """``gh-score config`` must run the config command, NOT treat
-        'config' as a URL for the analyze command."""
+    @pytest.mark.parametrize(
+        ("lang", "expected_title"),
+        [
+            ("en_US.UTF-8", "Current Configuration"),
+            ("fr_FR.UTF-8", "Configuration actuelle"),
+        ],
+    )
+    def test_config_command_not_mistaken_for_url(self, monkeypatch, lang, expected_title):
+        """``gh-score config`` must run the config command (localized output),
+        NOT treat 'config' as a URL for the analyze command.
+
+        Both supported languages are exercised, with the locale pinned so the
+        test is independent of the machine's $LANG.
+        """
+        monkeypatch.setenv("LANG", lang)
+        monkeypatch.delenv("LC_ALL", raising=False)
+        monkeypatch.delenv("LC_MESSAGES", raising=False)
+
         runner = CliRunner()
         with (
             patch("gh_score.cli.main.analyze_repo") as mock_analyze,
@@ -181,4 +196,4 @@ class TestDefaultGroupForwardsArgs:
         assert not mock_analyze.called, (
             "analyze_repo should NOT be called for 'gh-score config'"
         )
-        assert "Current Configuration" in result.output
+        assert expected_title in result.output

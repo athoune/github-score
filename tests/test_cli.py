@@ -155,10 +155,10 @@ class TestDefaultGroupForwardsArgs:
             mock_cwd.return_value = MagicMock(**{"__str__": lambda s: "/some/path"})
             runner.invoke(cli, [])
 
-        # When no URL, the resolved path (CWD) should be used
-        if mock_analyze.called:
-            url_arg = mock_analyze.call_args[0][0]
-            assert url_arg is not None
+        # Without a URL, the CWD must be analyzed
+        assert mock_analyze.called, "analyze_repo should analyze the CWD"
+        url_arg = mock_analyze.call_args[0][0]
+        assert url_arg == "/some/path"
 
     @pytest.mark.parametrize(
         ("lang", "expected_title"),

@@ -49,3 +49,5 @@ coverage.xml
 
 # Session files
 session-ses_*.md
+
+.env

@@ -44,6 +44,7 @@ from gh_score.core.models import (
     Status,
     SustainabilityIndicator,
 )
+from gh_score.i18n import t
 
 
 @pytest.fixture
@@ -292,21 +293,18 @@ class TestRenderDashboard:
         assert "Active project" in output
         assert output.index("Active project") < output.index("Release Health")
 
-    @pytest.mark.parametrize(
-        ("lang", "header"),
-        [
-            ("en_US.UTF-8", "GitHub Health Dashboard"),
-            ("fr_FR.UTF-8", "Tableau de bord de santé GitHub"),
-        ],
-    )
-    def test_localized_dashboard(self, result, monkeypatch, lang, header):
+    @pytest.mark.parametrize("lang", ["en_US.UTF-8", "fr_FR.UTF-8"])
+    def test_localized_dashboard(self, result, monkeypatch, lang):
         monkeypatch.setenv("LANG", lang)
         monkeypatch.delenv("LC_ALL", raising=False)
         monkeypatch.delenv("LC_MESSAGES", raising=False)
         buf = io.StringIO()
         console = Console(file=buf, width=100, force_terminal=False)
         render_dashboard(result, console)
-        assert header in buf.getvalue()
+        # The header must come from the catalog for the pinned language
+        # (compare with t() so wording tweaks don't break the test).
+        expected_header = t("tui_header", lang=lang.split("_")[0])
+        assert expected_header in buf.getvalue()
 
 
 class _locale:

@@ -155,9 +155,11 @@ class TestAnalyzerInterpretations:
             ),
         )
         ind = analyze_contributors(repo, lang="fr")
-        assert "1 auteurs" in ind.interpretation
-        assert "facteur de bus : 1" in ind.interpretation
-        assert "bots : 17%" in ind.interpretation
+        # The interpretation must be built from the catalog; compare with t()
+        # so wording tweaks (e.g. translation improvements) don't break tests.
+        assert t("int_authors", lang="fr", count=1) in ind.interpretation
+        assert t("int_bus_factor", lang="fr", count=1) in ind.interpretation
+        assert t("int_bots", lang="fr", ratio=20 / 120) in ind.interpretation
 
     def test_contributors_interpretation_en(self):
         repo = Repository(
@@ -168,8 +170,8 @@ class TestAnalyzerInterpretations:
             ),
         )
         ind = analyze_contributors(repo, lang="en")
-        assert "1 authors" in ind.interpretation
-        assert "bus factor: 1" in ind.interpretation
+        assert t("int_authors", lang="en", count=1) in ind.interpretation
+        assert t("int_bus_factor", lang="en", count=1) in ind.interpretation
 
     def test_maintenance_interpretation_fr(self):
         now = datetime.now(timezone.utc)

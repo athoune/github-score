@@ -29,7 +29,7 @@ Remaining actions after the test-hardening session
 
 ## Product / housekeeping
 
-- [ ] Upgrade `gitpython` to `>=3.1.57` — fixes 3 open Dependabot
+- [x] Upgrade `gitpython` to `>=3.1.57` — fixes 3 open Dependabot
       alerts (1 high, 2 medium) on the default branch:
       - high   GHSA-3f7w-8rr8-f37f — unguarded git option forwarding
         (arbitrary file overwrite/read), patched in 3.1.57

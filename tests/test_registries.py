@@ -214,35 +214,18 @@ class TestFetchRegistryInfo:
 
     @pytest.mark.asyncio
     async def test_empty_package_json_no_inference(self, tmp_path):
-        """When package.json exists but has no "name" field, the ecosystem
-        is detected but the package name cannot be extracted.  The code
+        """When package.json exists but has no "name" field, no package name
+        can be extracted.  The ecosystem must be skipped entirely — the code
         must NOT fall back to inferring the name from the repo name."""
         (tmp_path / "package.json").write_text("{}")
         repo = _make_repo(owner="acme", repo="widgets")
         cache = Cache(str(tmp_path))
 
-        mock_response = MagicMock()
-        mock_response.status_code = 404
+        result = await fetch_registry_info(
+            repo, local_path=str(tmp_path), cache=cache
+        )
 
-        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_client:
-            instance = AsyncMock()
-            instance.get = AsyncMock(return_value=mock_response)
-            instance.__aenter__ = AsyncMock(return_value=instance)
-            instance.__aexit__ = AsyncMock(return_value=False)
-            mock_client.return_value = instance
-
-            result = await fetch_registry_info(
-                repo, local_path=str(tmp_path), cache=cache
-            )
-
-        # The ecosystem is detected (package.json exists) but we should NOT
-        # infer "widgets" from the repo name.  Currently the code DOES infer
-        # it — this test documents the bug.
-        if result:
-            # BUG: currently infers "widgets" from repo name
-            assert result[0].package_name != "widgets", (
-                "Package name must not be inferred from repo name"
-            )
+        assert result == []
 
 
 # ---------------------------------------------------------------------------

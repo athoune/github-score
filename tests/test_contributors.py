@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
-from gh_score.core.fetchers.github import _BOT_LOGINS
+from gh_score.config import Config
+from gh_score.core.cache import Cache
+from gh_score.core.fetchers.github import GitHubFetcher, _BOT_LOGINS
 from gh_score.core.analyzers.contributors import _BOT_PATTERNS, _is_bot, analyze_contributors
 from gh_score.core.models import Commit, Contributor, ContributorStats, RepoUrl, Repository
 
@@ -67,42 +70,57 @@ class TestBotDetection:
 
 
 # ---------------------------------------------------------------------------
-# Contributor parsing from API response
+# fetch_contributors with mocked API calls
 # ---------------------------------------------------------------------------
 
-class TestContributorParsing:
-    """Verify that contributor data is correctly parsed from the GitHub API
-    response — the raw REST response → Contributor model mapping."""
+class TestFetchContributors:
+    """fetch_contributors must parse the real REST response — bot flagging,
+    totals and email-domain enrichment included."""
 
-    def test_parse_contributors(self, contributors_response):
-        """Contributors are parsed from the paginated API response."""
-        contributors = []
-        total_commits = 0
-        for c in contributors_response:
-            login = c.get("login", "")
-            commits = c.get("contributions", 0)
-            total_commits += commits
-            is_bot = login.lower() in _BOT_LOGINS or login.endswith("[bot]")
-            contributors.append(Contributor(
-                login=login,
-                avatar_url=c.get("avatar_url"),
-                commits=commits,
-                is_bot=is_bot,
-            ))
+    def _make_fetcher(self, tmp_path) -> GitHubFetcher:
+        config = Config()
+        config.github.token = "test-token"  # avoids the stderr warning
+        config.cache.ttl_hours = 24
+        return GitHubFetcher(config, Cache(str(tmp_path)))
 
-        assert len(contributors) > 0
-        assert total_commits > 0
-        # First contributor should have the most commits
-        assert contributors[0].commits >= contributors[1].commits
+    @pytest.mark.asyncio
+    async def test_parses_fixture(self, tmp_path, contributors_response, commits_response):
+        fetcher = self._make_fetcher(tmp_path)
+        fetcher._get_all_pages = AsyncMock(return_value=contributors_response)
 
-    def test_bot_flagging(self, contributors_response):
-        """Bot accounts should be flagged in parsed contributors."""
-        for c in contributors_response:
-            login = c.get("login", "")
-            is_bot = login.lower() in _BOT_LOGINS or login.endswith("[bot]")
-            if is_bot:
-                # Verify the bot is recognized
-                assert login.lower() in _BOT_LOGINS or login.endswith("[bot]")
+        commits = [
+            Commit(
+                sha=c.get("sha", ""),
+                author_login=(c.get("author") or {}).get("login"),
+                author_email=c.get("commit", {}).get("author", {}).get("email"),
+            )
+            for c in commits_response
+        ]
+        fetcher.fetch_commits = AsyncMock(return_value=commits)
+
+        stats = await fetcher.fetch_contributors(RepoUrl(owner="owner", repo="repo"))
+
+        assert stats.total_commit_count == 460  # 250+120+45+30+15
+        assert len(stats.contributors) == 5
+        assert stats.contributors[0].login == "alice"  # API order preserved
+
+        by_login = {c.login: c for c in stats.contributors}
+        assert by_login["alice"].is_bot is False
+        assert by_login["dependabot[bot]"].is_bot is True
+        assert by_login["lando"].is_bot is True  # listed in _BOT_LOGINS
+        # Email enrichment: alice's email is resolved from the commits
+        assert by_login["alice"].email_domain == "example.com"
+
+    @pytest.mark.asyncio
+    async def test_empty_response(self, tmp_path):
+        fetcher = self._make_fetcher(tmp_path)
+        fetcher._get_all_pages = AsyncMock(return_value=[])
+        fetcher.fetch_commits = AsyncMock(return_value=[])
+
+        stats = await fetcher.fetch_contributors(RepoUrl(owner="owner", repo="repo"))
+
+        assert stats.contributors == []
+        assert stats.total_commit_count == 0
 
 
 # ---------------------------------------------------------------------------

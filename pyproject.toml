@@ -38,3 +38,8 @@ disable = ["MC0001"]
 [tool.pylint]
 # Ignore import errors for optional dependencies
 ignored-modules = ["git"]
+
+[tool.pytest.ini_options]
+markers = [
+    "llm: functional tests that call a real LLM (skipped unless GH_SCORE_LLM_ENABLED)",
+]

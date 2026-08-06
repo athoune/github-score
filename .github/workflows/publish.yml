@@ -13,6 +13,11 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    # GitHub Actions does not allow secrets inside `if:` conditions. The
+    # token is exposed as a job-level env var (empty when the secret does
+    # not exist) so the publish steps below can branch on it.
+    env:
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -33,14 +38,14 @@ jobs:
 
       # Publish via an API token when the PYPI_TOKEN secret exists…
       - name: Publish to PyPI (API token)
-        if: ${{ secrets.PYPI_TOKEN != '' }}
+        if: ${{ env.PYPI_TOKEN != '' }}
         env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+          UV_PUBLISH_TOKEN: ${{ env.PYPI_TOKEN }}
         run: uv publish
 
       # …otherwise rely on trusted publishing (OIDC). This requires the
       # "pypi" environment in the repo settings and the GitHub repository
       # configured as a trusted publisher in the PyPI project settings.
       - name: Publish to PyPI (trusted publishing)
-        if: ${{ secrets.PYPI_TOKEN == '' }}
+        if: ${{ env.PYPI_TOKEN == '' }}
         run: uv publish

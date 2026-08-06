@@ -34,6 +34,32 @@ class TestLLMRecommendation:
         assert rec.confidence == 0.7
 
 
+class TestAnalysisResultWarnings:
+    def test_defaults_to_empty(self):
+        from gh_score.core.models import (
+            AnalysisResult,
+            ContributorsIndicator,
+            LicenseIndicator,
+            MaintenanceIndicator,
+            ReleaseHealthIndicator,
+            RepoUrl,
+            RepositoryMeta,
+            SustainabilityIndicator,
+        )
+
+        result = AnalysisResult(
+            url=RepoUrl("owner", "repo"),
+            meta=RepositoryMeta(),
+            release_health=ReleaseHealthIndicator(),
+            license=LicenseIndicator(),
+            contributors=ContributorsIndicator(),
+            maintenance=MaintenanceIndicator(),
+            languages=None,  # type: ignore[arg-type]
+            sustainability=SustainabilityIndicator(),
+        )
+        assert result.warnings == []
+
+
 
 class TestQualitativeSignals:
     def test_empty_is_not_available(self):

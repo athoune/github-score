@@ -244,6 +244,21 @@ MESSAGES: dict[str, dict[str, str]] = {
         "ui_confidence": "confiance : {conf:.0%}",
 
         # ------------------------------------------------------------------
+        # Warnings
+        # ------------------------------------------------------------------
+        "warn_no_token": (
+            "Token GitHub non défini — requêtes anonymes limitées (60/h)"
+        ),
+        "warn_llm_unavailable": (
+            "LLM configuré mais injoignable ou réponse invalide — "
+            "signaux qualitatifs indisponibles"
+        ),
+        "warn_llm_no_api_key": (
+            "LLM distant configuré sans clé API (GH_SCORE_LLM_API_KEY)"
+        ),
+        "panel_warnings": "Avertissements",
+
+        # ------------------------------------------------------------------
         # Markdown report
         # ------------------------------------------------------------------
         "md_section_recommendation": "## Recommendation",
@@ -509,6 +524,19 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_security": "security: {text}",
         "tui_text_state": "declared state: {state}",
         "ui_confidence": "confidence: {conf:.0%}",
+
+        # ------------------------------------------------------------------
+        # Warnings
+        # ------------------------------------------------------------------
+        "warn_no_token": "No GitHub token set — anonymous requests limited (60/hour)",
+        "warn_llm_unavailable": (
+            "LLM configured but unreachable or invalid response — "
+            "qualitative signals unavailable"
+        ),
+        "warn_llm_no_api_key": (
+            "Remote LLM configured without an API key (GH_SCORE_LLM_API_KEY)"
+        ),
+        "panel_warnings": "Warnings",
 
         # ------------------------------------------------------------------
         # Markdown report

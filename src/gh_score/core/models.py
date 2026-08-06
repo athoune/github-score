@@ -473,3 +473,4 @@ class AnalysisResult:
     recommendation: Recommendation = field(default_factory=Recommendation)
     qualitative: QualitativeIndicator = field(default_factory=QualitativeIndicator)
     llm_recommendation: LLMRecommendation | None = None
+    warnings: list[str] = field(default_factory=list)  # human-readable, localized

@@ -9,6 +9,7 @@ from gh_score.core.models import (
     LicenseIndicator,
     MaintenanceIndicator,
     MaintenanceState,
+    QualitativeIndicator,
     Recommendation,
     RecommendationLevel,
     RegistryInfo,
@@ -42,6 +43,7 @@ def _make_result(
     registries: list[RegistryInfo] | None = None,
     created_at: datetime | None = None,
     last_commit_days_ago: int | None = None,
+    qualitative: QualitativeIndicator | None = None,
     maintenance_status: Status = Status.HEALTHY,
     contributors_status: Status = Status.HEALTHY,
     release_status: Status = Status.HEALTHY,
@@ -90,6 +92,7 @@ def _make_result(
         languages=None,  # type: ignore[arg-type]  # not read by recommendation
         sustainability=sustainability,
         registries=registries or [],
+        qualitative=qualitative or QualitativeIndicator(),
     )
 
 
@@ -348,3 +351,151 @@ class TestMetadata:
         rec = _recommend(result)
         assert any("1,234 étoiles" in r for r in rec.reasoning)
         assert any("7 auteurs" in r for r in rec.reasoning)
+
+
+class TestQualitativeSignals:
+    def test_text_abandonment_is_red_when_data_missing(self):
+        result = _make_result(
+            state=MaintenanceState.UNKNOWN,
+            stars=50,
+            qualitative=QualitativeIndicator(
+                text_maintenance_state="abandoned",
+                available=True,
+                status=Status.HEALTHY,
+            ),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.RED
+        assert "abandon" in rec.message
+
+    def test_text_abandonment_widely_used_is_orange(self):
+        result = _make_result(
+            state=MaintenanceState.UNKNOWN,
+            stars=20_000,
+            qualitative=QualitativeIndicator(
+                text_maintenance_state="abandoned",
+                available=True,
+                status=Status.HEALTHY,
+            ),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+
+    def test_text_abandonment_ignored_when_data_says_active(self):
+        # Commit data wins over text.
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            latest_version="v1.0.0",
+            qualitative=QualitativeIndicator(
+                text_maintenance_state="abandoned",
+                available=True,
+                status=Status.HEALTHY,
+            ),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+
+    def test_text_active_rescues_data_poor_project(self):
+        result = _make_result(
+            state=MaintenanceState.UNKNOWN,
+            stars=10,
+            qualitative=QualitativeIndicator(
+                text_maintenance_state="active",
+                roadmap="v2",
+                available=True,
+                status=Status.HEALTHY,
+            ),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+        assert rec.message == "Projet actif"
+
+    def test_text_active_without_roadmap_does_not_rescue(self):
+        result = _make_result(
+            state=MaintenanceState.UNKNOWN,
+            stars=10,
+            qualitative=QualitativeIndicator(
+                text_maintenance_state="active",
+                available=True,
+                status=Status.HEALTHY,
+            ),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "insuffisantes" in rec.message
+
+    def test_roadmap_and_commercial_upgrade_active_message(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+            qualitative=QualitativeIndicator(
+                roadmap="v2",
+                commercial_support="paid tiers",
+                available=True,
+                status=Status.HEALTHY,
+            ),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+        assert "grande communauté" in rec.message
+
+    def test_disabled_llm_has_no_effect(self):
+        # available=False → all qualitative branches are skipped.
+        result = _make_result(
+            state=MaintenanceState.UNKNOWN,
+            stars=10,
+            qualitative=QualitativeIndicator(
+                text_maintenance_state="abandoned",
+                roadmap="v2",
+                available=False,
+            ),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "insuffisantes" in rec.message
+
+    def test_reasoning_mentions_qualitative_facts(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+            qualitative=QualitativeIndicator(
+                roadmap="v2",
+                commercial_support="paid tiers",
+                security_policy="private advisory",
+                available=True,
+                status=Status.HEALTHY,
+            ),
+        )
+        rec = _recommend(result)
+        assert any("feuille de route" in r for r in rec.reasoning)
+        assert any("support commercial" in r for r in rec.reasoning)
+        assert any("politique de sécurité" in r for r in rec.reasoning)
+
+    def test_confidence_counts_qualitative_when_available(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+            qualitative=QualitativeIndicator(
+                roadmap="v2",
+                available=True,
+                status=Status.HEALTHY,
+            ),
+        )
+        rec = _recommend(result)
+        assert rec.confidence == 1.0  # 5/5 known
+
+    def test_confidence_unaffected_when_llm_disabled(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+        )
+        rec = _recommend(result)
+        assert rec.confidence == 1.0  # still 4/4 known

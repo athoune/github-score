@@ -109,7 +109,8 @@ def _is_ephemeral(result: AnalysisResult) -> bool:
 
 def _compute_confidence(result: AnalysisResult) -> float:
     """Confidence from data completeness: fraction of indicators with a
-    known status (not UNKNOWN)."""
+    known status (not UNKNOWN). The qualitative indicator only counts when
+    the LLM actually ran."""
     known = 0
     total = 0
     for indicator in (
@@ -120,6 +121,10 @@ def _compute_confidence(result: AnalysisResult) -> float:
     ):
         total += 1
         if indicator.status != Status.UNKNOWN:
+            known += 1
+    if result.qualitative.available:
+        total += 1
+        if result.qualitative.status != Status.UNKNOWN:
             known += 1
     if total == 0:
         return 0.0
@@ -145,6 +150,13 @@ def _build(
         reasoning.append(
             t("fact_owner", lang=lang, type=t(f"owner_type_{result.meta.owner_type}", lang=lang))
         )
+    if result.qualitative.available:
+        if result.qualitative.roadmap:
+            reasoning.append(t("fact_roadmap", lang=lang))
+        if result.qualitative.commercial_support:
+            reasoning.append(t("fact_commercial", lang=lang))
+        if result.qualitative.security_policy:
+            reasoning.append(t("fact_security", lang=lang))
     return Recommendation(
         level=level,
         message=message,
@@ -257,7 +269,11 @@ def analyze_recommendation(
                 lang,
                 t("reason_declining", lang=lang),
             )
-        if _has_large_community(result):
+        if _has_large_community(result) or (
+            result.qualitative.available
+            and result.qualitative.roadmap
+            and result.qualitative.commercial_support
+        ):
             return _build(
                 RecommendationLevel.GREEN,
                 t("rec_active_community", lang=lang),
@@ -293,6 +309,31 @@ def analyze_recommendation(
             t("reason_maintenance", lang=lang),
         )
 
+    # 5.5 LLM-reported discontinuation. Trusted only when commit data is
+    #     missing: explicit text ("no longer maintained") is a fact, but
+    #     actual commit activity wins over prose.
+    q = result.qualitative
+    if (
+        q.available
+        and maint.state == MaintenanceState.UNKNOWN
+        and q.text_maintenance_state == "abandoned"
+    ):
+        if _is_widely_used(result):
+            return _build(
+                RecommendationLevel.ORANGE,
+                t("rec_abandoned_popular", lang=lang),
+                result,
+                lang,
+                t("reason_text_discontinued", lang=lang),
+            )
+        return _build(
+            RecommendationLevel.RED,
+            t("rec_text_discontinued", lang=lang),
+            result,
+            lang,
+            t("reason_text_discontinued", lang=lang),
+        )
+
     # 6. Unknown maintenance state.
     if _is_widely_used(result):
         return _build(
@@ -301,6 +342,21 @@ def analyze_recommendation(
             result,
             lang,
             t("reason_unknown_widely_used", lang=lang),
+        )
+    if (
+        q.available
+        and q.text_maintenance_state == "active"
+        and (q.roadmap or q.commercial_support)
+    ):
+        # Commit data is missing, but the text declares active development
+        # with a direction (roadmap or commercial support).
+        return _build(
+            RecommendationLevel.GREEN,
+            t("rec_active", lang=lang),
+            result,
+            lang,
+            t("reason_active", lang=lang),
+            t("reason_text_active", lang=lang),
         )
     return _build(
         RecommendationLevel.ORANGE,

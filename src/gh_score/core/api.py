@@ -24,7 +24,10 @@ from gh_score.core.fetchers.github import GitHubFetcher
 from gh_score.core.fetchers.local_git import fetch_local_repo
 from gh_score.core.fetchers.registries import fetch_registry_info
 from gh_score.core.models import AnalysisResult, RepoUrl
-from gh_score.llm.provider import analyze_qualitative_with_llm
+from gh_score.llm.provider import (
+    analyze_qualitative_with_llm,
+    analyze_recommendation_with_llm,
+)
 
 
 async def analyze_repo_async(
@@ -104,6 +107,13 @@ async def analyze_repo_async(
 
     # Cross-cutting recommendation (needs the full result)
     result.recommendation = analyze_recommendation(result)
+
+    # Optional LLM refined recommendation (phase 2): complementary, never
+    # replaces the deterministic verdict above.
+    if config.llm.enabled:
+        result.llm_recommendation = await analyze_recommendation_with_llm(
+            result, config.llm
+        )
 
     return result
 

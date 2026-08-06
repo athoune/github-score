@@ -25,6 +25,7 @@ from gh_score.core.models import (
     LanguageBreakdown,
     LicenseFamily,
     LicenseInfo,
+    LLMRecommendation,
     MaintenanceState,
     QualitativeSignals,
     RecommendationLevel,
@@ -306,6 +307,58 @@ class TestLlmIntegration:
             result = await analyze_repo_async("https://github.com/owner/repo", config)
 
         assert result.qualitative.available is False
+
+    @pytest.mark.asyncio
+    async def test_refined_recommendation_attached_when_enabled(self, tmp_path):
+        config = _make_config(tmp_path)
+        config.llm.enabled = True
+        repo = _make_repo_data()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "gh_score.core.api.analyze_qualitative_with_llm",
+                new=AsyncMock(return_value=QualitativeSignals()),
+            ),
+            patch(
+                "gh_score.core.api.analyze_recommendation_with_llm",
+                new=AsyncMock(return_value=LLMRecommendation(
+                    level="green",
+                    message="Solid project",
+                    explanation="Active and well documented.",
+                    confidence=0.8,
+                )),
+            ) as mock_rec,
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        mock_rec.assert_awaited_once()
+        assert result.llm_recommendation is not None
+        assert result.llm_recommendation.level == "green"
+        # The deterministic verdict is still computed.
+        assert result.recommendation.level == RecommendationLevel.GREEN
+
+    @pytest.mark.asyncio
+    async def test_refined_recommendation_none_when_disabled(self, tmp_path):
+        config = _make_config(tmp_path)  # llm disabled
+        repo = _make_repo_data()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        assert result.llm_recommendation is None
 
 
 class TestSyncWrapper:

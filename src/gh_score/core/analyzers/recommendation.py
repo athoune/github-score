@@ -86,8 +86,15 @@ def _is_declining(result: AnalysisResult) -> bool:
 
 
 def _is_ephemeral(result: AnalysisResult) -> bool:
-    """Young, tiny, few authors: typical of an article/blog demo project."""
+    """Young, tiny, few authors: typical of an article/blog demo project.
+
+    Organization-owned repositories are excluded: an organization almost
+    never creates a repo merely to accompany an article, so the "weekend
+    demo" heuristic does not apply to them.
+    """
     meta = result.meta
+    if meta.owner_type == "organization":
+        return False
     if meta.created_at is None:
         return False
     age_days = (datetime.now(timezone.utc) - meta.created_at).days
@@ -133,6 +140,10 @@ def _build(
     if result.contributors.total_authors:
         reasoning.append(
             t("fact_authors", lang=lang, authors=result.contributors.total_authors)
+        )
+    if result.meta.owner_type:
+        reasoning.append(
+            t("fact_owner", lang=lang, type=t(f"owner_type_{result.meta.owner_type}", lang=lang))
         )
     return Recommendation(
         level=level,

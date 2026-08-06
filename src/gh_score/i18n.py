@@ -80,6 +80,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         # Objective facts appended to the reasoning
         "fact_stars": "{stars:,} étoiles",
         "fact_authors": "{authors} auteurs",
+        "fact_owner": "propriétaire : {type}",
 
         # ------------------------------------------------------------------
         # Release health interpretation
@@ -167,6 +168,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "state_maintenance": "maintenance",
         "state_abandoned": "abandonné",
         "state_unknown": "inconnu",
+        "owner_type_user": "utilisateur",
+        "owner_type_organization": "organisation",
 
         # ------------------------------------------------------------------
         # TUI dashboard
@@ -176,6 +179,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_stars": "Étoiles : {count:,}",
         "tui_forks": "Forks : {count:,}",
         "tui_created": "Créé : {date}",
+        "tui_owner": "Propriétaire : {type}",
         "panel_release_health": "Santé des releases",
         "panel_license": "Licence",
         "panel_contributors": "Contributeurs",
@@ -236,6 +240,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_sustainability": "## Durabilité",
         "md_header_stars": "**Étoiles :** {count:,}",
         "md_header_forks": "**Forks :** {count:,}",
+        "md_owner": "**Propriétaire :** {type}",
         "md_latest": "**Dernière version :** {version}",
         "md_age": "**Âge :** {days} jours",
         "md_cadence": "**Cadence :** {days:.0f} jours/release",
@@ -321,6 +326,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         # Objective facts appended to the reasoning
         "fact_stars": "{stars:,} stars",
         "fact_authors": "{authors} authors",
+        "fact_owner": "owner: {type}",
 
         # ------------------------------------------------------------------
         # Release health interpretation
@@ -408,6 +414,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "state_maintenance": "maintenance",
         "state_abandoned": "abandoned",
         "state_unknown": "unknown",
+        "owner_type_user": "user",
+        "owner_type_organization": "organization",
 
         # ------------------------------------------------------------------
         # TUI dashboard
@@ -417,6 +425,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_stars": "Stars: {count:,}",
         "tui_forks": "Forks: {count:,}",
         "tui_created": "Created: {date}",
+        "tui_owner": "Owner: {type}",
         "panel_release_health": "Release Health",
         "panel_license": "License",
         "panel_contributors": "Contributors",
@@ -477,6 +486,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_sustainability": "## Sustainability",
         "md_header_stars": "**Stars:** {count:,}",
         "md_header_forks": "**Forks:** {count:,}",
+        "md_owner": "**Owner:** {type}",
         "md_latest": "**Latest:** {version}",
         "md_age": "**Age:** {days} days",
         "md_cadence": "**Cadence:** {days:.0f} days/release",

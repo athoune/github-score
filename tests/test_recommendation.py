@@ -32,6 +32,7 @@ def _make_result(
     forks: int = 0,
     archived: bool = False,
     disabled: bool = False,
+    owner_type: str = "",
     total_authors: int = 0,
     bot_ratio: float = 0.0,
     activity_trend: dict | None = None,
@@ -57,6 +58,7 @@ def _make_result(
         forks=forks,
         archived=archived,
         disabled=disabled,
+        owner_type=owner_type,
         created_at=created_at,
     )
     maintenance = MaintenanceIndicator(
@@ -246,6 +248,32 @@ class TestEphemeral:
         )
         rec = _recommend(result)
         assert rec.message != "Projet éphémère accompagnant un article"
+
+    def test_young_org_owned_project_is_not_ephemeral(self):
+        """An organization-owned young project is not an article demo: it
+        must fall through to the active verdict instead."""
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            owner_type="organization",
+            stars=10,
+            total_authors=1,
+            latest_version="v1.0.0",
+            created_at=datetime.now(timezone.utc) - timedelta(days=20),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+        assert rec.message == "Projet actif"
+
+    def test_ephemeral_fact_reasoning_mentions_owner(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            owner_type="organization",
+            stars=200,
+            total_authors=2,
+            created_at=datetime.now(timezone.utc) - timedelta(days=300),
+        )
+        rec = _recommend(result)
+        assert any("propriétaire : organisation" in r for r in rec.reasoning)
 
 
 class TestHardFlags:

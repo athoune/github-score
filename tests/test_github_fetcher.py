@@ -144,7 +144,7 @@ class TestFetchMeta:
         fetcher._get = AsyncMock(return_value={
             "name": "repo",
             "full_name": "owner/repo",
-            "owner": {"login": "owner"},
+            "owner": {"login": "owner", "type": "Organization"},
             "description": "A repo",
             "created_at": "2024-01-15T10:30:00Z",
             "default_branch": "main",
@@ -166,7 +166,35 @@ class TestFetchMeta:
         assert meta.forks == 56
         assert meta.archived is True
         assert meta.topics == ["python", "cli"]
+        assert meta.owner_type == "organization"
         assert meta.created_at == datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)
+
+    @pytest.mark.asyncio
+    async def test_user_owner_type_normalized(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value={
+            "name": "repo",
+            "full_name": "owner/repo",
+            "owner": {"login": "owner", "type": "User"},
+        })
+
+        meta = await fetcher.fetch_meta(URL)
+
+        assert meta.owner == "owner"
+        assert meta.owner_type == "user"
+
+    @pytest.mark.asyncio
+    async def test_unknown_owner_type_is_empty(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value={
+            "name": "repo",
+            "full_name": "owner/repo",
+            "owner": {"login": "owner", "type": "SomethingElse"},
+        })
+
+        meta = await fetcher.fetch_meta(URL)
+
+        assert meta.owner_type == ""
 
     @pytest.mark.asyncio
     async def test_missing_data_returns_empty(self, tmp_path):

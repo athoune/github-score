@@ -163,10 +163,15 @@ class GitHubFetcher:
         if not data or not isinstance(data, dict):
             return RepositoryMeta()
 
+        owner = data.get("owner", {}) or {}
+        raw_type = owner.get("type", "")
+        owner_type = {"User": "user", "Organization": "organization"}.get(raw_type, "")
+
         return RepositoryMeta(
             name=data.get("name", ""),
             full_name=data.get("full_name", ""),
-            owner=data.get("owner", {}).get("login", ""),
+            owner=owner.get("login", ""),
+            owner_type=owner_type,
             description=data.get("description"),
             created_at=_parse_datetime(data.get("created_at")),
             updated_at=_parse_datetime(data.get("updated_at")),

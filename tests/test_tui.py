@@ -62,6 +62,8 @@ def result() -> AnalysisResult:
     return AnalysisResult(
         url=RepoUrl("owner", "repo"),
         meta=RepositoryMeta(
+            owner="owner",
+            owner_type="organization",
             stars=1234,
             forks=56,
             description="A demo",
@@ -275,6 +277,7 @@ class TestRenderDashboard:
         assert "GitHub Health Dashboard - https://github.com/owner/repo" in output
         assert "A demo" in output
         assert "Stars: 1,234" in output
+        assert "Owner: organization" in output
         for title in (
             "Recommendation",
             "Release Health",

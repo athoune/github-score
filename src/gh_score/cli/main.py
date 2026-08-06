@@ -118,8 +118,13 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
 
     console.print(
         f"{t('md_header_stars', count=result.meta.stars)} | "
-        f"{t('md_header_forks', count=result.meta.forks)}\n"
+        f"{t('md_header_forks', count=result.meta.forks)}"
     )
+    if result.meta.owner_type:
+        console.print(
+            t("md_owner", type=t(f"owner_type_{result.meta.owner_type}"))
+        )
+    console.print()
 
     _md_recommendation(result, console)
     _md_release_health(result, console)

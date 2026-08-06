@@ -189,6 +189,7 @@ class RepositoryMeta:
     name: str = ""
     full_name: str = ""
     owner: str = ""
+    owner_type: str = ""  # "user" | "organization" (GitHub API owner.type, normalized)
     description: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

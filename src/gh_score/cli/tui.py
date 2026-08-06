@@ -357,6 +357,10 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
     summary = Table(show_header=False, box=None, padding=(0, 2))
     summary.add_row(t("tui_stars", count=result.meta.stars))
     summary.add_row(t("tui_forks", count=result.meta.forks))
+    if result.meta.owner_type:
+        summary.add_row(
+            t("tui_owner", type=t(f"owner_type_{result.meta.owner_type}"))
+        )
     created = result.meta.created_at.strftime("%Y-%m-%d") if result.meta.created_at else "N/A"
     summary.add_row(t("tui_created", date=created))
     console.print(summary)

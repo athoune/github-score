@@ -438,6 +438,22 @@ class Recommendation:
     reasoning: list[str] = field(default_factory=list)  # human-readable reasons
 
 
+@dataclass
+class LLMRecommendation:
+    """Refined recommendation produced by the optional LLM.
+
+    Complementary to the deterministic Recommendation: the LLM weighs all
+    indicator families together and may nuance or disagree with the
+    traffic-light verdict. It never replaces it — both are displayed.
+    ``level`` is the raw LLM answer: "green", "orange" or "red" (empty
+    string when the LLM returned something invalid).
+    """
+    level: str = ""
+    message: str = ""
+    explanation: str = ""
+    confidence: float = 0.0  # LLM's self-assessed confidence (0.0 to 1.0)
+
+
 # ---------------------------------------------------------------------------
 # Analysis result: the full dashboard data
 # ---------------------------------------------------------------------------
@@ -456,3 +472,4 @@ class AnalysisResult:
     registries: list[RegistryInfo] = field(default_factory=list)
     recommendation: Recommendation = field(default_factory=Recommendation)
     qualitative: QualitativeIndicator = field(default_factory=QualitativeIndicator)
+    llm_recommendation: LLMRecommendation | None = None

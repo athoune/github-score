@@ -4,6 +4,7 @@ import pytest
 from datetime import datetime, timezone
 
 from gh_score.core.models import (
+    LLMRecommendation,
     QualitativeIndicator,
     QualitativeSignals,
     RepoUrl,
@@ -12,6 +13,26 @@ from gh_score.core.models import (
     LanguageBreakdown,
     Status,
 )
+
+
+class TestLLMRecommendation:
+    def test_defaults(self):
+        rec = LLMRecommendation()
+        assert rec.level == ""
+        assert rec.message == ""
+        assert rec.explanation == ""
+        assert rec.confidence == 0.0
+
+    def test_fields(self):
+        rec = LLMRecommendation(
+            level="orange",
+            message="Promising but young",
+            explanation="Active development but small community.",
+            confidence=0.7,
+        )
+        assert rec.level == "orange"
+        assert rec.confidence == 0.7
+
 
 
 class TestQualitativeSignals:

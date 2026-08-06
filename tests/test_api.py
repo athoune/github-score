@@ -26,6 +26,7 @@ from gh_score.core.models import (
     LicenseFamily,
     LicenseInfo,
     MaintenanceState,
+    QualitativeSignals,
     RecommendationLevel,
     Release,
     ReleaseHealth,
@@ -253,15 +254,20 @@ class TestLlmIntegration:
                 new=AsyncMock(return_value=[]),
             ),
             patch(
-                "gh_score.core.api.analyze_sustainability_with_llm",
-                new=AsyncMock(return_value={"sponsors": ["Acme"]}),
+                "gh_score.core.api.analyze_qualitative_with_llm",
+                new=AsyncMock(return_value=QualitativeSignals(
+                    roadmap="v2 planned",
+                    text_maintenance_state="active",
+                )),
             ) as mock_llm,
         ):
             _mock_fetcher(mock_fetcher_cls, repo)
             result = await analyze_repo_async("https://github.com/owner/repo", config)
 
         mock_llm.assert_awaited_once()
-        assert result.sustainability.llm_signals == {"sponsors": ["Acme"]}
+        assert result.qualitative.available is True
+        assert result.qualitative.roadmap == "v2 planned"
+        assert result.qualitative.text_maintenance_state == "active"
 
     @pytest.mark.asyncio
     async def test_not_called_when_disabled(self, tmp_path):
@@ -275,14 +281,31 @@ class TestLlmIntegration:
                 new=AsyncMock(return_value=[]),
             ),
             patch(
-                "gh_score.core.api.analyze_sustainability_with_llm",
-                new=AsyncMock(return_value={}),
+                "gh_score.core.api.analyze_qualitative_with_llm",
+                new=AsyncMock(return_value=QualitativeSignals()),
             ) as mock_llm,
         ):
             _mock_fetcher(mock_fetcher_cls, repo)
             await analyze_repo_async("https://github.com/owner/repo", config)
 
         mock_llm.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_qualitative_always_present(self, tmp_path):
+        config = _make_config(tmp_path)  # llm disabled
+        repo = _make_repo_data()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        assert result.qualitative.available is False
 
 
 class TestSyncWrapper:

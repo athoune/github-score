@@ -14,6 +14,7 @@ from gh_score.core.analyzers import (
     analyze_languages,
     analyze_license,
     analyze_maintenance,
+    analyze_qualitative,
     analyze_recommendation,
     analyze_release_health,
     analyze_sustainability,
@@ -97,6 +98,7 @@ async def analyze_repo_async(
         maintenance=analyze_maintenance(repo),
         languages=analyze_languages(repo),
         sustainability=analyze_sustainability(repo),
+        qualitative=analyze_qualitative(repo),
         registries=repo.registries,
     )
 

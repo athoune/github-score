@@ -255,7 +255,7 @@ Output:
 - **Confidence**: 0.0 → 1.0, the fraction of core indicators whose status
   is known (data completeness, not project quality).
 - **Reasoning**: the triggering signal plus objective facts (stars, author
-  count).
+  count, owner type).
 
 Decision tree (first matching branch wins):
 
@@ -263,6 +263,7 @@ Decision tree (first matching branch wins):
 |---|-----------|-------|---------|
 | 1 | Archived / disabled / registry deprecated | red | Archived / Disabled / Deprecated |
 | 2 | Young, tiny, ≤ 3 authors (article demo) | orange | Ephemeral project |
+| 2b | Same, but organization-owned → skipped (org does not create repos for articles) | — | falls through to next branch |
 | 3 | Abandoned + widely used | orange | Large project, but now abandoned |
 | 4 | Abandoned | red | No commit for N months |
 | 5 | Active + ≥ 80% bots | orange | Maintained only by bots |

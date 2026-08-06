@@ -33,6 +33,10 @@ The rules are evaluated **in order**; the first matching branch wins.
 
 2. **Ephemeral project** (created < 6 months, ≤ 200 stars, ≤ 3 authors)
    → 🟠 "Ephemeral project accompanying an article"
+   - **Exception:** organization-owned repositories are never judged
+     ephemeral (`owner_type == "organization"`) — an organization does
+     not create a repo merely to accompany an article, so the "weekend
+     demo" heuristic does not apply.
 
 3. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
    - Widely used (≥ 5k stars, ≥ 1k forks, or ≥ 1M registry downloads)
@@ -84,13 +88,14 @@ on, not how "good" the project is.
 ## Reasoning
 
 Each verdict carries a `reasoning` list: the triggering signal plus
-objective facts (stars, author count). Example:
+objective facts (stars, author count, owner type). Example:
 
 ```
 🟢 Active project with a large community
   • active state, regular development
   • 15,000 stars
   • 150 authors
+  • owner: organization
 ```
 
 ## Message catalog
@@ -112,6 +117,9 @@ objective facts (stars, author count). Example:
 | `rec_maintenance` | Projet en mode maintenance | Project in maintenance mode |
 | `rec_widely_used_unmaintained` | Projet largement utilisé même si peu maintenu | Widely used project despite low maintenance |
 | `rec_insufficient_data` | Données insuffisantes pour une recommandation fiable | Insufficient data for a reliable recommendation |
+| `fact_owner` | propriétaire : {type} | owner: {type} |
+| `owner_type_user` | utilisateur | user |
+| `owner_type_organization` | organisation | organization |
 
 The full catalog (including reasoning lines, facts and UI labels) lives
 in `src/gh_score/i18n.py`. To add a language, add a catalog dict there

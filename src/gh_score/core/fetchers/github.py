@@ -91,12 +91,8 @@ class GitHubFetcher:
         }
         if self.token:
             headers["Authorization"] = f"token {self.token}"
-        else:
-            print(
-                "Warning: No GITHUB_TOKEN set. Using anonymous requests "
-                "(60 requests/hour limit).",
-                file=sys.stderr,
-            )
+        # Missing token is surfaced by the pipeline as a localized warning
+        # (TUI panel, or stderr for markdown/JSON), not here.
 
         self.client = httpx.AsyncClient(
             base_url=self.BASE_URL,

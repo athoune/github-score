@@ -6,7 +6,9 @@ This is the primary entry point for the library.
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 from gh_score.config import Config
 from gh_score.core.analyzers import (
@@ -24,10 +26,22 @@ from gh_score.core.fetchers.github import GitHubFetcher
 from gh_score.core.fetchers.local_git import fetch_local_repo
 from gh_score.core.fetchers.registries import fetch_registry_info
 from gh_score.core.models import AnalysisResult, RepoUrl
+from gh_score.i18n import t
 from gh_score.llm.provider import (
     analyze_qualitative_with_llm,
     analyze_recommendation_with_llm,
 )
+
+
+def _token_available(config: Config) -> bool:
+    """True when a GitHub token is configured (file, config or env)."""
+    return bool(config.github.token or os.environ.get("GITHUB_TOKEN", ""))
+
+
+def _is_local_llm(base_url: str) -> bool:
+    """True when the LLM base URL points at a local server (no key needed)."""
+    host = urlparse(base_url).hostname or ""
+    return host in ("localhost", "127.0.0.1")
 
 
 async def analyze_repo_async(
@@ -50,6 +64,10 @@ async def analyze_repo_async(
 
     cache = Cache(config.cache.dir, config.cache.ttl_hours * 3600)
 
+    # Human-readable, localized warnings surfaced by the renderers
+    # (TUI panel, or stderr for markdown/JSON).
+    warnings: list[str] = []
+
     # Determine if we're analyzing locally or remotely
     path = Path(url_or_path)
     is_local = use_local or (path.exists() and (path / ".git").exists())
@@ -60,6 +78,8 @@ async def analyze_repo_async(
 
         # Fetch additional data from GitHub API if we have a URL
         if repo.url:
+            if not _token_available(config):
+                warnings.append(t("warn_no_token"))
             fetcher = GitHubFetcher(config, cache)
             try:
                 # Enrich with API data
@@ -77,6 +97,8 @@ async def analyze_repo_async(
     else:
         # Remote analysis
         repo_url = RepoUrl.parse(url_or_path)
+        if not _token_available(config):
+            warnings.append(t("warn_no_token"))
         fetcher = GitHubFetcher(config, cache)
         try:
             repo = await fetcher.fetch_all(repo_url)
@@ -87,9 +109,17 @@ async def analyze_repo_async(
     local_path = str(path) if is_local else None
     repo.registries = await fetch_registry_info(repo, local_path, cache)
 
-    # Optional LLM analysis for qualitative signals
-    if config.llm.enabled:
-        repo.llm_signals = await analyze_qualitative_with_llm(repo, config.llm)
+    # Optional LLM analysis: qualitative signals (phase 1) + refined
+    # recommendation (phase 2). Skipped entirely when the provider is
+    # remote and no API key is configured.
+    llm_enabled = config.llm.enabled
+    if llm_enabled and not config.llm.api_key and not _is_local_llm(config.llm.base_url):
+        warnings.append(t("warn_llm_no_api_key"))
+        llm_enabled = False
+    if llm_enabled:
+        repo.llm_signals = await analyze_qualitative_with_llm(
+            repo, config.llm, warnings
+        )
 
     # Run all analyzers
     result = AnalysisResult(
@@ -110,11 +140,12 @@ async def analyze_repo_async(
 
     # Optional LLM refined recommendation (phase 2): complementary, never
     # replaces the deterministic verdict above.
-    if config.llm.enabled:
+    if llm_enabled:
         result.llm_recommendation = await analyze_recommendation_with_llm(
-            result, config.llm
+            result, config.llm, warnings
         )
 
+    result.warnings = warnings
     return result
 
 

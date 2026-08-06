@@ -361,6 +361,117 @@ class TestLlmIntegration:
         assert result.llm_recommendation is None
 
 
+class TestWarnings:
+    @staticmethod
+    def _pin_fr(monkeypatch):
+        monkeypatch.setenv("LANG", "fr_FR.UTF-8")
+        monkeypatch.delenv("LC_ALL", raising=False)
+        monkeypatch.delenv("LC_MESSAGES", raising=False)
+
+    @pytest.mark.asyncio
+    async def test_token_missing_warning(self, tmp_path, monkeypatch):
+        self._pin_fr(monkeypatch)
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        config = _make_config(tmp_path)
+        config.github.token = ""
+        repo = _make_repo_data()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        assert any("Token GitHub" in w for w in result.warnings)
+
+    @pytest.mark.asyncio
+    async def test_no_token_warning_when_token_set(self, tmp_path, monkeypatch):
+        self._pin_fr(monkeypatch)
+        config = _make_config(tmp_path)  # token = "test-token"
+        repo = _make_repo_data()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        assert result.warnings == []
+
+    @pytest.mark.asyncio
+    async def test_remote_llm_without_key_warning(self, tmp_path, monkeypatch):
+        self._pin_fr(monkeypatch)
+        config = _make_config(tmp_path)
+        config.llm.enabled = True
+        config.llm.base_url = "https://api.openai.com/v1"
+        config.llm.api_key = ""
+        repo = _make_repo_data()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "gh_score.core.api.analyze_qualitative_with_llm",
+                new=AsyncMock(return_value=QualitativeSignals()),
+            ) as mock_qualitative,
+            patch(
+                "gh_score.core.api.analyze_recommendation_with_llm",
+                new=AsyncMock(return_value=None),
+            ) as mock_recommendation,
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        assert any("clé API" in w for w in result.warnings)
+        # The LLM calls must be skipped entirely: no key, remote provider.
+        mock_qualitative.assert_not_awaited()
+        mock_recommendation.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_llm_failure_warning_propagated(self, tmp_path, monkeypatch):
+        self._pin_fr(monkeypatch)
+        config = _make_config(tmp_path)
+        config.llm.enabled = True
+        config.llm.base_url = "http://localhost:11434/v1"  # local: usable without key
+        repo = _make_repo_data()
+
+        def _failing_llm(repo, cfg, warnings=None):
+            if warnings is not None:
+                warnings.append("LLM exploded")
+            return QualitativeSignals()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "gh_score.core.api.analyze_qualitative_with_llm",
+                new=AsyncMock(side_effect=_failing_llm),
+            ),
+            patch(
+                "gh_score.core.api.analyze_recommendation_with_llm",
+                new=AsyncMock(return_value=None),
+            ),
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        assert "LLM exploded" in result.warnings
+
+
 class TestSyncWrapper:
     def test_analyze_repo_forwards_to_async(self, tmp_path):
         config = _make_config(tmp_path)

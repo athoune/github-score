@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import textwrap
 from dataclasses import asdict
 from pathlib import Path
 
@@ -266,7 +267,44 @@ _RENDERERS = {
 # ---------------------------------------------------------------------------
 
 
-class DefaultGroup(click.Group):
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+
+_ENV_VARS_HELP = textwrap.dedent(
+    """\
+    Environment variables:
+      GITHUB_TOKEN                 GitHub API token (raises API rate limits)
+      GH_SCORE_CONFIG              Path to the TOML config file
+      GH_SCORE_CACHE_DIR           Cache directory
+      GH_SCORE_CACHE_TTL_HOURS     Cache TTL in hours
+      GH_SCORE_LLM_ENABLED         1/true/yes to enable the optional LLM analysis
+      GH_SCORE_LLM_PROVIDER        LLM provider name (informational)
+      GH_SCORE_LLM_BASE_URL        OpenAI-compatible base URL (e.g. https://api.openai.com/v1)
+      GH_SCORE_LLM_MODEL           LLM model name
+      GH_SCORE_LLM_API_KEY         LLM API key (empty for local servers such as Ollama)
+    """
+)
+
+
+class _EpilogMixin:
+    """Print the epilog verbatim.
+
+    Click's default formatter collapses all whitespace (including newlines)
+    via replace_whitespace, which would turn the env-var table into a wall
+    of text. We write the preformatted block as-is instead.
+    """
+
+    def format_epilog(self, ctx, formatter):
+        if self.epilog:
+            formatter.write(f"\n{self.epilog}")
+
+
+class _EnvHelpCommand(_EpilogMixin, click.Command):
+    """Command whose epilog (env var docs) is printed verbatim."""
+
+
+class DefaultGroup(_EpilogMixin, click.Group):
     """Click group that routes unrecognized tokens to a default command.
 
     When the first argument is a known subcommand (``config``, ``report``,
@@ -310,11 +348,12 @@ cli = DefaultGroup(
     default_command="analyze",
     name="gh-score",
     callback=_default_analyze,
+    epilog=_ENV_VARS_HELP,
     help="GitHub Project Health Scorer.\n\nAnalyze a GitHub repository's health, maturity, and sustainability.",
 )
 
 
-@cli.command(name="analyze")
+@cli.command(name="analyze", epilog=_ENV_VARS_HELP, cls=_EnvHelpCommand)
 @click.argument("url_or_path", required=False)
 @click.option("--local", is_flag=True, help="Force local analysis")
 @click.option("--remote", is_flag=True, help="Force remote API analysis even when inside a clone")

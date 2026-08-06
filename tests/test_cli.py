@@ -256,3 +256,21 @@ class TestWarningsStderr:
             result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
 
         assert "warning" not in result.stderr
+
+
+class TestHelpEnvVars:
+    """--help must document the environment variables."""
+
+    def test_group_help_lists_env_vars(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        assert "GITHUB_TOKEN" in result.output
+        assert "GH_SCORE_LLM_BASE_URL" in result.output
+        assert "GH_SCORE_LLM_API_KEY" in result.output
+
+    def test_analyze_help_lists_env_vars(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["analyze", "--help"])
+        assert result.exit_code == 0
+        assert "GITHUB_TOKEN" in result.output

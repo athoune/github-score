@@ -138,18 +138,40 @@ class GitHubFetcher:
     async def _get_all_pages(
         self, url: str, params: dict | None = None, max_pages: int = 10
     ) -> list[dict]:
-        """Fetch all pages of a paginated endpoint."""
+        """Fetch all pages of a paginated endpoint.
+
+        Pages are fetched in parallel batches (the GitHub API allows asking
+        for page N directly), which cuts wall-clock time on multi-page
+        endpoints from ~30 sequential requests to a few round-trips. Page 1
+        is fetched alone so an empty or short first page stops immediately
+        with a single request.
+        """
         results: list[dict] = []
         params = {**(params or {}), "per_page": "100"}
+        concurrency = 4
 
-        for page in range(1, max_pages + 1):
-            params["page"] = str(page)
-            data = await self._get(url, params)
-            if not data or not isinstance(data, list) or len(data) == 0:
-                break
-            results.extend(data)
-            if len(data) < 100:
-                break
+        # First page alone: a short/empty page 1 stops right away.
+        first = await self._get(url, {**params, "page": "1"})
+        if not first or not isinstance(first, list) or len(first) == 0:
+            return results
+        results.extend(first)
+        if len(first) < 100 or max_pages <= 1:
+            return results
+
+        page = 2
+        while page <= max_pages:
+            batch = list(range(page, min(page + concurrency, max_pages) + 1))
+            batch_data = await asyncio.gather(
+                *(self._get(url, {**params, "page": str(p)}) for p in batch)
+            )
+            # asyncio.gather preserves order, so results stay page-ordered.
+            for data in batch_data:
+                if not data or not isinstance(data, list) or len(data) == 0:
+                    return results
+                results.extend(data)
+                if len(data) < 100:
+                    return results
+            page += concurrency
 
         return results
 

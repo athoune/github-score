@@ -77,19 +77,15 @@ class TestGetAllPages:
         return _make_fetcher(tmp_path)
 
     @pytest.mark.asyncio
-    async def test_full_then_partial_page(self, tmp_path):
+    async def test_full_then_short_page_stops(self, tmp_path):
         fetcher = await self._fetcher(tmp_path)
         page1 = [{"login": f"user{i}"} for i in range(100)]
         page2 = [{"login": "user100"}]
 
-        # The production loop mutates its params dict in place, so recorded
-        # mock args would alias the final state; capture a copy per call.
-        seen_pages: list[dict] = []
-        pages = [page1, page2]
-
+        # Pages after the first are fetched in a parallel batch; return a
+        # short page so the batch stops after extending it.
         def fake_get(url, params):
-            seen_pages.append(dict(params))
-            return pages[len(seen_pages) - 1]
+            return page1 if int(params["page"]) == 1 else page2
 
         fetcher._get = AsyncMock(side_effect=fake_get)
 
@@ -98,11 +94,9 @@ class TestGetAllPages:
         )
 
         assert len(result) == 101
-        # per_page injected, page incremented, stops after a short page
-        assert seen_pages == [
-            {"anon": "false", "per_page": "100", "page": "1"},
-            {"anon": "false", "per_page": "100", "page": "2"},
-        ]
+        # Page order is preserved (page 1 items first, then page 2).
+        assert result[0]["login"] == "user0"
+        assert result[100]["login"] == "user100"
 
     @pytest.mark.asyncio
     async def test_empty_first_page_stops(self, tmp_path):
@@ -134,6 +128,7 @@ class TestGetAllPages:
         )
 
         assert len(result) == 300
+        # Page 1 alone, then one parallel batch of pages 2-3.
         assert len(fetcher._get.await_args_list) == 3
 
 

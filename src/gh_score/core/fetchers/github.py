@@ -56,6 +56,17 @@ def _parse_datetime(s: str | None) -> datetime | None:
         return None
 
 
+def _rolling_since(months: int = 12) -> str:
+    """ISO timestamp ``months`` ago, floored to the day.
+
+    The floor keeps the ``since`` query parameter (and therefore the cache
+    key) stable across runs within the same day. A ``since`` recomputed to
+    the microsecond on every call would never hit the cache.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=months * 30)
+    return cutoff.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+
 def _classify_license(spdx_id: str | None) -> LicenseFamily:
     """Classify a license into a family based on SPDX ID."""
     if not spdx_id or spdx_id == "NOASSERTMENT":
@@ -291,7 +302,7 @@ class GitHubFetcher:
         self, url: RepoUrl, months: int = 12
     ) -> list[Commit]:
         """Fetch commit history for the last N months."""
-        since = (datetime.now(timezone.utc) - timedelta(days=months * 30)).isoformat()
+        since = _rolling_since(months)
         data = await self._get_all_pages(
             f"{url.api_url}/commits",
             params={"since": since, "sha": "HEAD"},
@@ -318,7 +329,7 @@ class GitHubFetcher:
 
     async def fetch_issues(self, url: RepoUrl, months: int = 12) -> list[Issue]:
         """Fetch issues (including PRs) for the last N months."""
-        since = (datetime.now(timezone.utc) - timedelta(days=months * 30)).isoformat()
+        since = _rolling_since(months)
         data = await self._get_all_pages(
             f"{url.api_url}/issues",
             params={

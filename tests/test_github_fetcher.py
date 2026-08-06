@@ -12,6 +12,7 @@ from gh_score.core.fetchers.github import (
     _classify_license,
     _parse_datetime,
     _parse_funding_yml,
+    _rolling_since,
 )
 from gh_score.core.models import LicenseFamily, RepoUrl
 
@@ -41,6 +42,20 @@ class TestParseDatetime:
 
     def test_invalid(self):
         assert _parse_datetime("not-a-date") is None
+
+
+class TestRollingSince:
+    def test_stable_within_the_day(self):
+        # Two calls must produce the same cache key.
+        assert _rolling_since(12) == _rolling_since(12)
+
+    def test_floored_to_midnight_utc(self):
+        since = _rolling_since(12)
+        assert since.endswith("T00:00:00+00:00")
+
+    def test_is_in_the_past(self):
+        since = datetime.fromisoformat(_rolling_since(12))
+        assert since < datetime.now(timezone.utc)
 
 
 class TestClassifyLicense:

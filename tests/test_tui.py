@@ -17,6 +17,7 @@ from gh_score.cli.tui import (
     _render_contributors,
     _render_languages,
     _render_license,
+    _render_llm_recommendation,
     _render_maintenance,
     _render_qualitative,
     _render_recommendation,
@@ -34,6 +35,7 @@ from gh_score.core.models import (
     LanguagesIndicator,
     LicenseIndicator,
     LicenseFamily,
+    LLMRecommendation,
     MaintenanceIndicator,
     MaintenanceState,
     QualitativeIndicator,
@@ -287,6 +289,31 @@ class TestQualitativePanel:
 
     def test_panel_hidden_when_not_available(self, result, en_locale):
         assert _render_qualitative(result) is None
+
+
+class TestLlmRecommendationPanel:
+    def test_panel_shows_refined_recommendation(self, result, en_locale):
+        result.llm_recommendation = LLMRecommendation(
+            level="orange",
+            message="Promising but young",
+            explanation="Active development but a small community.",
+            confidence=0.7,
+        )
+        panel = _render_llm_recommendation(result)
+        assert panel is not None
+        assert panel.title == "Refined recommendation (LLM)"
+        text = _panel_text(panel)
+        assert "🟠" in text
+        assert "Promising but young" in text
+        assert "Active development but a small community." in text
+        assert "confidence: 70%" in text
+
+    def test_panel_hidden_when_none(self, result, en_locale):
+        assert _render_llm_recommendation(result) is None
+
+    def test_panel_hidden_when_invalid_level(self, result, en_locale):
+        result.llm_recommendation = LLMRecommendation(level="purple")
+        assert _render_llm_recommendation(result) is None
 
 
 class TestRenderDashboard:

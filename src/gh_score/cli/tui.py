@@ -59,6 +59,32 @@ def _render_recommendation(result: AnalysisResult) -> Panel:
     return Panel(content, title="Recommendation", border_style=color)
 
 
+def _render_llm_recommendation(result: AnalysisResult) -> Panel | None:
+    """Render the optional LLM refined recommendation panel."""
+    rec = result.llm_recommendation
+    if not rec or not rec.level:
+        return None
+
+    try:
+        level = RecommendationLevel(rec.level)
+    except ValueError:
+        return None
+
+    glyph, color = _TRAFFIC_LIGHT.get(level, ("❓", "dim"))
+
+    content = Text()
+    content.append(f"{glyph} ", style=color)
+    content.append(rec.message, style=color)
+
+    if rec.explanation:
+        content.append(f"\n{rec.explanation}", style="dim")
+
+    if rec.confidence > 0:
+        content.append(f"\n{t('ui_confidence', conf=rec.confidence)}", style="dim")
+
+    return Panel(content, title=t("panel_llm_recommendation"), border_style=color)
+
+
 def _render_release_health(result: AnalysisResult) -> Panel:
     """Render release health panel."""
     rh = result.release_health
@@ -375,6 +401,12 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
     # Traffic-light recommendation, front and center
     console.print(_render_recommendation(result))
     console.print()
+
+    # Optional LLM refined recommendation, right below the deterministic one
+    llm_panel = _render_llm_recommendation(result)
+    if llm_panel:
+        console.print(llm_panel)
+        console.print()
 
     # Main panels (2x2 grid)
     grid = Table.grid(padding=(1, 1))

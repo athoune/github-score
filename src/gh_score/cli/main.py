@@ -109,6 +109,24 @@ def _md_recommendation(result: AnalysisResult, console: Console) -> None:
         console.print(f"\n**{t('md_confidence', conf=rec.confidence)}**\n")
 
 
+def _md_llm_recommendation(result: AnalysisResult, console: Console) -> None:
+    """Render the optional LLM refined recommendation as Markdown."""
+    rec = result.llm_recommendation
+    if not rec or not rec.level:
+        return
+    try:
+        level = RecommendationLevel(rec.level)
+    except ValueError:
+        return
+    glyph = _MD_GLYPHS.get(level, "❓")
+    console.print(f"{t('md_section_llm_recommendation')}\n")
+    console.print(f"{glyph} **{rec.message}**\n")
+    if rec.explanation:
+        console.print(f"{rec.explanation}\n")
+    if rec.confidence > 0:
+        console.print(f"**{t('md_confidence', conf=rec.confidence)}**\n")
+
+
 def _render_markdown(result: AnalysisResult, console: Console) -> None:
     """Render results as Markdown."""
     console.print(f"# GitHub Health Report: {result.url}\n")
@@ -127,6 +145,7 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
     console.print()
 
     _md_recommendation(result, console)
+    _md_llm_recommendation(result, console)
     _md_release_health(result, console)
     _md_license(result, console)
     _md_contributors(result, console)

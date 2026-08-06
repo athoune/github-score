@@ -47,15 +47,22 @@ The rules are evaluated **in order**; the first matching branch wins.
    - ≥ 80% of commits from bots → 🟠 "Project maintained only by dependency-update bots"
    - No stable release (none, pre-release, or 0.x) → 🟠 "Active development but not yet stabilized"
    - Declining activity (3-month commits < 25% of 12-month commits) → 🟠 "Well-maintained project but in decline"
-   - Large community (≥ 100 human authors or ≥ 10k stars) → 🟢 "Active project with a large community"
+   - Large community (≥ 100 human authors or ≥ 10k stars), **or LLM-enabled with roadmap AND commercial support** → 🟢 "Active project with a large community"
    - Otherwise → 🟢 "Active project"
 
 5. **Maintenance mode** (infrequent commits, issues still closed)
    - Last release more than 6 months ago → 🟠 "Well-maintained but no new features for N months"
    - Otherwise → 🟠 "Project in maintenance mode"
 
-6. **Unknown maintenance state**
+6. **LLM-reported discontinuation** (only when the LLM is enabled AND the
+   maintenance state is unknown — commit data wins over prose)
+   - Widely used → 🟠 "Large project, but now abandoned"
+   - Otherwise → 🔴 "Project texts announce its discontinuation"
+
+7. **Unknown maintenance state**
    - Widely used → 🟠 "Widely used project despite low maintenance"
+   - LLM enabled, text declares active development AND (roadmap or
+     commercial support) → 🟢 "Active project"
    - Otherwise → 🟠 "Insufficient data for a reliable recommendation"
 
 ## Thresholds
@@ -88,7 +95,9 @@ on, not how "good" the project is.
 ## Reasoning
 
 Each verdict carries a `reasoning` list: the triggering signal plus
-objective facts (stars, author count, owner type). Example:
+objective facts (stars, author count, owner type) and, when the LLM is
+enabled, qualitative facts (roadmap, commercial support, security policy,
+declared maintenance state). Example:
 
 ```
 🟢 Active project with a large community
@@ -96,6 +105,8 @@ objective facts (stars, author count, owner type). Example:
   • 15,000 stars
   • 150 authors
   • owner: organization
+  • roadmap announced
+  • commercial support available
 ```
 
 ## Message catalog
@@ -117,9 +128,13 @@ objective facts (stars, author count, owner type). Example:
 | `rec_maintenance` | Projet en mode maintenance | Project in maintenance mode |
 | `rec_widely_used_unmaintained` | Projet largement utilisé même si peu maintenu | Widely used project despite low maintenance |
 | `rec_insufficient_data` | Données insuffisantes pour une recommandation fiable | Insufficient data for a reliable recommendation |
+| `rec_text_discontinued` | Les textes du projet annoncent son abandon | Project texts announce its discontinuation |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
 | `owner_type_user` | utilisateur | user |
 | `owner_type_organization` | organisation | organization |
+| `fact_roadmap` | feuille de route annoncée | roadmap announced |
+| `fact_commercial` | support commercial disponible | commercial support available |
+| `fact_security` | politique de sécurité documentée | security policy documented |
 
 The full catalog (including reasoning lines, facts and UI labels) lives
 in `src/gh_score/i18n.py`. To add a language, add a catalog dict there

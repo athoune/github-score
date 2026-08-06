@@ -269,11 +269,14 @@ Decision tree (first matching branch wins):
 | 5 | Active + ≥ 80% bots | orange | Maintained only by bots |
 | 6 | Active + no stable release | orange | Active but not stabilized |
 | 7 | Active + declining activity | orange | Well-maintained but in decline |
-| 8 | Active + large community | green | Active project with a large community |
+| 8 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
 | 9 | Active | green | Active project |
 | 10 | Maintenance + no release for 6+ months | orange | No new features for N months |
 | 11 | Maintenance mode | orange | Project in maintenance mode |
+| 11b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
+| 11c | Same, but widely used | orange | Large project, but now abandoned |
 | 12 | Unknown + widely used | orange | Widely used despite low maintenance |
+| 12b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
 | 13 | Unknown | orange | Insufficient data |
 
 All thresholds are heuristics, defined as constants in
@@ -302,14 +305,25 @@ enabled = false              # default
 
 ### 8.3 LLM responsibilities
 
-The LLM is given short text excerpts and asked to return structured JSON:
+The LLM is given short text excerpts (README, GOVERNANCE, SECURITY) and
+asked to return structured JSON limited to signals with **no deterministic
+implementation**:
 
-- Extract mentioned sponsors, backers, or supporting companies.
-- Identify governance model (BDFL, core team, foundation, corporate-owned).
-- Note any roadmap, security policy, or commercial support mention.
-- Flag any concerning language about maintenance status.
+- Roadmap / future plans.
+- Security policy content (file presence is detected deterministically).
+- Commercial support offering.
+- Self-declared maintenance state (`active` / `maintenance` / `abandoned` /
+  `unknown`).
 
-The LLM must never produce the final health verdict. Its outputs are signals fed into the dashboard.
+Sponsors/backers and the governance model are deliberately **not** asked of
+the LLM: they already have deterministic regex implementations
+(`sustainability.py`).
+
+The LLM must never produce the final health verdict. Its outputs are
+signals fed into the decision tree (gated on `llm.enabled`) and the
+report, as a dedicated `QualitativeIndicator` (5th indicator family).
+Commit data always wins over prose: the text-declared abandonment branch
+only fires when the maintenance state is unknown.
 
 ## 9. CLI design
 

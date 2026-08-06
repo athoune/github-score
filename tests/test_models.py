@@ -4,11 +4,31 @@ import pytest
 from datetime import datetime, timezone
 
 from gh_score.core.models import (
+    QualitativeIndicator,
+    QualitativeSignals,
     RepoUrl,
     Release,
     ReleaseHealth,
     LanguageBreakdown,
+    Status,
 )
+
+
+class TestQualitativeSignals:
+    def test_empty_is_not_available(self):
+        assert QualitativeSignals().any is False
+
+    def test_any_signal_marks_available(self):
+        s = QualitativeSignals(roadmap="v2 planned")
+        assert s.any is True
+        assert QualitativeSignals(text_maintenance_state="abandoned").any is True
+
+    def test_indicator_defaults(self):
+        ind = QualitativeIndicator()
+        assert ind.available is False
+        assert ind.status == Status.UNKNOWN
+        assert ind.roadmap is None
+
 
 
 class TestRepoUrl:

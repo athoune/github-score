@@ -246,6 +246,39 @@ class RegistryInfo:
 
 
 # ---------------------------------------------------------------------------
+# Qualitative signals (optional LLM extraction)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class QualitativeSignals:
+    """Qualitative facts extracted by the optional LLM from repository text.
+
+    These are the only LLM-extracted signals: everything else already has a
+    deterministic implementation. ``text_maintenance_state`` is the project's
+    *self-declared* state as written in README/GOVERNANCE/SECURITY, one of
+    "active", "maintenance", "abandoned", "unknown".
+    """
+    roadmap: str | None = None
+    security_policy: str | None = None
+    commercial_support: str | None = None
+    text_maintenance_state: str | None = None
+
+    @property
+    def any(self) -> bool:
+        """True when at least one signal was extracted (LLM actually ran)."""
+        return any(
+            v is not None
+            for v in (
+                self.roadmap,
+                self.security_policy,
+                self.commercial_support,
+                self.text_maintenance_state,
+            )
+        )
+
+
+# ---------------------------------------------------------------------------
 # Repository: aggregate of all raw data
 # ---------------------------------------------------------------------------
 
@@ -265,7 +298,7 @@ class Repository:
     readme_content: str | None = None
     governance_content: str | None = None
     security_content: str | None = None
-    llm_signals: dict[str, str | list[str] | None] = field(default_factory=dict)
+    llm_signals: QualitativeSignals = field(default_factory=QualitativeSignals)
 
 
 # ---------------------------------------------------------------------------
@@ -363,8 +396,28 @@ class SustainabilityIndicator:
     corporate_backing: str | None = None
     foundation: str | None = None
     governance_model: str | None = None
-    llm_signals: dict[str, str | list[str] | None] = field(default_factory=dict)
-    # e.g. {"sponsors": ["Company X"], "roadmap": "...", "security_policy": "..."}
+    status: Status = Status.UNKNOWN
+    interpretation: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Qualitative indicator (output of the qualitative analyzer)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class QualitativeIndicator:
+    """5th indicator family: optional LLM qualitative facts.
+
+    ``available`` is True when the LLM ran and returned at least one signal;
+    it drives confidence accounting and gates the qualitative branches of the
+    recommendation.
+    """
+    roadmap: str | None = None
+    security_policy: str | None = None
+    commercial_support: str | None = None
+    text_maintenance_state: str | None = None
+    available: bool = False
     status: Status = Status.UNKNOWN
     interpretation: str = ""
 
@@ -402,3 +455,4 @@ class AnalysisResult:
     sustainability: SustainabilityIndicator
     registries: list[RegistryInfo] = field(default_factory=list)
     recommendation: Recommendation = field(default_factory=Recommendation)
+    qualitative: QualitativeIndicator = field(default_factory=QualitativeIndicator)

@@ -24,6 +24,7 @@ from gh_score.cli.tui import (
     _render_registries,
     _render_release_health,
     _render_sustainability,
+    _render_warnings,
     _status_glyph,
     render_dashboard,
 )
@@ -314,6 +315,29 @@ class TestLlmRecommendationPanel:
     def test_panel_hidden_when_invalid_level(self, result, en_locale):
         result.llm_recommendation = LLMRecommendation(level="purple")
         assert _render_llm_recommendation(result) is None
+
+
+class TestWarningsPanel:
+    def test_panel_shows_warnings(self, result, en_locale):
+        result.warnings = ["No GitHub token set", "LLM unavailable"]
+        panel = _render_warnings(result)
+        assert panel is not None
+        assert panel.title == "Warnings"
+        text = _panel_text(panel)
+        assert "No GitHub token set" in text
+        assert "LLM unavailable" in text
+
+    def test_panel_hidden_when_no_warnings(self, result, en_locale):
+        assert _render_warnings(result) is None
+
+    def test_warnings_appear_in_dashboard(self, result, en_locale):
+        result.warnings = ["No GitHub token set"]
+        buf = io.StringIO()
+        console = Console(file=buf, width=100, force_terminal=False)
+        render_dashboard(result, console)
+        output = buf.getvalue()
+        assert "Warnings" in output
+        assert "No GitHub token set" in output
 
 
 class TestRenderDashboard:

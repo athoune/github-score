@@ -85,8 +85,15 @@ def _prepare_config(config_path: str | None, refresh: bool, no_llm: bool, consol
 # ---------------------------------------------------------------------------
 
 
+def _warn_stderr(result: AnalysisResult) -> None:
+    """Emit localized warnings on stderr for file-based formats."""
+    for warning in result.warnings:
+        print(f"warning: {warning}", file=sys.stderr)
+
+
 def _render_json(result: AnalysisResult, console: Console) -> None:
     """Render results as JSON."""
+    _warn_stderr(result)
     console.print_json(json.dumps(asdict(result), default=str))
 
 
@@ -129,6 +136,7 @@ def _md_llm_recommendation(result: AnalysisResult, console: Console) -> None:
 
 def _render_markdown(result: AnalysisResult, console: Console) -> None:
     """Render results as Markdown."""
+    _warn_stderr(result)
     console.print(f"# GitHub Health Report: {result.url}\n")
 
     if result.meta.description:

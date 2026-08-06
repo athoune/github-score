@@ -7,6 +7,34 @@ from click.testing import CliRunner
 from rich.console import Console
 
 from gh_score.cli.main import _prepare_config, _resolve_target, _validate_url, cli
+from gh_score.core.models import (
+    AnalysisResult,
+    ContributorsIndicator,
+    LanguagesIndicator,
+    LicenseIndicator,
+    MaintenanceIndicator,
+    Recommendation,
+    ReleaseHealthIndicator,
+    RepoUrl,
+    RepositoryMeta,
+    SustainabilityIndicator,
+)
+
+
+def _result_with_warnings(*warnings: str) -> AnalysisResult:
+    """Minimal AnalysisResult exercising the renderers."""
+    return AnalysisResult(
+        url=RepoUrl("owner", "repo"),
+        meta=RepositoryMeta(description="A demo"),
+        release_health=ReleaseHealthIndicator(),
+        license=LicenseIndicator(),
+        contributors=ContributorsIndicator(),
+        maintenance=MaintenanceIndicator(),
+        languages=LanguagesIndicator(),
+        sustainability=SustainabilityIndicator(),
+        recommendation=Recommendation(),
+        warnings=list(warnings),
+    )
 
 
 class TestResolveTarget:
@@ -197,3 +225,34 @@ class TestDefaultGroupForwardsArgs:
             "analyze_repo should NOT be called for 'gh-score config'"
         )
         assert expected_title in result.output
+
+
+class TestWarningsStderr:
+    """File-based formats emit warnings on stderr."""
+
+    @pytest.mark.parametrize("fmt", ["markdown", "json"])
+    def test_warnings_on_stderr(self, fmt):
+        runner = CliRunner()
+        analysis = _result_with_warnings("No GitHub token set")
+
+        with (
+            patch("gh_score.cli.main.analyze_repo", return_value=analysis),
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = MagicMock()
+            result = runner.invoke(cli, ["https://github.com/o/r", "--format", fmt])
+
+        assert "No GitHub token set" in result.stderr
+
+    def test_no_warnings_no_stderr_noise(self):
+        runner = CliRunner()
+        analysis = _result_with_warnings()
+
+        with (
+            patch("gh_score.cli.main.analyze_repo", return_value=analysis),
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = MagicMock()
+            result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
+
+        assert "warning" not in result.stderr

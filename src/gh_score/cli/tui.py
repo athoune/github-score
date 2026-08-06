@@ -39,6 +39,18 @@ def _status_glyph(status: Status) -> tuple[str, str]:
     return "?", "dim"
 
 
+def _render_warnings(result: AnalysisResult) -> Panel | None:
+    """Render the localized warnings panel (missing token, LLM issues)."""
+    if not result.warnings:
+        return None
+
+    content = Text()
+    for warning in result.warnings:
+        content.append(f"⚠ {warning}\n", style="yellow")
+
+    return Panel(content, title=t("panel_warnings"), border_style="yellow")
+
+
 def _render_recommendation(result: AnalysisResult) -> Panel:
     """Render the traffic-light recommendation panel."""
     rec = result.recommendation
@@ -397,6 +409,12 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
     summary.add_row(t("tui_created", date=created))
     console.print(summary)
     console.print()
+
+    # Warnings (missing token, LLM issues) — prominent, before the verdict
+    warnings_panel = _render_warnings(result)
+    if warnings_panel:
+        console.print(warnings_panel)
+        console.print()
 
     # Traffic-light recommendation, front and center
     console.print(_render_recommendation(result))

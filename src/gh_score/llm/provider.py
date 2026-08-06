@@ -24,6 +24,14 @@ _TEXT_MAINTENANCE_STATES = frozenset({"active", "maintenance", "abandoned", "unk
 # Allowed traffic-light levels for the refined LLM recommendation.
 _LLM_LEVELS = frozenset({"green", "orange", "red"})
 
+
+class LLMError(Exception):
+    """The LLM provider is unreachable or returned invalid output.
+
+    Raised by :meth:`LLMProvider.extract_signals`; the public analysis
+    helpers catch it and surface a warning instead of failing the pipeline.
+    """
+
 # Deliberately EXCLUDED from the prompt: sponsors/backers and the
 # governance model already have deterministic implementations
 # (see analyzers/sustainability.py). The LLM only extracts facts that
@@ -278,22 +286,29 @@ class LLMProvider:
             # reasoning_content field; fall back to it when content is empty.
             content = message.get("content") or message.get("reasoning_content") or ""
 
-            return _extract_json_object(content)
+            result = _extract_json_object(content)
+            if not result:
+                raise LLMError("empty or unparseable JSON response")
+            return result
 
-        except Exception:
-            # LLM is optional, never break the pipeline
-            return {}
+        except LLMError:
+            raise
+        except Exception as exc:
+            # LLM is optional, but a failure is meaningful: re-raise so the
+            # caller can warn the user instead of silently degrading.
+            raise LLMError(str(exc)) from exc
 
 
 async def analyze_qualitative_with_llm(
-    repo, config: LLMConfig
+    repo, config: LLMConfig, warnings: list[str] | None = None
 ) -> QualitativeSignals:
     """Use the LLM to extract qualitative facts from repository text.
 
     Scope is limited to signals with NO deterministic implementation:
     roadmap, security policy content, commercial support, and the
     project's self-declared maintenance state. Returns empty signals when
-    the LLM is disabled, has no text to analyze, or fails.
+    the LLM is disabled, has no text to analyze, or fails. On failure, a
+    localized warning is appended to ``warnings``.
     """
     if not config.enabled:
         return QualitativeSignals()
@@ -318,21 +333,23 @@ async def analyze_qualitative_with_llm(
         )
         raw = await provider.extract_signals(prompt)
         return _parse_qualitative(raw)
-    except Exception:
+    except LLMError:
+        _append_warning(warnings, "warn_llm_unavailable")
         return QualitativeSignals()
     finally:
         await provider.close()
 
 
 async def analyze_recommendation_with_llm(
-    result, config: LLMConfig
+    result, config: LLMConfig, warnings: list[str] | None = None
 ) -> LLMRecommendation | None:
     """Use the LLM to produce a refined recommendation from the full report.
 
     The LLM receives a compact digest of every indicator family plus the
     deterministic verdict, and returns a nuanced recommendation (level,
     message, explanation, confidence). Returns None when the LLM is
-    disabled or fails; the deterministic verdict always stands.
+    disabled or fails; the deterministic verdict always stands. On
+    failure, a localized warning is appended to ``warnings``.
     """
     if not config.enabled:
         return None
@@ -345,7 +362,16 @@ async def analyze_recommendation_with_llm(
         prompt = _build_recommendation_prompt().replace("{digest}", digest)
         raw = await provider.extract_signals(prompt, max_tokens=1500)
         return _parse_recommendation(raw)
-    except Exception:
+    except LLMError:
+        _append_warning(warnings, "warn_llm_unavailable")
         return None
     finally:
         await provider.close()
+
+
+def _append_warning(warnings: list[str] | None, key: str) -> None:
+    """Append a localized warning message to the list, if provided."""
+    if warnings is not None:
+        from gh_score.i18n import t
+
+        warnings.append(t(key))

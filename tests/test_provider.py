@@ -1,11 +1,19 @@
 """Tests for the LLM provider prompt and JSON parsing (no network)."""
 
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from gh_score.config import LLMConfig
 from gh_score.core.models import (
     LLMRecommendation,
     MaintenanceState,
     QualitativeSignals,
+    RepoUrl,
+    Repository,
 )
 from gh_score.llm.provider import (
+    LLMError,
     _build_prompt,
     _build_report_digest,
     _build_recommendation_prompt,
@@ -13,7 +21,60 @@ from gh_score.llm.provider import (
     _parse_qualitative,
     _parse_recommendation,
     _TEXT_MAINTENANCE_STATES,
+    analyze_qualitative_with_llm,
 )
+
+
+class TestWarningsPropagation:
+    """LLM failures must be reported through the warnings list."""
+
+    def _repo_with_readme(self) -> Repository:
+        repo = Repository(url=RepoUrl("owner", "repo"))
+        repo.readme_content = "# demo\nActive project with a roadmap.\n"
+        return repo
+
+    @pytest.mark.asyncio
+    async def test_failure_appends_warning_and_returns_empty(self):
+        warnings: list[str] = []
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(side_effect=LLMError("boom")),
+        ):
+            signals = await analyze_qualitative_with_llm(
+                self._repo_with_readme(), LLMConfig(enabled=True), warnings
+            )
+
+        assert signals == QualitativeSignals()
+        assert len(warnings) == 1
+
+    @pytest.mark.asyncio
+    async def test_success_appends_no_warning(self):
+        warnings: list[str] = []
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                return_value={"roadmap": "v2", "text_maintenance_state": "active"}
+            ),
+        ):
+            signals = await analyze_qualitative_with_llm(
+                self._repo_with_readme(), LLMConfig(enabled=True), warnings
+            )
+
+        assert signals.roadmap == "v2"
+        assert warnings == []
+
+    @pytest.mark.asyncio
+    async def test_disabled_appends_no_warning(self):
+        warnings: list[str] = []
+
+        signals = await analyze_qualitative_with_llm(
+            self._repo_with_readme(), LLMConfig(enabled=False), warnings
+        )
+
+        assert signals == QualitativeSignals()
+        assert warnings == []
 
 
 class TestExtractJsonObject:

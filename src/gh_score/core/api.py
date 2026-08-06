@@ -145,6 +145,9 @@ async def analyze_repo_async(
             result, config.llm, warnings
         )
 
+    # De-duplicate: the qualitative and recommendation LLM calls both fail
+    # together and would append the same warning twice.
+    warnings = list(dict.fromkeys(warnings))
     result.warnings = warnings
     return result
 

@@ -471,6 +471,40 @@ class TestWarnings:
 
         assert "LLM exploded" in result.warnings
 
+    @pytest.mark.asyncio
+    async def test_warnings_deduplicated(self, tmp_path, monkeypatch):
+        self._pin_fr(monkeypatch)
+        config = _make_config(tmp_path)
+        config.llm.enabled = True
+        config.llm.base_url = "http://localhost:11434/v1"
+        repo = _make_repo_data()
+
+        def _double_warning_llm(repo, cfg, warnings=None):
+            if warnings is not None:
+                warnings.append("same warning")
+                warnings.append("same warning")
+            return QualitativeSignals()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "gh_score.core.api.analyze_qualitative_with_llm",
+                new=AsyncMock(side_effect=_double_warning_llm),
+            ),
+            patch(
+                "gh_score.core.api.analyze_recommendation_with_llm",
+                new=AsyncMock(return_value=None),
+            ),
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        assert result.warnings == ["same warning"]
+
 
 class TestSyncWrapper:
     def test_analyze_repo_forwards_to_async(self, tmp_path):

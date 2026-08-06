@@ -18,6 +18,7 @@ from gh_score.cli.tui import (
     _render_languages,
     _render_license,
     _render_maintenance,
+    _render_qualitative,
     _render_recommendation,
     _render_registries,
     _render_release_health,
@@ -35,6 +36,7 @@ from gh_score.core.models import (
     LicenseFamily,
     MaintenanceIndicator,
     MaintenanceState,
+    QualitativeIndicator,
     Recommendation,
     RecommendationLevel,
     RegistryInfo,
@@ -262,6 +264,29 @@ class TestPanels:
     def test_registries_none(self, result, en_locale):
         result.registries = []
         assert _render_registries(result) is None
+
+
+class TestQualitativePanel:
+    def test_panel_shows_signals(self, result, en_locale):
+        result.qualitative = QualitativeIndicator(
+            roadmap="v2 planned",
+            commercial_support="paid tiers",
+            security_policy="private advisory",
+            text_maintenance_state="active",
+            available=True,
+            status=Status.HEALTHY,
+        )
+        panel = _render_qualitative(result)
+        assert panel is not None
+        assert panel.title == "Qualitative Signals"
+        text = _panel_text(panel)
+        assert "roadmap: v2 planned" in text
+        assert "commercial support: paid tiers" in text
+        assert "security: private advisory" in text
+        assert "declared state: active" in text
+
+    def test_panel_hidden_when_not_available(self, result, en_locale):
+        assert _render_qualitative(result) is None
 
 
 class TestRenderDashboard:

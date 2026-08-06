@@ -133,6 +133,7 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
     _md_maintenance(result, console)
     _md_languages(result, console)
     _md_sustainability(result, console)
+    _md_qualitative(result, console)
 
 
 def _md_release_health(result: AnalysisResult, console: Console) -> None:
@@ -206,6 +207,24 @@ def _md_sustainability(result: AnalysisResult, console: Console) -> None:
     if sust.corporate_backing:
         console.print(f"- {t('md_corporate', company=sust.corporate_backing)}")
     console.print(f"- {t('md_status', status=t(f'status_{sust.status.value}'))}\n")
+
+
+def _md_qualitative(result: AnalysisResult, console: Console) -> None:
+    q = result.qualitative
+    if not q.available:
+        return
+    console.print(f"{t('md_section_qualitative')}\n")
+    if q.text_maintenance_state:
+        console.print(
+            f"- {t('md_text_state', state=t(f'state_{q.text_maintenance_state}'))}"
+        )
+    if q.roadmap:
+        console.print(f"- {t('md_roadmap', text=q.roadmap)}")
+    if q.commercial_support:
+        console.print(f"- {t('md_commercial', text=q.commercial_support)}")
+    if q.security_policy:
+        console.print(f"- {t('md_security', text=q.security_policy)}")
+    console.print(f"- {t('md_status', status=t(f'status_{q.status.value}'))}\n")
 
 
 _RENDERERS = {

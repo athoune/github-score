@@ -260,27 +260,6 @@ def _render_sustainability(result: AnalysisResult) -> Panel:
     if sust.governance_model:
         content.append(f"{t('tui_governance', model=sust.governance_model)}\n")
 
-    # LLM-extracted signals
-    if sust.llm_signals:
-        sponsors = sust.llm_signals.get("sponsors")
-        if sponsors and isinstance(sponsors, list):
-            content.append(
-                f"{t('tui_llm_sponsors', list=', '.join(sponsors))}\n", style="dim"
-            )
-        roadmap = sust.llm_signals.get("roadmap")
-        if roadmap and isinstance(roadmap, str):
-            content.append(f"{t('tui_llm_roadmap', text=roadmap[:80])}\n", style="dim")
-        security = sust.llm_signals.get("security_policy")
-        if security and isinstance(security, str):
-            content.append(
-                f"{t('tui_llm_security', text=security[:80])}\n", style="dim"
-            )
-        commercial = sust.llm_signals.get("commercial_support")
-        if commercial and isinstance(commercial, str):
-            content.append(
-                f"{t('tui_llm_commercial', text=commercial[:80])}\n", style="dim"
-            )
-
     if not any([sust.foundation, sust.funding_platforms, sust.corporate_backing]):
         content.append(f"{t('tui_no_backing')}\n", style="yellow")
 
@@ -288,6 +267,33 @@ def _render_sustainability(result: AnalysisResult) -> Panel:
         content.append(f"\n{sust.interpretation}", style="dim")
 
     return Panel(content, title=t("panel_sustainability"), border_style=color)
+
+
+def _render_qualitative(result: AnalysisResult) -> Panel | None:
+    """Render the optional LLM qualitative signals panel."""
+    q = result.qualitative
+    if not q.available:
+        return None
+
+    glyph, color = _status_glyph(q.status)
+    content = Text()
+    content.append(f"{glyph} ", style=color)
+
+    if q.roadmap:
+        content.append(f"{t('tui_roadmap', text=q.roadmap[:80])}\n")
+    if q.commercial_support:
+        content.append(f"{t('tui_commercial', text=q.commercial_support[:80])}\n")
+    if q.security_policy:
+        content.append(f"{t('tui_security', text=q.security_policy[:80])}\n")
+    if q.text_maintenance_state:
+        content.append(
+            f"{t('tui_text_state', state=t(f'state_{q.text_maintenance_state}'))}\n"
+        )
+
+    if q.interpretation:
+        content.append(f"\n{q.interpretation}", style="dim")
+
+    return Panel(content, title=t("panel_qualitative"), border_style=color)
 
 
 def _render_registries(result: AnalysisResult) -> Panel | None:
@@ -397,6 +403,11 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
     )
 
     console.print(grid2)
+
+    # Optional LLM qualitative signals panel
+    qualitative_panel = _render_qualitative(result)
+    if qualitative_panel:
+        console.print(qualitative_panel)
 
     # Registries if any
     registries_panel = _render_registries(result)

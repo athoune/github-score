@@ -61,6 +61,44 @@ def _clean_str(value: object) -> str | None:
     return value or None
 
 
+def _extract_json_object(content: str) -> dict:
+    """Parse a JSON object out of LLM content, tolerating surrounding prose.
+
+    Local models frequently wrap the answer in explanations. We try, in
+    order: direct parse, fenced code blocks, then the first ``{`` to the
+    last ``}`` in the text.
+    """
+    content = content.strip()
+
+    try:
+        result = json.loads(content)
+        return result if isinstance(result, dict) else {}
+    except ValueError:
+        pass
+
+    if "```json" in content:
+        content = content.split("```json", 1)[1].split("```", 1)[0]
+    elif "```" in content:
+        content = content.split("```", 1)[1].split("```", 1)[0]
+
+    try:
+        result = json.loads(content.strip())
+        return result if isinstance(result, dict) else {}
+    except ValueError:
+        pass
+
+    start = content.find("{")
+    end = content.rfind("}")
+    if start != -1 and end > start:
+        try:
+            result = json.loads(content[start : end + 1])
+            return result if isinstance(result, dict) else {}
+        except ValueError:
+            pass
+
+    return {}
+
+
 def _parse_qualitative(data: dict) -> QualitativeSignals:
     """Map the LLM JSON payload onto typed QualitativeSignals."""
     state = data.get("text_maintenance_state")
@@ -201,13 +239,17 @@ class LLMProvider:
         if self.enabled:
             await self.client.aclose()
 
-    async def extract_signals(self, prompt: str) -> dict[str, Any]:
+    async def extract_signals(
+        self, prompt: str, max_tokens: int = 500
+    ) -> dict[str, Any]:
         """Ask the LLM to extract structured signals.
 
         Args:
             prompt: The fully assembled instruction (placeholders already
                 filled by the caller, see _build_prompt and
                 _build_recommendation_prompt).
+            max_tokens: Completion token budget. The refined recommendation
+                needs more headroom than the qualitative extraction.
 
         Returns:
             Parsed JSON dict, or {} on any failure (LLM is optional and
@@ -225,22 +267,18 @@ class LLMProvider:
                         {"role": "user", "content": prompt},
                     ],
                     "temperature": 0.3,
-                    "max_tokens": 500,
+                    "max_tokens": max_tokens,
                 },
             )
             response.raise_for_status()
 
             data = response.json()
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            message = data.get("choices", [{}])[0].get("message", {})
+            # Some local servers (e.g. omlx) put the answer in a separate
+            # reasoning_content field; fall back to it when content is empty.
+            content = message.get("content") or message.get("reasoning_content") or ""
 
-            # Try to extract JSON from markdown code blocks if present
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0]
-
-            result = json.loads(content.strip())
-            return result if isinstance(result, dict) else {}
+            return _extract_json_object(content)
 
         except Exception:
             # LLM is optional, never break the pipeline
@@ -305,7 +343,7 @@ async def analyze_recommendation_with_llm(
             _build_report_digest(result), default=str, ensure_ascii=False
         )
         prompt = _build_recommendation_prompt().replace("{digest}", digest)
-        raw = await provider.extract_signals(prompt)
+        raw = await provider.extract_signals(prompt, max_tokens=1500)
         return _parse_recommendation(raw)
     except Exception:
         return None

@@ -9,10 +9,32 @@ from gh_score.llm.provider import (
     _build_prompt,
     _build_report_digest,
     _build_recommendation_prompt,
+    _extract_json_object,
     _parse_qualitative,
     _parse_recommendation,
     _TEXT_MAINTENANCE_STATES,
 )
+
+
+class TestExtractJsonObject:
+    def test_pure_json(self):
+        assert _extract_json_object('{"a": 1}') == {"a": 1}
+
+    def test_json_fence(self):
+        content = 'Here you go:\n```json\n{"a": 1}\n```\nDone.'
+        assert _extract_json_object(content) == {"a": 1}
+
+    def test_json_embedded_in_prose(self):
+        content = "Sure! The answer is {\"level\": \"green\", \"message\": \"OK\"} hope that helps."
+        assert _extract_json_object(content) == {"level": "green", "message": "OK"}
+
+    def test_empty_and_invalid(self):
+        assert _extract_json_object("") == {}
+        assert _extract_json_object("no json here") == {}
+
+    def test_non_dict_json_returns_empty(self):
+        assert _extract_json_object("[1, 2, 3]") == {}
+
 
 
 class TestParseQualitative:

@@ -23,7 +23,7 @@ from gh_score.core.fetchers.github import GitHubFetcher
 from gh_score.core.fetchers.local_git import fetch_local_repo
 from gh_score.core.fetchers.registries import fetch_registry_info
 from gh_score.core.models import AnalysisResult, RepoUrl
-from gh_score.llm.provider import analyze_sustainability_with_llm
+from gh_score.llm.provider import analyze_qualitative_with_llm
 
 
 async def analyze_repo_async(
@@ -83,12 +83,9 @@ async def analyze_repo_async(
     local_path = str(path) if is_local else None
     repo.registries = await fetch_registry_info(repo, local_path, cache)
 
-    # Optional LLM analysis for sustainability
+    # Optional LLM analysis for qualitative signals
     if config.llm.enabled:
-        llm_signals = await analyze_sustainability_with_llm(repo, config.llm)
-        # LLM signals will be attached to the sustainability indicator
-        if llm_signals:
-            repo.llm_signals = llm_signals
+        repo.llm_signals = await analyze_qualitative_with_llm(repo, config.llm)
 
     # Run all analyzers
     result = AnalysisResult(

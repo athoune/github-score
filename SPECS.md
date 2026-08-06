@@ -325,6 +325,29 @@ report, as a dedicated `QualitativeIndicator` (5th indicator family).
 Commit data always wins over prose: the text-declared abandonment branch
 only fires when the maintenance state is unknown.
 
+### 8.4 Refined recommendation (phase 2)
+
+When the LLM is enabled, a second, complementary verdict is produced from
+a compact digest of **every indicator family** (metadata, maintenance,
+contributors, releases, license, sustainability, qualitative signals,
+registries) plus the deterministic verdict:
+
+- **Level**: `green` / `orange` / `red`.
+- **Message**: a short verdict sentence.
+- **Explanation**: 2-4 sentences weighing the strongest signals and
+  trade-offs.
+- **Confidence**: the LLM's self-assessed confidence (0.0 → 1.0).
+
+Rules:
+
+- The refined recommendation is informational and **never replaces** the
+  deterministic verdict — both are displayed, the report's traffic light
+  stays deterministic.
+- The LLM may agree with or refine/disagree with the deterministic
+  verdict; both are shown side by side.
+- Invalid output (unknown level, unparseable JSON, provider failure)
+  hides the refined panel without breaking the pipeline.
+
 ## 9. CLI design
 
 ### 9.1 Commands

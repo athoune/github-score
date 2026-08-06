@@ -88,9 +88,30 @@ heuristics to be tuned with real-world examples.
 
 `confidence` (0.0 → 1.0) reflects **data completeness**: the fraction of
 the four core indicators (maintenance, contributors, release health,
-sustainability) whose status is known (not `UNKNOWN`). It is displayed as
-a percentage in the UI. It measures how much data the verdict is based
-on, not how "good" the project is.
+sustainability) whose status is known (not `UNKNOWN`), plus the qualitative
+indicator when the LLM ran. It is displayed as a percentage in the UI. It
+measures how much data the verdict is based on, not how "good" the project
+is.
+
+## Refined recommendation (LLM, optional)
+
+When the LLM is enabled, a second, complementary verdict is produced:
+the LLM receives a compact digest of **every indicator family** (metadata,
+maintenance, contributors, releases, license, sustainability, qualitative
+signals, registries) plus the deterministic traffic-light verdict, and
+returns a nuanced recommendation: a level (`green` / `orange` / `red`), a
+short message, a 2-4 sentence explanation weighing the signals and
+trade-offs, and a self-assessed confidence.
+
+Rules:
+
+- The refined recommendation is **informational and complementary**. It
+  never replaces the deterministic verdict: both are displayed, and the
+  traffic light of the report stays the deterministic one.
+- The LLM may agree with, or refine/disagree with, the deterministic
+  verdict — the two are shown side by side so the user sees the nuance.
+- Invalid LLM output (unknown level, unparseable JSON, provider failure)
+  simply hides the refined panel; the pipeline never breaks.
 
 ## Reasoning
 
@@ -135,6 +156,8 @@ declared maintenance state). Example:
 | `fact_roadmap` | feuille de route annoncée | roadmap announced |
 | `fact_commercial` | support commercial disponible | commercial support available |
 | `fact_security` | politique de sécurité documentée | security policy documented |
+| `panel_llm_recommendation` | Recommandation affinée (LLM) | Refined recommendation (LLM) |
+| `md_section_llm_recommendation` | ## Recommandation affinée (LLM) | ## Refined recommendation (LLM) |
 
 The full catalog (including reasoning lines, facts and UI labels) lives
 in `src/gh_score/i18n.py`. To add a language, add a catalog dict there

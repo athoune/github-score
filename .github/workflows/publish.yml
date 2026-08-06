@@ -1,0 +1,46 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9
+        with:
+          python-version: "3.12"
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest tests/ -q
+
+      - name: Build distributions
+        run: uv build
+
+      # Publish via an API token when the PYPI_TOKEN secret exists…
+      - name: Publish to PyPI (API token)
+        if: ${{ secrets.PYPI_TOKEN != '' }}
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: uv publish
+
+      # …otherwise rely on trusted publishing (OIDC). This requires the
+      # "pypi" environment in the repo settings and the GitHub repository
+      # configured as a trusted publisher in the PyPI project settings.
+      - name: Publish to PyPI (trusted publishing)
+        if: ${{ secrets.PYPI_TOKEN == '' }}
+        run: uv publish

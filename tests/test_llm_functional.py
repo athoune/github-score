@@ -10,8 +10,23 @@ import os
 import pytest
 
 from gh_score.config import LLMConfig
-from gh_score.core.models import QualitativeSignals, Repository, RepoUrl
-from gh_score.llm.provider import analyze_qualitative_with_llm
+from gh_score.core.models import (
+    AnalysisResult,
+    ContributorsIndicator,
+    LicenseIndicator,
+    MaintenanceIndicator,
+    MaintenanceState,
+    QualitativeSignals,
+    ReleaseHealthIndicator,
+    RepoUrl,
+    Repository,
+    RepositoryMeta,
+    SustainabilityIndicator,
+)
+from gh_score.llm.provider import (
+    analyze_qualitative_with_llm,
+    analyze_recommendation_with_llm,
+)
 
 
 def _llm_configured() -> bool:
@@ -65,3 +80,48 @@ async def test_real_llm_no_text_returns_empty():
 
     assert signals == QualitativeSignals()
     assert signals.any is False
+
+
+@requires_llm
+@pytest.mark.asyncio
+async def test_real_llm_refined_recommendation():
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    result = AnalysisResult(
+        url=RepoUrl("owner", "repo"),
+        meta=RepositoryMeta(
+            owner="owner",
+            stars=2500,
+            forks=120,
+            description="A solid CLI library",
+            created_at=now - timedelta(days=800),
+        ),
+        release_health=ReleaseHealthIndicator(
+            latest_version="v2.1.0",
+            age_days=20,
+            cadence_days=35.0,
+        ),
+        license=LicenseIndicator(spdx_id="MIT"),
+        contributors=ContributorsIndicator(
+            total_authors=25,
+            bus_factor=3,
+            bot_ratio=0.1,
+            activity_trend={"3m": 40, "12m": 300},
+        ),
+        maintenance=MaintenanceIndicator(
+            state=MaintenanceState.ACTIVE,
+            last_commit_days_ago=2,
+            commits_per_month=12.0,
+        ),
+        languages=None,  # type: ignore[arg-type]
+        sustainability=SustainabilityIndicator(has_funding=True),
+    )
+
+    rec = await analyze_recommendation_with_llm(result, _llm_config())
+
+    assert rec is not None
+    assert rec.level in ("green", "orange", "red")
+    assert rec.message != ""
+    assert rec.explanation != ""
+    assert 0.0 <= rec.confidence <= 1.0

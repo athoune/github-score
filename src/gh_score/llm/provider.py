@@ -15,11 +15,14 @@ from typing import Any
 import httpx
 
 from gh_score.config import LLMConfig
-from gh_score.core.models import QualitativeSignals
+from gh_score.core.models import LLMRecommendation, QualitativeSignals
 
 
 # Allowed values for the self-declared maintenance state the LLM may report.
 _TEXT_MAINTENANCE_STATES = frozenset({"active", "maintenance", "abandoned", "unknown"})
+
+# Allowed traffic-light levels for the refined LLM recommendation.
+_LLM_LEVELS = frozenset({"green", "orange", "red"})
 
 # Deliberately EXCLUDED from the prompt: sponsors/backers and the
 # governance model already have deterministic implementations
@@ -71,6 +74,107 @@ def _parse_qualitative(data: dict) -> QualitativeSignals:
     )
 
 
+def _build_report_digest(result) -> dict[str, Any]:
+    """Compact digest of the analysis result for the LLM prompt.
+
+    Carries the key facts of every indicator family so the LLM can weigh
+    them together. Values are plain JSON-friendly primitives.
+    """
+    meta = result.meta
+    maint = result.maintenance
+    contrib = result.contributors
+    rh = result.release_health
+    return {
+        "owner": meta.owner,
+        "owner_type": meta.owner_type or "unknown",
+        "stars": meta.stars,
+        "forks": meta.forks,
+        "description": (meta.description or "")[:200],
+        "maintenance": {
+            "state": maint.state.value,
+            "last_commit_days_ago": maint.last_commit_days_ago,
+            "commits_per_month": maint.commits_per_month,
+        },
+        "contributors": {
+            "authors": contrib.total_authors,
+            "bus_factor": contrib.bus_factor,
+            "bot_ratio": round(contrib.bot_ratio, 2),
+            "activity_trend": contrib.activity_trend,
+        },
+        "release": {
+            "latest_version": rh.latest_version,
+            "age_days": rh.age_days,
+            "cadence_days": rh.cadence_days,
+        },
+        "license": result.license.spdx_id,
+        "primary_language": result.languages.primary if result.languages else None,
+        "sustainability": {
+            "has_funding": result.sustainability.has_funding,
+            "funding_platforms": result.sustainability.funding_platforms,
+            "corporate_backing": result.sustainability.corporate_backing,
+            "foundation": result.sustainability.foundation,
+            "governance_model": result.sustainability.governance_model,
+        },
+        "qualitative": {
+            "roadmap": result.qualitative.roadmap,
+            "commercial_support": result.qualitative.commercial_support,
+            "security_policy": result.qualitative.security_policy,
+            "text_maintenance_state": result.qualitative.text_maintenance_state,
+        },
+        "registries": [
+            {
+                "ecosystem": reg.ecosystem,
+                "exists": reg.exists,
+                "latest_version": reg.latest_version,
+                "downloads": reg.downloads,
+                "deprecated": reg.deprecated,
+            }
+            for reg in result.registries
+        ],
+    }
+
+
+def _build_recommendation_prompt() -> str:
+    """Instruction for the refined recommendation (``{digest}`` is filled
+    with the JSON report digest by the caller)."""
+    return (
+        "You are evaluating whether a developer should bet on a GitHub "
+        "project.\n\n"
+        "Here is the analysis digest of the project, followed by the "
+        "deterministic traffic-light verdict:\n"
+        "{digest}\n\n"
+        "Weigh all the information together (maintenance, contributors, "
+        "releases, license, sustainability, qualitative signals) and produce "
+        "a nuanced recommendation that may agree with, or refine, the "
+        "deterministic verdict.\n\n"
+        "Return a JSON object with:\n"
+        '- level: one of "green", "orange", "red"\n'
+        "- message: a short verdict sentence (max 15 words)\n"
+        "- explanation: 2-4 sentences weighing the strongest signals and "
+        "trade-offs\n"
+        "- confidence: a number between 0 and 1 expressing your confidence\n\n"
+        "Return only valid JSON, no markdown formatting."
+    )
+
+
+def _parse_recommendation(data: dict) -> LLMRecommendation:
+    """Map the LLM JSON payload onto a typed LLMRecommendation."""
+    level = data.get("level")
+    if level not in _LLM_LEVELS:
+        level = ""
+    try:
+        confidence = float(data.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        confidence = 0.0
+    confidence = max(0.0, min(1.0, confidence))
+    return LLMRecommendation(
+        level=level,
+        message=_clean_str(data.get("message")) or "",
+        explanation=_clean_str(data.get("explanation")) or "",
+        confidence=confidence,
+    )
+
+
 class LLMProvider:
     """Abstract LLM provider with OpenAI-compatible API."""
 
@@ -97,12 +201,13 @@ class LLMProvider:
         if self.enabled:
             await self.client.aclose()
 
-    async def extract_signals(self, prompt: str, text: str) -> dict[str, Any]:
+    async def extract_signals(self, prompt: str) -> dict[str, Any]:
         """Ask the LLM to extract structured signals.
 
         Args:
-            prompt: The full instruction (see _build_prompt).
-            text: The repository text excerpts to analyze.
+            prompt: The fully assembled instruction (placeholders already
+                filled by the caller, see _build_prompt and
+                _build_recommendation_prompt).
 
         Returns:
             Parsed JSON dict, or {} on any failure (LLM is optional and
@@ -111,15 +216,13 @@ class LLMProvider:
         if not self.enabled:
             return {}
 
-        filled = prompt.replace("{text}", text)
-
         try:
             response = await self.client.post(
                 "/chat/completions",
                 json={
                     "model": self.config.model,
                     "messages": [
-                        {"role": "user", "content": filled},
+                        {"role": "user", "content": prompt},
                     ],
                     "temperature": 0.3,
                     "max_tokens": 500,
@@ -172,10 +275,39 @@ async def analyze_qualitative_with_llm(
 
     provider = LLMProvider(config)
     try:
-        prompt = _build_prompt("sustainability and governance")
-        raw = await provider.extract_signals(prompt, combined_text)
+        prompt = _build_prompt("sustainability and governance").replace(
+            "{text}", combined_text
+        )
+        raw = await provider.extract_signals(prompt)
         return _parse_qualitative(raw)
     except Exception:
         return QualitativeSignals()
+    finally:
+        await provider.close()
+
+
+async def analyze_recommendation_with_llm(
+    result, config: LLMConfig
+) -> LLMRecommendation | None:
+    """Use the LLM to produce a refined recommendation from the full report.
+
+    The LLM receives a compact digest of every indicator family plus the
+    deterministic verdict, and returns a nuanced recommendation (level,
+    message, explanation, confidence). Returns None when the LLM is
+    disabled or fails; the deterministic verdict always stands.
+    """
+    if not config.enabled:
+        return None
+
+    provider = LLMProvider(config)
+    try:
+        digest = json.dumps(
+            _build_report_digest(result), default=str, ensure_ascii=False
+        )
+        prompt = _build_recommendation_prompt().replace("{digest}", digest)
+        raw = await provider.extract_signals(prompt)
+        return _parse_recommendation(raw)
+    except Exception:
+        return None
     finally:
         await provider.close()

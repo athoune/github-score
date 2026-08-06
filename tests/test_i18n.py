@@ -255,3 +255,23 @@ class TestCliStrings:
         assert t("status_warning", lang="en") == "warning"
         assert t("state_abandoned", lang="fr") == "abandonné"
         assert t("state_abandoned", lang="en") == "abandoned"
+
+
+class TestQualitativeKeys:
+    """Qualitative (LLM) keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "rec_text_discontinued", "reason_text_discontinued",
+                "reason_text_active",
+                "fact_roadmap", "fact_commercial", "fact_security",
+                "int_roadmap", "int_commercial", "int_security", "int_text_state",
+                "panel_qualitative",
+                "tui_roadmap", "tui_security", "tui_commercial", "tui_text_state",
+                "md_section_qualitative", "md_roadmap", "md_security",
+                "md_commercial", "md_text_state",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"

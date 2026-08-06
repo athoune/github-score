@@ -56,6 +56,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_maintenance": "Projet en mode maintenance",
         "rec_widely_used_unmaintained": "Projet largement utilisé même si peu maintenu",
         "rec_insufficient_data": "Données insuffisantes pour une recommandation fiable",
+        "rec_text_discontinued": "Les textes du projet annoncent son abandon",
 
         # Recommendation reasoning lines
         "reason_archived": "le dépôt est marqué comme archivé sur GitHub",
@@ -76,11 +77,19 @@ MESSAGES: dict[str, dict[str, str]] = {
             "état de maintenance incertain mais large adoption"
         ),
         "reason_insufficient": "trop peu de données exploitables sur la maintenance",
+        "reason_text_discontinued": (
+            "le README/GOVERNANCE déclare explicitement que le projet n'est "
+            "plus maintenu"
+        ),
+        "reason_text_active": "le texte du projet déclare un développement actif",
 
         # Objective facts appended to the reasoning
         "fact_stars": "{stars:,} étoiles",
         "fact_authors": "{authors} auteurs",
         "fact_owner": "propriétaire : {type}",
+        "fact_roadmap": "feuille de route annoncée",
+        "fact_commercial": "support commercial disponible",
+        "fact_security": "politique de sécurité documentée",
 
         # ------------------------------------------------------------------
         # Release health interpretation
@@ -156,6 +165,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_corporate": "entreprise : {company}",
         "int_governance": "gouvernance : {model}",
         "int_no_backing": "aucun soutien détecté",
+        "int_roadmap": "roadmap : {text}",
+        "int_commercial": "support commercial : {text}",
+        "int_security": "sécurité : {text}",
+        "int_text_state": "état déclaré : {state}",
 
         # ------------------------------------------------------------------
         # Status / state display labels
@@ -187,6 +200,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "panel_languages": "Langages",
         "panel_sustainability": "Durabilité",
         "panel_registries": "Registres de paquets",
+        "panel_qualitative": "Signaux qualitatifs",
         "tui_latest": "dernière : {version}",
         "tui_age": "âge : {days} jours",
         "tui_cadence": "cadence : {days:.0f} jours/release",
@@ -226,6 +240,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_deprecated": "⚠ déprécié",
         "tui_heuristic": "(nom déduit du dépôt)",
         "tui_not_found": "(introuvable)",
+        "tui_roadmap": "roadmap : {text}",
+        "tui_commercial": "support commercial : {text}",
+        "tui_security": "sécurité : {text}",
+        "tui_text_state": "état déclaré : {state}",
         "ui_confidence": "confiance : {conf:.0%}",
 
         # ------------------------------------------------------------------
@@ -238,6 +256,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_maintenance": "## Maintenance",
         "md_section_languages": "## Langages",
         "md_section_sustainability": "## Durabilité",
+        "md_section_qualitative": "## Signaux qualitatifs",
         "md_header_stars": "**Étoiles :** {count:,}",
         "md_header_forks": "**Forks :** {count:,}",
         "md_owner": "**Propriétaire :** {type}",
@@ -259,6 +278,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_foundation": "**Fondation :** {name}",
         "md_funding": "**Financement :** {platforms}",
         "md_corporate": "**Soutien d'entreprise :** {company}",
+        "md_roadmap": "**Roadmap :** {text}",
+        "md_commercial": "**Support commercial :** {text}",
+        "md_security": "**Sécurité :** {text}",
+        "md_text_state": "**État déclaré :** {state}",
         "md_confidence": "Confiance : {conf:.0%}",
 
         # ------------------------------------------------------------------
@@ -306,6 +329,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_maintenance": "Project in maintenance mode",
         "rec_widely_used_unmaintained": "Widely used project despite low maintenance",
         "rec_insufficient_data": "Insufficient data for a reliable recommendation",
+        "rec_text_discontinued": "Project texts announce its discontinuation",
 
         # Recommendation reasoning lines
         "reason_archived": "repository marked as archived on GitHub",
@@ -322,11 +346,19 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_maintenance": "bug fixes but no active development",
         "reason_unknown_widely_used": "uncertain maintenance state but wide adoption",
         "reason_insufficient": "too little usable maintenance data",
+        "reason_text_discontinued": (
+            "README/GOVERNANCE explicitly states the project is no longer "
+            "maintained"
+        ),
+        "reason_text_active": "the project text declares active development",
 
         # Objective facts appended to the reasoning
         "fact_stars": "{stars:,} stars",
         "fact_authors": "{authors} authors",
         "fact_owner": "owner: {type}",
+        "fact_roadmap": "roadmap announced",
+        "fact_commercial": "commercial support available",
+        "fact_security": "security policy documented",
 
         # ------------------------------------------------------------------
         # Release health interpretation
@@ -402,6 +434,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_corporate": "corporate: {company}",
         "int_governance": "governance: {model}",
         "int_no_backing": "no backing detected",
+        "int_roadmap": "roadmap: {text}",
+        "int_commercial": "commercial support: {text}",
+        "int_security": "security: {text}",
+        "int_text_state": "declared state: {state}",
 
         # ------------------------------------------------------------------
         # Status / state display labels
@@ -433,6 +469,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "panel_languages": "Languages",
         "panel_sustainability": "Sustainability",
         "panel_registries": "Package Registries",
+        "panel_qualitative": "Qualitative Signals",
         "tui_latest": "latest: {version}",
         "tui_age": "age: {days} days",
         "tui_cadence": "cadence: {days:.0f} days/release",
@@ -472,6 +509,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_deprecated": "⚠ deprecated",
         "tui_heuristic": "(name inferred from repo)",
         "tui_not_found": "(not found)",
+        "tui_roadmap": "roadmap: {text}",
+        "tui_commercial": "commercial support: {text}",
+        "tui_security": "security: {text}",
+        "tui_text_state": "declared state: {state}",
         "ui_confidence": "confidence: {conf:.0%}",
 
         # ------------------------------------------------------------------
@@ -484,6 +525,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_maintenance": "## Maintenance",
         "md_section_languages": "## Languages",
         "md_section_sustainability": "## Sustainability",
+        "md_section_qualitative": "## Qualitative Signals",
         "md_header_stars": "**Stars:** {count:,}",
         "md_header_forks": "**Forks:** {count:,}",
         "md_owner": "**Owner:** {type}",
@@ -505,6 +547,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_foundation": "**Foundation:** {name}",
         "md_funding": "**Funding:** {platforms}",
         "md_corporate": "**Corporate backing:** {company}",
+        "md_roadmap": "**Roadmap:** {text}",
+        "md_commercial": "**Commercial support:** {text}",
+        "md_security": "**Security:** {text}",
+        "md_text_state": "**Declared state:** {state}",
         "md_confidence": "Confidence: {conf:.0%}",
 
         # ------------------------------------------------------------------

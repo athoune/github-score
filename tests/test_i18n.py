@@ -275,3 +275,14 @@ class TestQualitativeKeys:
                 "md_commercial", "md_text_state",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
+class TestRefinedRecommendationKeys:
+    """Refined LLM recommendation keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in ("panel_llm_recommendation", "md_section_llm_recommendation"):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"

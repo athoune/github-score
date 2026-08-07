@@ -1,8 +1,10 @@
 """Tests for the GitHub API fetcher (no network: HTTP is mocked)."""
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 
 from gh_score.config import Config
@@ -425,3 +427,27 @@ class TestFetchSecurityUpdates:
         fetcher = _make_fetcher(tmp_path)
         fetcher._get_all_pages = AsyncMock(return_value=[])
         assert await fetcher.fetch_security_updates(URL) == []
+
+
+class TestGetRobustness:
+    """A non-JSON API response must degrade, not crash the pipeline."""
+
+    @pytest.mark.asyncio
+    async def test_non_json_body_returns_none(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        req = httpx.Request("GET", "https://api.github.com/repos/o/r")
+        resp = httpx.Response(200, text="<html>an HTML error page</html>", request=req)
+        fetcher.client = SimpleNamespace(get=AsyncMock(return_value=resp))
+
+        result = await fetcher._get("https://api.github.com/repos/o/r")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_valid_json_is_cached_and_returned(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        req = httpx.Request("GET", "https://api.github.com/repos/o/r")
+        resp = httpx.Response(200, json={"name": "repo"}, request=req)
+        fetcher.client = SimpleNamespace(get=AsyncMock(return_value=resp))
+
+        result = await fetcher._get("https://api.github.com/repos/o/r")
+        assert result == {"name": "repo"}

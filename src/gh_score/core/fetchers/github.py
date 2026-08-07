@@ -160,6 +160,10 @@ class GitHubFetcher:
             return None
         except httpx.RequestError:
             return None
+        except (json.JSONDecodeError, ValueError):
+            # Non-JSON body (HTML error page, empty 204, …): treat like a
+            # failed request rather than crashing the whole analysis.
+            return None
 
     async def _get_all_pages(
         self, url: str, params: dict | None = None, max_pages: int = 10
@@ -231,6 +235,7 @@ class GitHubFetcher:
             has_wiki=data.get("has_wiki", False),
             homepage=data.get("homepage"),
             size_kb=data.get("size", 0),
+            mirror_url=data.get("mirror_url"),
         )
 
     async def fetch_license(self, url: RepoUrl) -> LicenseInfo:

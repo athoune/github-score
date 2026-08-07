@@ -56,6 +56,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_maintenance": "Projet en mode maintenance",
         "rec_widely_used_unmaintained": "Projet largement utilisé même si peu maintenu",
         "rec_insufficient_data": "Données insuffisantes pour une recommandation fiable",
+        "rec_site_down": "La page d'accueil du projet est hors ligne",
+        "rec_site_degraded": "Page d'accueil injoignable ou protégée par un anti-robot",
         "rec_text_discontinued": "Les textes du projet annoncent son abandon",
 
         # Recommendation reasoning lines
@@ -81,6 +83,12 @@ MESSAGES: dict[str, dict[str, str]] = {
             "le README/GOVERNANCE déclare explicitement que le projet n'est "
             "plus maintenu"
         ),
+        "reason_site_down": "la page d'accueil est inaccessible",
+        "reason_site_dns": "le nom de domaine de la page d'accueil ne résout pas",
+        "reason_site_http": "la page d'accueil répond HTTP {code}",
+        "reason_site_redirect": "boucle de redirection sur la page d'accueil",
+        "reason_site_timeout": "la page d'accueil a expiré (timeout)",
+        "reason_site_captcha": "la page d'accueil est protégée par un contrôle anti-robot",
         "reason_text_active": "le texte du projet déclare un développement actif",
 
         # Objective facts appended to the reasoning
@@ -150,6 +158,18 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_stale_issues": "{ratio:.0%} de tickets en souffrance",
 
         # ------------------------------------------------------------------
+        # Website interpretation
+        # ------------------------------------------------------------------
+        "int_site_no_homepage": "Pas de page d'accueil déclarée",
+        "int_site_ok": "Site accessible (HTTP {code})",
+        "int_site_dns": "Le nom de domaine ne résout pas : {site}",
+        "int_site_timeout": "Le site a expiré (timeout) : {site}",
+        "int_site_http": "Le site répond HTTP {code} : {site}",
+        "int_site_redirect": "Boucle de redirection sur le site : {site}",
+        "int_site_captcha": "Site protégé par un contrôle anti-robot (« I'm not a robot ») : {site}",
+        "int_site_unreachable": "Site injoignable : {site}",
+
+        # ------------------------------------------------------------------
         # Languages interpretation
         # ------------------------------------------------------------------
         "int_primary": "principal : {language}",
@@ -201,6 +221,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "panel_sustainability": "Durabilité",
         "panel_registries": "Registres de paquets",
         "panel_qualitative": "Signaux qualitatifs",
+        "panel_website": "Site web",
         "panel_llm_recommendation": "Recommandation affinée (LLM)",
         "tui_latest": "dernière : {version}",
         "tui_age": "âge : {days} jours",
@@ -270,6 +291,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_sustainability": "## Durabilité",
         "md_section_qualitative": "## Signaux qualitatifs",
         "md_section_llm_recommendation": "## Recommandation affinée (LLM)",
+        "md_section_website": "## Site web",
         "md_header_stars": "**Étoiles :** {count:,}",
         "md_header_forks": "**Forks :** {count:,}",
         "md_owner": "**Propriétaire :** {type}",
@@ -342,6 +364,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_maintenance": "Project in maintenance mode",
         "rec_widely_used_unmaintained": "Widely used project despite low maintenance",
         "rec_insufficient_data": "Insufficient data for a reliable recommendation",
+        "rec_site_down": "Project homepage is down",
+        "rec_site_degraded": "Project homepage unreachable or bot-protected",
         "rec_text_discontinued": "Project texts announce its discontinuation",
 
         # Recommendation reasoning lines
@@ -363,6 +387,12 @@ MESSAGES: dict[str, dict[str, str]] = {
             "README/GOVERNANCE explicitly states the project is no longer "
             "maintained"
         ),
+        "reason_site_down": "the project homepage is unreachable",
+        "reason_site_dns": "the homepage domain name does not resolve",
+        "reason_site_http": "the homepage answers HTTP {code}",
+        "reason_site_redirect": "redirect loop on the homepage",
+        "reason_site_timeout": "the homepage timed out",
+        "reason_site_captcha": "the homepage is behind a bot-protection check",
         "reason_text_active": "the project text declares active development",
 
         # Objective facts appended to the reasoning
@@ -432,6 +462,18 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_stale_issues": "{ratio:.0%} stale issues",
 
         # ------------------------------------------------------------------
+        # Website interpretation
+        # ------------------------------------------------------------------
+        "int_site_no_homepage": "No homepage declared",
+        "int_site_ok": "Site reachable (HTTP {code})",
+        "int_site_dns": "Domain name does not resolve: {site}",
+        "int_site_timeout": "Site timed out: {site}",
+        "int_site_http": "Site answers HTTP {code}: {site}",
+        "int_site_redirect": "Redirect loop on the site: {site}",
+        "int_site_captcha": "Site behind a bot-protection check (\"I'm not a robot\"): {site}",
+        "int_site_unreachable": "Site unreachable: {site}",
+
+        # ------------------------------------------------------------------
         # Languages interpretation
         # ------------------------------------------------------------------
         "int_primary": "primary: {language}",
@@ -483,6 +525,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "panel_sustainability": "Sustainability",
         "panel_registries": "Package Registries",
         "panel_qualitative": "Qualitative Signals",
+        "panel_website": "Website",
         "panel_llm_recommendation": "Refined recommendation (LLM)",
         "tui_latest": "latest: {version}",
         "tui_age": "age: {days} days",
@@ -550,6 +593,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_sustainability": "## Sustainability",
         "md_section_qualitative": "## Qualitative Signals",
         "md_section_llm_recommendation": "## Refined recommendation (LLM)",
+        "md_section_website": "## Website",
         "md_header_stars": "**Stars:** {count:,}",
         "md_header_forks": "**Forks:** {count:,}",
         "md_owner": "**Owner:** {type}",

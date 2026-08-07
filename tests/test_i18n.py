@@ -286,3 +286,40 @@ class TestRefinedRecommendationKeys:
         for lang in ("fr", "en"):
             for key in ("panel_llm_recommendation", "md_section_llm_recommendation"):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
+class TestWebsiteKeys:
+    """Website indicator keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "panel_website", "md_section_website",
+                "int_site_no_homepage", "int_site_ok", "int_site_dns",
+                "int_site_timeout", "int_site_http", "int_site_redirect",
+                "int_site_captcha", "int_site_unreachable",
+                "rec_site_down", "rec_site_degraded",
+                "reason_site_down", "reason_site_dns", "reason_site_http",
+                "reason_site_redirect", "reason_site_timeout",
+                "reason_site_captcha",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+    def test_interpretation_fr(self):
+        from gh_score.core.analyzers.website import analyze_website
+        from gh_score.core.models import WebsiteError, WebsiteInfo
+
+        ind = analyze_website(
+            WebsiteInfo(url="https://example.com", error=WebsiteError.DNS),
+            lang="fr",
+        )
+        assert t("int_site_dns", lang="fr", site="https://example.com") in ind.interpretation
+
+    def test_interpretation_en(self):
+        from gh_score.core.analyzers.website import analyze_website
+        from gh_score.core.models import WebsiteInfo
+
+        ind = analyze_website(WebsiteInfo(url="https://example.com", status_code=200), lang="en")
+        assert t("int_site_ok", lang="en", site="https://example.com", code=200) in ind.interpretation

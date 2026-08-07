@@ -28,7 +28,9 @@ def _make_git_repo(
     """Initialize a git repo with an origin remote and a default identity."""
     repo_path = tmp_path / "repo"
     repo_path.mkdir()
-    repo = Repo.init(str(repo_path))
+    # git init picks the machine's init.defaultBranch (main or master
+    # depending on git version/config); pin it so the tests are hermetic.
+    repo = Repo.init(str(repo_path), initial_branch="main")
     repo.create_remote("origin", remote_url)
     with repo.config_writer() as cw:
         cw.set_value("user", "name", "Alice")

@@ -5,9 +5,7 @@ Extracts data from a local git clone using gitpython.
 
 from __future__ import annotations
 
-import json
 import re
-import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -39,70 +37,6 @@ def _parse_github_remote(remote_url: str) -> RepoUrl | None:
     )
     if https_match:
         return RepoUrl(owner=https_match.group("owner"), repo=https_match.group("repo"))
-
-    return None
-
-
-def _detect_ecosystem(repo_path: Path) -> str | None:
-    """Detect the primary ecosystem from manifest files."""
-    checks = [
-        ("pyproject.toml", "python"),
-        ("setup.py", "python"),
-        ("setup.cfg", "python"),
-        ("package.json", "javascript"),
-        ("Cargo.toml", "rust"),
-        ("go.mod", "go"),
-        ("pom.xml", "java"),
-        ("build.gradle", "java"),
-        ("build.gradle.kts", "java"),
-        ("Gemfile", "ruby"),
-        ("*.gemspec", "ruby"),
-        ("Dockerfile", "docker"),
-    ]
-
-    for filename, ecosystem in checks:
-        if "*" in filename:
-            if list(repo_path.glob(filename)):
-                return ecosystem
-        elif (repo_path / filename).exists():
-            return ecosystem
-
-    return None
-
-
-def _extract_package_name(repo_path: Path, ecosystem: str) -> str | None:
-    """Extract package name from manifest files."""
-    try:
-        if ecosystem == "python":
-            pyproject = repo_path / "pyproject.toml"
-            if pyproject.exists():
-                with open(pyproject, "rb") as f:
-                    data = tomllib.load(f)
-                return data.get("project", {}).get("name")
-
-        if ecosystem == "javascript":
-            pkg_json = repo_path / "package.json"
-            if pkg_json.exists():
-                with open(pkg_json, encoding="utf-8") as f:
-                    data = json.load(f)
-                return data.get("name")
-
-        if ecosystem == "rust":
-            cargo = repo_path / "Cargo.toml"
-            if cargo.exists():
-                with open(cargo, "rb") as f:
-                    data = tomllib.load(f)
-                return data.get("package", {}).get("name")
-
-        if ecosystem == "go":
-            go_mod = repo_path / "go.mod"
-            if go_mod.exists():
-                with open(go_mod, encoding="utf-8") as f:
-                    for line in f:
-                        if line.startswith("module "):
-                            return line.split()[1].strip()
-    except Exception:
-        pass
 
     return None
 
@@ -192,12 +126,6 @@ def fetch_local_repo(path: str) -> Repository:
         contributors=contributors,
         total_commit_count=len(commits),
     )
-
-    # Detect ecosystem
-    ecosystem = _detect_ecosystem(repo_path)
-    # Package name extraction could be used for registry lookup
-    if ecosystem:
-        _extract_package_name(repo_path, ecosystem)
 
     # Check community files
     community = CommunityFiles()

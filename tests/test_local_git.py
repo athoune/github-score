@@ -13,9 +13,7 @@ import pytest
 from git import Actor, Repo
 
 from gh_score.core.fetchers.local_git import (
-    _detect_ecosystem,
     _estimate_languages,
-    _extract_package_name,
     _parse_funding_local,
     _parse_github_remote,
     fetch_local_repo,
@@ -56,40 +54,6 @@ class TestParseGithubRemote:
 
     def test_invalid(self):
         assert _parse_github_remote("not-a-url") is None
-
-
-class TestDetectEcosystem:
-    def test_python(self, tmp_path):
-        (tmp_path / "pyproject.toml").write_text("[project]\n")
-        assert _detect_ecosystem(tmp_path) == "python"
-
-    def test_javascript(self, tmp_path):
-        (tmp_path / "package.json").write_text("{}")
-        assert _detect_ecosystem(tmp_path) == "javascript"
-
-    def test_gemspec_glob(self, tmp_path):
-        (tmp_path / "mylib.gemspec").write_text("spec.name = 'mylib'")
-        assert _detect_ecosystem(tmp_path) == "ruby"
-
-    def test_none(self, tmp_path):
-        assert _detect_ecosystem(tmp_path) is None
-
-
-class TestExtractPackageName:
-    def test_python(self, tmp_path):
-        (tmp_path / "pyproject.toml").write_text('[project]\nname = "mypkg"')
-        assert _extract_package_name(tmp_path, "python") == "mypkg"
-
-    def test_javascript(self, tmp_path):
-        (tmp_path / "package.json").write_text('{"name": "@scope/pkg"}')
-        assert _extract_package_name(tmp_path, "javascript") == "@scope/pkg"
-
-    def test_go_module(self, tmp_path):
-        (tmp_path / "go.mod").write_text("module github.com/owner/repo\n")
-        assert _extract_package_name(tmp_path, "go") == "github.com/owner/repo"
-
-    def test_unknown_ecosystem(self, tmp_path):
-        assert _extract_package_name(tmp_path, "docker") is None
 
 
 class TestEstimateLanguages:

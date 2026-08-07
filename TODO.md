@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the test-hardening session
-(suite at 86% coverage, 320 tests). Last updated: 2026-08-07.
+(suite at 86% coverage, 312 tests). Last updated: 2026-08-07.
 
 ## Tests / coverage
 
@@ -22,10 +22,10 @@ Remaining actions after the test-hardening session
 
 ## Code smells (spotted while writing tests)
 
-- [ ] `local_git.py`: the `_extract_package_name` result is still called
-      and discarded (line ~200). The registry lookup now lives in
-      `registries.py` (which extracts and uses the package name itself), so
-      this local_git.py call is dead code.
+- [x] `local_git.py` dead `_extract_package_name` call — removed the
+      discarded call plus the duplicate `_detect_ecosystem` /
+      `_extract_package_name` helpers; registry lookup now lives solely in
+      `registries.py`.
 - [ ] `_parse_maven_response` uses naive `datetime.fromtimestamp` (local
       timezone) — inconsistent with the other parsers, which use UTC.
 - [x] `_get_all_pages` mutates its `params` dict in place (aliasing) —

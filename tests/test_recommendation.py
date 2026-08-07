@@ -18,6 +18,7 @@ from gh_score.core.models import (
     RepositoryMeta,
     Status,
     SustainabilityIndicator,
+    WebsiteIndicator,
 )
 
 
@@ -48,6 +49,7 @@ def _make_result(
     contributors_status: Status = Status.HEALTHY,
     release_status: Status = Status.HEALTHY,
     sustainability_status: Status = Status.HEALTHY,
+    website: WebsiteIndicator | None = None,
 ) -> AnalysisResult:
     """Build an AnalysisResult with only the fields the recommendation
     analyzer reads, defaults for everything else."""
@@ -93,6 +95,7 @@ def _make_result(
         sustainability=sustainability,
         registries=registries or [],
         qualitative=qualitative or QualitativeIndicator(),
+        website=website or WebsiteIndicator(),
     )
 
 
@@ -499,3 +502,81 @@ class TestQualitativeSignals:
         )
         rec = _recommend(result)
         assert rec.confidence == 1.0  # still 4/4 known
+
+
+class TestWebsiteRecommendation:
+    """A dead or degraded homepage downgrades the verdict."""
+
+    def test_site_down_is_red(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+            website=WebsiteIndicator(status=Status.CRITICAL, error="dns"),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.RED
+
+    def test_http_error_is_red(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+            website=WebsiteIndicator(status=Status.CRITICAL, error="http", status_code=500),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.RED
+
+    def test_captcha_is_orange(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+            website=WebsiteIndicator(status=Status.WARNING, captcha=True),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+
+    def test_timeout_is_orange(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+            website=WebsiteIndicator(status=Status.WARNING, error="timeout"),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+
+    def test_healthy_does_not_change_verdict(self):
+        with_site = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+            website=WebsiteIndicator(status=Status.HEALTHY, status_code=200),
+        )
+        without_site = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+        )
+        baseline = _recommend(without_site)
+        rec = _recommend(with_site)
+        assert rec.level == baseline.level
+        assert rec.message == baseline.message
+
+    def test_no_homepage_does_not_change_verdict(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+            website=WebsiteIndicator(status=Status.UNKNOWN),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN

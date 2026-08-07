@@ -189,6 +189,7 @@ def analyze_recommendation(
 
     for section in (
         _rec_red_flags,
+        _rec_website,
         _rec_ephemeral,
         _rec_abandoned,
         _rec_active,
@@ -199,6 +200,40 @@ def analyze_recommendation(
         if rec is not None:
             return rec
     return _rec_unknown(result, lang)
+
+
+def _rec_website(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """Homepage availability: a dead site is a strong abandonment signal.
+
+    Only fires when a homepage is declared AND the probe failed or was
+    degraded; a reachable site or a missing homepage never affects the
+    verdict.
+    """
+    site = result.website
+    if site.status == Status.CRITICAL:
+        reason_map = {
+            "dns": ("reason_site_dns", {}),
+            "http": ("reason_site_http", {"code": site.status_code or 0}),
+            "redirect": ("reason_site_redirect", {}),
+        }
+        key, kwargs = reason_map.get(site.error or "", ("reason_site_down", {}))
+        return _build(
+            RecommendationLevel.RED,
+            t("rec_site_down", lang=lang),
+            result,
+            lang,
+            t(key, lang=lang, **kwargs),
+        )
+    if site.status == Status.WARNING:
+        reason = "reason_site_captcha" if site.captcha else "reason_site_timeout"
+        return _build(
+            RecommendationLevel.ORANGE,
+            t("rec_site_degraded", lang=lang),
+            result,
+            lang,
+            t(reason, lang=lang),
+        )
+    return None
 
 
 def _rec_red_flags(result: AnalysisResult, lang: str) -> Recommendation | None:

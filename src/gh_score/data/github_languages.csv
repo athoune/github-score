@@ -1,0 +1,21 @@
+rank,language,num_pushers
+1,HTML,6700107
+2,JavaScript,5662372
+3,CSS,5363826
+4,Python,4109495
+5,TypeScript,2787317
+6,Shell,2319832
+7,Dockerfile,1732771
+8,Java,1074838
+9,C++,944644
+10,C,907620
+11,Jupyter Notebook,889811
+12,Makefile,824208
+13,Batchfile,627941
+14,SCSS,570968
+15,C#,564606
+16,PHP,559093
+17,CMake,523842
+18,PowerShell,515689
+19,Kotlin,433614
+20,Ruby,421014

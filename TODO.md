@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the test-hardening session
-(suite at 86% coverage, 312 tests). Last updated: 2026-08-07.
+(suite at 87% coverage, 347 tests). Last updated: 2026-08-07.
 
 ## Tests / coverage
 
@@ -11,6 +11,9 @@ Remaining actions after the test-hardening session
 - [ ] `fetchers/github.py` (68%) — cover `_get` (rate-limit warning,
       cache write), `fetch_community_files` (base64 FUNDING.yml),
       `fetch_readme`, `fetch_all` (asyncio.gather).
+- [ ] `fetchers/website.py` (93%) — cover the remaining error branches:
+      `_classify_request_error` OTHER fallback and the cache round-trip
+      error/typo paths.
 - [ ] `analyzers/sustainability.py` (70%) — detection helpers tested
       directly: `_detect_foundation`, `_detect_corporate_backing` (regex),
       `_detect_governance_model`.
@@ -19,6 +22,8 @@ Remaining actions after the test-hardening session
 - [x] `llm/provider.py` (93%) — no longer deferred: the LLM feature is
       now used (warnings, refined recommendation) and covered by
       `test_provider.py` + `test_llm_functional.py` (landed 2026-08-06).
+- [x] `analyzers/website.py` (100%) — fully covered since the website
+      feature landed (2026-08-07).
 
 ## Code smells (spotted while writing tests)
 
@@ -50,7 +55,8 @@ Remaining actions after the test-hardening session
 - [x] Decide the fate of `toto.json` — removed; nothing in the codebase
       writes it anymore (it was never tracked).
 - [ ] Tune the recommendation thresholds (`RULES.md`) against real
-      projects.
+      projects — includes the new website probe heuristics (timeouts,
+      redirect cap, captcha markers) and the homepage-downgrade branches.
 
 ## Workflow
 

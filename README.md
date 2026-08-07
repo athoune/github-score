@@ -4,6 +4,12 @@ GitHub Project Health Scorer — evaluate maturity, maintenance, community healt
 
 `gh-score` turns raw GitHub signals (commit activity, contributors, releases, license, registries, sustainability) into a single **traffic-light verdict**: 🟢 green (safe to bet on), 🟠 orange (proceed with caution), 🔴 red (risky).
 
+When a repository declares a homepage, `gh-score` also checks that the
+application's web page is actually reachable — DNS resolution, timeouts,
+HTTP status (redirects followed) — and flags pages hidden behind a
+bot-protection check ("I'm not a robot"). A dead homepage is a red flag
+for the verdict.
+
 ## Usage
 
 ```bash

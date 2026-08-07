@@ -1,5 +1,18 @@
+---
 # Prospector configuration
 # See https://prospector.landscape.io/en/master/usage.html
+
+vulture:
+  run: false
+
+bandit:
+  run: false
+
+pyright:
+  run: true
+
+ruff:
+  run: true
 
 # Disable mccabe complexity warnings
 mccabe:

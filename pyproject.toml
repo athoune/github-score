@@ -1,6 +1,6 @@
 [project]
 name = "gh-score"
-version = "0.10.2"
+version = "0.10.4"
 description = "GitHub Project Health Scorer - evaluate maturity, maintenance, community health and sustainability"
 readme = "README.md"
 license = "GPL-3.0-only"

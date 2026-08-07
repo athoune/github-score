@@ -17,11 +17,13 @@ from gh_score.llm.provider import (
     _build_prompt,
     _build_report_digest,
     _build_recommendation_prompt,
+    _denies_fact,
     _extract_json_object,
     _parse_qualitative,
     _parse_recommendation,
     _TEXT_MAINTENANCE_STATES,
     analyze_qualitative_with_llm,
+    analyze_recommendation_with_llm,
 )
 
 
@@ -211,3 +213,149 @@ class TestReportDigest:
         prompt = _build_recommendation_prompt()
         assert "{digest}" in prompt
         assert "green" in prompt
+
+
+class TestRecommendationPromptHardening:
+    """The recommendation prompt must forbid denying provided signals."""
+
+    def test_prompt_forbids_denying_signals(self):
+        prompt = _build_recommendation_prompt()
+        assert "never claim that a provided signal is absent" in prompt
+        assert "do not deny it" in prompt
+
+
+class TestDeniesFact:
+    """Windowed negation heuristic."""
+
+    _COMMERCIAL = ("commercial", "paid")
+    _NEGATIONS = ("no", "without", "absence", "absent", "lack", "lacks", "none")
+
+    def test_negation_before_keyword(self):
+        assert _denies_fact(
+            "there is an absence of explicit commercial support",
+            self._COMMERCIAL,
+            self._NEGATIONS,
+        )
+        assert _denies_fact("the project has no roadmap", ("roadmap",), self._NEGATIONS)
+
+    def test_keyword_followed_by_missing(self):
+        assert _denies_fact(
+            "commercial support is missing entirely", self._COMMERCIAL, self._NEGATIONS
+        )
+
+    def test_no_negation(self):
+        assert not _denies_fact(
+            "the project offers commercial support", self._COMMERCIAL, self._NEGATIONS
+        )
+
+    def test_negation_without_keyword(self):
+        assert not _denies_fact("there is no doubt about it", self._COMMERCIAL, self._NEGATIONS)
+
+
+class TestContradictionGuard:
+    """The refined recommendation must not deny facts the analysis found."""
+
+    def _result(self):
+        from gh_score.core.models import (
+            AnalysisResult,
+            ContributorsIndicator,
+            LanguagesIndicator,
+            LicenseIndicator,
+            MaintenanceIndicator,
+            QualitativeIndicator,
+            ReleaseHealthIndicator,
+            RepositoryMeta,
+            SustainabilityIndicator,
+        )
+
+        return AnalysisResult(
+            url=RepoUrl("owner", "repo"),
+            meta=RepositoryMeta(),
+            release_health=ReleaseHealthIndicator(),
+            license=LicenseIndicator(),
+            contributors=ContributorsIndicator(),
+            maintenance=MaintenanceIndicator(),
+            languages=LanguagesIndicator(primary="Python"),
+            sustainability=SustainabilityIndicator(has_funding=True),
+            qualitative=QualitativeIndicator(
+                commercial_support="managed cloud", available=True
+            ),
+        )
+
+    @pytest.mark.asyncio
+    async def test_denied_present_fact_appends_warning(self):
+        warnings: list[str] = []
+        result = self._result()
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                return_value={
+                    "level": "green",
+                    "message": "Active project",
+                    "explanation": (
+                        "There is an absence of explicit commercial support, "
+                        "which limits growth."
+                    ),
+                    "confidence": 0.7,
+                }
+            ),
+        ):
+            rec = await analyze_recommendation_with_llm(
+                result, LLMConfig(enabled=True), warnings
+            )
+
+        assert rec is not None
+        assert len(warnings) == 1
+        assert "commercial" in warnings[0].lower()
+
+    @pytest.mark.asyncio
+    async def test_consistent_explanation_no_warning(self):
+        warnings: list[str] = []
+        result = self._result()
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                return_value={
+                    "level": "green",
+                    "message": "Active project",
+                    "explanation": "The project offers commercial support.",
+                    "confidence": 0.7,
+                }
+            ),
+        ):
+            rec = await analyze_recommendation_with_llm(
+                result, LLMConfig(enabled=True), warnings
+            )
+
+        assert rec is not None
+        assert warnings == []
+
+    @pytest.mark.asyncio
+    async def test_absent_fact_not_checked(self):
+        # No commercial support was extracted, so denying it is not a
+        # contradiction — the guard must stay silent.
+        warnings: list[str] = []
+        result = self._result()
+        from gh_score.core.models import QualitativeIndicator
+
+        result.qualitative = QualitativeIndicator(available=False)
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                return_value={
+                    "level": "orange",
+                    "message": "No commercial support",
+                    "explanation": "The project has no commercial support.",
+                    "confidence": 0.5,
+                }
+            ),
+        ):
+            rec = await analyze_recommendation_with_llm(
+                result, LLMConfig(enabled=True), warnings
+            )
+
+        assert rec is not None
+        assert warnings == []

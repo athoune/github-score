@@ -66,6 +66,15 @@ item.
 - [ ] **Pending security updates (Dependabot)** — surface open Dependabot
       pull requests that address GitHub security advisories (pending
       security fixes).
+- [x] (done 2026-08-07) **LLM contradiction guard** — the refined
+      recommendation prompt forbids denying the extracted qualitative
+      signals, and a deterministic windowed heuristic surfaces a warning
+      when the recommendation still claims a present fact is absent.
+- [ ] **LLM contradiction repair loop (optional, off by default)** — when
+      the contradiction guard fires, re-ask the LLM once, quoting the
+      contradiction (the claim vs the extracted fact), to revise its
+      explanation. Disabled by default to avoid an extra LLM call on every
+      run; re-evaluate if the guard's hit rate justifies it.
 
 ## Product / housekeeping
 

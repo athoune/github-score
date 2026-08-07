@@ -10,6 +10,7 @@ Azure, Gemini, llama.cpp, …), configured via ``base_url`` + ``api_key``.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import httpx
@@ -195,6 +196,12 @@ def _build_recommendation_prompt() -> str:
         "releases, license, sustainability, qualitative signals) and produce "
         "a nuanced recommendation that may agree with, or refine, the "
         "deterministic verdict.\n\n"
+        'The "qualitative" fields of the digest are facts extracted from '
+        "the project's own texts (README/GOVERNANCE/SECURITY). Treat them "
+        "as given: never claim that a provided signal is absent (e.g. do "
+        "not say there is no commercial support or no roadmap when the "
+        "digest lists one). If you disagree with a signal, say so and "
+        "explain why, but do not deny it.\n\n"
         "Return a JSON object with:\n"
         '- level: one of "green", "orange", "red"\n'
         "- message: a short verdict sentence (max 15 words)\n"
@@ -363,7 +370,9 @@ async def analyze_recommendation_with_llm(
         )
         prompt = _build_recommendation_prompt().replace("{digest}", digest)
         raw = await provider.extract_signals(prompt, max_tokens=1500)
-        return _parse_recommendation(raw)
+        rec = _parse_recommendation(raw)
+        _check_contradictions(result, rec, warnings)
+        return rec
     except LLMError:
         _append_warning(warnings, "warn_llm_unavailable")
         return None
@@ -371,7 +380,106 @@ async def analyze_recommendation_with_llm(
         await provider.close()
 
 
-def _append_warning(warnings: list[str] | None, key: str) -> None:
+# ---------------------------------------------------------------------------
+# Contradiction guard
+# ---------------------------------------------------------------------------
+#
+# The refined recommendation is advisory and never replaces the
+# deterministic verdict, but it must not visibly contradict the analysis.
+# These windowed heuristics detect an LLM *denying* a fact that the
+# analysis actually found (e.g. "no commercial support" while the
+# project's own texts mention one) and surface a localized warning.
+#
+# key: (fact label i18n key, fact keywords, negation words)
+_FACT_CHECKS: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]] = {
+    "commercial_support": (
+        "fact_commercial",
+        ("commercial", "paid"),
+        ("no", "without", "absence", "absent", "lack", "lacks", "none"),
+    ),
+    "roadmap": (
+        "fact_roadmap",
+        ("roadmap",),
+        ("no", "without", "absence", "absent", "lack", "lacks", "none"),
+    ),
+    "security_policy": (
+        "fact_security",
+        ("security policy", "security program", "security process", "vulnerability"),
+        ("no", "without", "absence", "absent", "none"),
+    ),
+    "has_funding": (
+        "fact_funding",
+        ("funding", "sponsor", "financial support"),
+        ("no", "without", "none", "not funded"),
+    ),
+    "corporate_backing": (
+        "fact_corporate",
+        ("corporate", "company backing"),
+        ("no", "without", "none"),
+    ),
+    "foundation": (
+        "fact_foundation",
+        ("foundation",),
+        ("no", "without", "none"),
+    ),
+}
+
+
+def _denies_fact(
+    text: str,
+    keywords: tuple[str, ...],
+    negations: tuple[str, ...],
+) -> bool:
+    """Windowed heuristic: a negation word within ~30 chars of a fact
+    keyword, or a keyword followed by absent/missing/lacking."""
+    for kw in keywords:
+        escaped_kw = re.escape(kw)
+        for neg in negations:
+            if re.search(
+                rf"\b{re.escape(neg)}\b[^.!?\n]{{0,30}}{escaped_kw}", text
+            ):
+                return True
+        if re.search(
+            rf"{escaped_kw}[^.!?\n]{{0,15}}\b(absent|missing|lacking)\b", text
+        ):
+            return True
+    return False
+
+
+def _check_contradictions(result, rec: LLMRecommendation, warnings) -> None:
+    """Append a warning when the recommendation denies a present fact.
+
+    Only facts actually found by the analysis are checked, so the guard
+    never fires on absent signals. The warning is hedged ("seems to
+    contradict"): the detection is a heuristic, not a verdict.
+    """
+    if not rec.message and not rec.explanation:
+        return
+    text = f"{rec.message} {rec.explanation}".lower()
+
+    present: dict[str, bool] = {
+        "commercial_support": bool(result.qualitative.commercial_support),
+        "roadmap": bool(result.qualitative.roadmap),
+        "security_policy": bool(result.qualitative.security_policy),
+        "has_funding": bool(
+            result.sustainability.has_funding
+            or result.sustainability.funding_platforms
+        ),
+        "corporate_backing": bool(result.sustainability.corporate_backing),
+        "foundation": bool(result.sustainability.foundation),
+    }
+
+    denied = [
+        key
+        for key, (_, keywords, negations) in _FACT_CHECKS.items()
+        if present.get(key) and _denies_fact(text, keywords, negations)
+    ]
+    if denied:
+        labels = ", ".join(t(_FACT_CHECKS[key][0]) for key in denied)
+        _append_warning(warnings, "warn_llm_contradiction", facts=labels)
+
+
+def _append_warning(warnings: list[str] | None, key: str, **kwargs: Any) -> None:
     """Append a localized warning message to the list, if provided."""
     if warnings is not None:
-        warnings.append(t(key))
+        warnings.append(t(key, **kwargs))

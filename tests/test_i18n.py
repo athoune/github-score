@@ -339,3 +339,19 @@ class TestLanguagePopularityKeys:
                 "reason_language_exotic",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
+class TestContradictionGuardKeys:
+    """Contradiction-guard keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "warn_llm_contradiction",
+                "fact_funding",
+                "fact_corporate",
+                "fact_foundation",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"

@@ -100,6 +100,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_roadmap": "feuille de route annoncée",
         "fact_commercial": "support commercial disponible",
         "fact_security": "politique de sécurité documentée",
+        "fact_funding": "financement disponible",
+        "fact_corporate": "soutien d'une entreprise",
+        "fact_foundation": "adossé à une fondation",
 
         # ------------------------------------------------------------------
         # Release health interpretation
@@ -281,6 +284,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "warn_llm_no_api_key": (
             "LLM distant configuré sans clé API (GH_SCORE_LLM_API_KEY)"
         ),
+        "warn_llm_contradiction": (
+            "La recommandation affinée (LLM) semble contredire les signaux "
+            "extraits (nie : {facts})"
+        ),
         "panel_warnings": "Avertissements",
 
         # ------------------------------------------------------------------
@@ -408,6 +415,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_roadmap": "roadmap announced",
         "fact_commercial": "commercial support available",
         "fact_security": "security policy documented",
+        "fact_funding": "funding available",
+        "fact_corporate": "corporate backing",
+        "fact_foundation": "foundation-backed",
 
         # ------------------------------------------------------------------
         # Release health interpretation
@@ -586,6 +596,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         ),
         "warn_llm_no_api_key": (
             "Remote LLM configured without an API key (GH_SCORE_LLM_API_KEY)"
+        ),
+        "warn_llm_contradiction": (
+            "The refined recommendation (LLM) seems to contradict the "
+            "extracted signals (denies: {facts})"
         ),
         "panel_warnings": "Warnings",
 

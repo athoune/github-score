@@ -177,6 +177,30 @@ To link a GitHub repository to its registry package(s), the tool attempts:
 2. **Naming heuristics**: When no manifest is available locally, infer the package name from the repository name (lowercased, dashes normalized). This is unreliable and should be flagged as a heuristic.
 3. **Cross-reference**: Query the registry API to confirm existence. Report `exists: false` if not found.
 
+### 6.4 Website availability
+
+When the repository declares a homepage (`RepositoryMeta.homepage`), the
+tool probes it to check that the application's web page is actually
+reachable. Repos without a homepage skip this check (the indicator is
+`UNKNOWN`).
+
+- **Method**: HTTP GET with `follow_redirects=True` (bounded at 10
+  redirects), connect timeout 10 s / read timeout 15 s. Only a limited
+  body sample (64 KiB) is downloaded.
+- **Failure classification**:
+  - DNS resolution failure → `dns` (red flag)
+  - Connect/read timeout → `timeout` (degraded)
+  - HTTP 4xx/5xx status → `http` (red flag)
+  - Redirect loop → `redirect` (red flag)
+  - Anything else (TLS, invalid URL, …) → `other` (degraded)
+- **Bot protection**: a keyword heuristic on response headers, title and
+  the first 64 KiB of HTML detects "I'm not a robot" pages (reCAPTCHA,
+  hCaptcha, Cloudflare challenge/turnstile, generic "verify you are
+  human" text). Such pages count as degraded (the site is up but cannot
+  be read by the tool).
+- **Caching**: results (successes and failures alike) are cached with the
+  default TTL.
+
 ## 7. Indicator families
 
 The dashboard is organized into the following families. Each family exposes several concrete indicators. No global score is computed in the first version.
@@ -241,7 +265,18 @@ Composite signal based on:
 - Mentions in README/GOVERNANCE of corporate backing, maintainers, governance model.
 - Optional LLM pass: read README, GOVERNANCE, SECURITY to extract sustainability hints.
 
-### 7.7 Recommendation
+### 7.7 Website availability
+
+Only computed when the repository declares a homepage.
+
+- HTTP status of the homepage (redirects followed).
+- Failure classification: `dns` / `timeout` / `http` / `redirect` / `other`.
+- Bot-protection flag (`captcha`): the page answers but is behind an
+  "I'm not a robot" check (reCAPTCHA, hCaptcha, Cloudflare, generic).
+- Status mapping: reachable 2xx → healthy; captcha or timeout → warning;
+  DNS failure, HTTP error or redirect loop → critical; no homepage → unknown.
+
+### 7.8 Recommendation
 
 Cross-cutting verdict that aggregates every other indicator family into a
 single traffic-light judgment. It answers the question *"should I bet on
@@ -262,22 +297,24 @@ Decision tree (first matching branch wins):
 | # | Condition | Level | Message |
 |---|-----------|-------|---------|
 | 1 | Archived / disabled / registry deprecated | red | Archived / Disabled / Deprecated |
-| 2 | Young, tiny, ≤ 3 authors (article demo) | orange | Ephemeral project |
-| 2b | Same, but organization-owned → skipped (org does not create repos for articles) | — | falls through to next branch |
-| 3 | Abandoned + widely used | orange | Large project, but now abandoned |
-| 4 | Abandoned | red | No commit for N months |
-| 5 | Active + ≥ 80% bots | orange | Maintained only by bots |
-| 6 | Active + no stable release | orange | Active but not stabilized |
-| 7 | Active + declining activity | orange | Well-maintained but in decline |
-| 8 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
-| 9 | Active | green | Active project |
-| 10 | Maintenance + no release for 6+ months | orange | No new features for N months |
-| 11 | Maintenance mode | orange | Project in maintenance mode |
-| 11b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
-| 11c | Same, but widely used | orange | Large project, but now abandoned |
-| 12 | Unknown + widely used | orange | Widely used despite low maintenance |
-| 12b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
-| 13 | Unknown | orange | Insufficient data |
+| 2 | Homepage down: DNS failure, HTTP error (4xx/5xx) or redirect loop (only when a homepage is declared) | red | Project homepage is down |
+| 3 | Homepage degraded: timeout or bot-protection check ("I'm not a robot") | orange | Homepage unreachable or bot-protected |
+| 4 | Young, tiny, ≤ 3 authors (article demo) | orange | Ephemeral project |
+| 4b | Same, but organization-owned → skipped (org does not create repos for articles) | — | falls through to next branch |
+| 5 | Abandoned + widely used | orange | Large project, but now abandoned |
+| 6 | Abandoned | red | No commit for N months |
+| 7 | Active + ≥ 80% bots | orange | Maintained only by bots |
+| 8 | Active + no stable release | orange | Active but not stabilized |
+| 9 | Active + declining activity | orange | Well-maintained but in decline |
+| 10 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
+| 11 | Active | green | Active project |
+| 12 | Maintenance + no release for 6+ months | orange | No new features for N months |
+| 13 | Maintenance mode | orange | Project in maintenance mode |
+| 13b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
+| 13c | Same, but widely used | orange | Large project, but now abandoned |
+| 14 | Unknown + widely used | orange | Widely used despite low maintenance |
+| 14b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
+| 15 | Unknown | orange | Insufficient data |
 
 All thresholds are heuristics, defined as constants in
 `src/gh_score/core/analyzers/recommendation.py` and documented in

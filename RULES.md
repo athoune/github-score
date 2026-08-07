@@ -31,35 +31,42 @@ The rules are evaluated **in order**; the first matching branch wins.
    - Repository disabled → 🔴 "Disabled project"
    - Package marked deprecated on a registry → 🔴 "Project deprecated on the registry"
 
-2. **Ephemeral project** (created < 6 months, ≤ 200 stars, ≤ 3 authors)
+2. **Homepage down** (only when the repository declares a homepage; repos
+   without one skip both website steps)
+   - DNS resolution failure, HTTP error (4xx/5xx), or redirect loop
+     → 🔴 "Project homepage is down"
+   - Timeout, or page behind a bot-protection check ("I'm not a robot")
+     → 🟠 "Project homepage unreachable or bot-protected"
+
+3. **Ephemeral project** (created < 6 months, ≤ 200 stars, ≤ 3 authors)
    → 🟠 "Ephemeral project accompanying an article"
    - **Exception:** organization-owned repositories are never judged
      ephemeral (`owner_type == "organization"`) — an organization does
      not create a repo merely to accompany an article, so the "weekend
      demo" heuristic does not apply.
 
-3. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
+4. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
    - Widely used (≥ 5k stars, ≥ 1k forks, or ≥ 1M registry downloads)
      → 🟠 "Large project, but now abandoned"
    - Otherwise → 🔴 "Abandoned project — no commit for N months"
 
-4. **Active development** (`MaintenanceState.ACTIVE`)
+5. **Active development** (`MaintenanceState.ACTIVE`)
    - ≥ 80% of commits from bots → 🟠 "Project maintained only by dependency-update bots"
    - No stable release (none, pre-release, or 0.x) → 🟠 "Active development but not yet stabilized"
    - Declining activity (3-month commits < 25% of 12-month commits) → 🟠 "Well-maintained project but in decline"
    - Large community (≥ 100 human authors or ≥ 10k stars), **or LLM-enabled with roadmap AND commercial support** → 🟢 "Active project with a large community"
    - Otherwise → 🟢 "Active project"
 
-5. **Maintenance mode** (infrequent commits, issues still closed)
+6. **Maintenance mode** (infrequent commits, issues still closed)
    - Last release more than 6 months ago → 🟠 "Well-maintained but no new features for N months"
    - Otherwise → 🟠 "Project in maintenance mode"
 
-6. **LLM-reported discontinuation** (only when the LLM is enabled AND the
+7. **LLM-reported discontinuation** (only when the LLM is enabled AND the
    maintenance state is unknown — commit data wins over prose)
    - Widely used → 🟠 "Large project, but now abandoned"
    - Otherwise → 🔴 "Project texts announce its discontinuation"
 
-7. **Unknown maintenance state**
+8. **Unknown maintenance state**
    - Widely used → 🟠 "Widely used project despite low maintenance"
    - LLM enabled, text declares active development AND (roadmap or
      commercial support) → 🟢 "Active project"
@@ -83,6 +90,22 @@ heuristics to be tuned with real-world examples.
 | `_EPHEMERAL_AGE_DAYS` | 180 | ephemeral project detection |
 | `_EPHEMERAL_MAX_AUTHORS` | 3 | ephemeral project detection |
 | `_EPHEMERAL_MAX_STARS` | 200 | ephemeral project detection |
+
+### Website probe (`fetchers/website.py`)
+
+The homepage probe constants live in `fetchers/website.py` (not
+`recommendation.py`):
+
+| Constant | Value | Used for |
+|----------|-------|----------|
+| `_TIMEOUT` | connect 10 s / read 15 s | homepage probe timeouts |
+| `_MAX_REDIRECTS` | 10 | redirects followed before failing |
+| `_CAPTCHA_SAMPLE_BYTES` | 64 KiB | body sample for the bot-protection heuristic |
+
+The bot-protection heuristic flags a page as captcha-protected when the
+response headers, title or first 64 KiB of HTML contain markers such as
+`g-recaptcha`, `hcaptcha`, Cloudflare `turnstile`/`cf-mitigated`, or the
+phrases "not a robot" / "verify you are human".
 
 ## Confidence
 
@@ -150,6 +173,14 @@ declared maintenance state). Example:
 | `rec_widely_used_unmaintained` | Projet largement utilisé même si peu maintenu | Widely used project despite low maintenance |
 | `rec_insufficient_data` | Données insuffisantes pour une recommandation fiable | Insufficient data for a reliable recommendation |
 | `rec_text_discontinued` | Les textes du projet annoncent son abandon | Project texts announce its discontinuation |
+| `rec_site_down` | La page d'accueil du projet est hors ligne | Project homepage is down |
+| `rec_site_degraded` | Page d'accueil injoignable ou protégée par un anti-robot | Project homepage unreachable or bot-protected |
+| `reason_site_down` | la page d'accueil est inaccessible | the project homepage is unreachable |
+| `reason_site_dns` | le nom de domaine de la page d'accueil ne résout pas | the homepage domain name does not resolve |
+| `reason_site_http` | la page d'accueil répond HTTP {code} | the homepage answers HTTP {code} |
+| `reason_site_redirect` | boucle de redirection sur la page d'accueil | redirect loop on the homepage |
+| `reason_site_timeout` | la page d'accueil a expiré (timeout) | the homepage timed out |
+| `reason_site_captcha` | la page d'accueil est protégée par un contrôle anti-robot | the homepage is behind a bot-protection check |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
 | `owner_type_user` | utilisateur | user |
 | `owner_type_organization` | organisation | organization |

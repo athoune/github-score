@@ -26,8 +26,9 @@ Remaining actions after the test-hardening session
       discarded call plus the duplicate `_detect_ecosystem` /
       `_extract_package_name` helpers; registry lookup now lives solely in
       `registries.py`.
-- [ ] `_parse_maven_response` uses naive `datetime.fromtimestamp` (local
-      timezone) — inconsistent with the other parsers, which use UTC.
+- [x] `_parse_maven_response` naive `datetime.fromtimestamp` (local
+      timezone) — fixed: parses as aware UTC, consistent with the other
+      parsers.
 - [x] `_get_all_pages` mutates its `params` dict in place (aliasing) —
       fixed: it now rebinds to a fresh dict (`{**params, ...}`) per request.
 

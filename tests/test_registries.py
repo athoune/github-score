@@ -479,8 +479,9 @@ class TestFetchers:
         assert info.exists is True
         assert info.latest_version == "1.0.0"
         assert info.downloads == 999
-        # fromtimestamp is naive/local; compare epoch seconds to stay tz-independent
+        # Maven timestamps are epoch ms; parsed as aware UTC
         assert info.latest_date is not None
+        assert info.latest_date == datetime(2023, 1, 1, tzinfo=timezone.utc)
         assert info.latest_date.timestamp() == 1672531200.0
 
     @pytest.mark.asyncio

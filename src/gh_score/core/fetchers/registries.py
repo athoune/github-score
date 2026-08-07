@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 import tomllib
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -551,11 +551,11 @@ def _parse_maven_response(data: dict[str, Any], info: RegistryInfo) -> RegistryI
         info.latest_version = doc.get("latestVersion")
         info.downloads = doc.get("downloadCount")
 
-        # Timestamp
+        # Timestamp (epoch ms → aware UTC, consistent with the other parsers)
         timestamp = doc.get("timestamp")
         if timestamp:
             try:
-                info.latest_date = datetime.fromtimestamp(timestamp / 1000)
+                info.latest_date = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
             except (ValueError, OSError):
                 pass
 

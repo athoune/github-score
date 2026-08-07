@@ -58,6 +58,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_insufficient_data": "Données insuffisantes pour une recommandation fiable",
         "rec_site_down": "La page d'accueil du projet est hors ligne",
         "rec_site_degraded": "Page d'accueil injoignable ou protégée par un anti-robot",
+        "rec_language_exotic": "Langage principal peu répandu",
         "rec_text_discontinued": "Les textes du projet annoncent son abandon",
 
         # Recommendation reasoning lines
@@ -89,6 +90,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_site_redirect": "boucle de redirection sur la page d'accueil",
         "reason_site_timeout": "la page d'accueil a expiré (timeout)",
         "reason_site_captcha": "la page d'accueil est protégée par un contrôle anti-robot",
+        "reason_language_exotic": "le langage principal ({language}) est peu répandu (hors top 20 PYPL et GitHub Innovation Graph)",
         "reason_text_active": "le texte du projet déclare un développement actif",
 
         # Objective facts appended to the reasoning
@@ -173,6 +175,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         # Languages interpretation
         # ------------------------------------------------------------------
         "int_primary": "principal : {language}",
+        "int_language_popular": "langage répandu (top {rank})",
+        "int_language_exotic": "langage principal peu répandu ({language})",
         "int_breakdown": "répartition : {langs}",
         "int_ecosystem": "écosystème : {ecosystem}",
         "int_no_language": "Aucune donnée de langage",
@@ -366,6 +370,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_insufficient_data": "Insufficient data for a reliable recommendation",
         "rec_site_down": "Project homepage is down",
         "rec_site_degraded": "Project homepage unreachable or bot-protected",
+        "rec_language_exotic": "Main language is uncommon",
         "rec_text_discontinued": "Project texts announce its discontinuation",
 
         # Recommendation reasoning lines
@@ -393,6 +398,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_site_redirect": "redirect loop on the homepage",
         "reason_site_timeout": "the homepage timed out",
         "reason_site_captcha": "the homepage is behind a bot-protection check",
+        "reason_language_exotic": "the main language ({language}) is uncommon (outside the PYPL and GitHub Innovation Graph top 20)",
         "reason_text_active": "the project text declares active development",
 
         # Objective facts appended to the reasoning
@@ -477,6 +483,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         # Languages interpretation
         # ------------------------------------------------------------------
         "int_primary": "primary: {language}",
+        "int_language_popular": "mainstream language (top {rank})",
+        "int_language_exotic": "uncommon main language ({language})",
         "int_breakdown": "breakdown: {langs}",
         "int_ecosystem": "ecosystem: {ecosystem}",
         "int_no_language": "No language data",

@@ -323,3 +323,19 @@ class TestWebsiteKeys:
 
         ind = analyze_website(WebsiteInfo(url="https://example.com", status_code=200), lang="en")
         assert t("int_site_ok", lang="en", site="https://example.com", code=200) in ind.interpretation
+
+
+class TestLanguagePopularityKeys:
+    """Language popularity keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "int_language_popular",
+                "int_language_exotic",
+                "rec_language_exotic",
+                "reason_language_exotic",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"

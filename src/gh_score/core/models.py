@@ -413,6 +413,9 @@ class LanguagesIndicator:
     primary: str | None = None
     breakdown: dict[str, float] = field(default_factory=dict)  # percentages
     ecosystem: str | None = None  # inferred from manifest files
+    is_exotic: bool | None = None          # True = main language outside the popularity datasets
+    popularity_rank: int | None = None     # best (lowest) rank across datasets
+    popularity_source: str | None = None   # "pypl" | "github" | None
     interpretation: str = ""
 
 

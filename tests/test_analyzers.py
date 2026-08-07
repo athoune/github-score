@@ -232,6 +232,61 @@ class TestLanguagesAnalyzer:
         assert result.ecosystem == "javascript"
 
 
+class TestLanguagePopularity:
+    """The main-language popularity check against the committed datasets."""
+
+    @staticmethod
+    def _rankings():
+        return {"python": (1, "pypl"), "c": (3, "pypl"), "c++": (3, "pypl")}
+
+    def _repo(self, primary: str) -> Repository:
+        return Repository(
+            url=RepoUrl("owner", "repo"),
+            languages=LanguageBreakdown(languages={primary: 1000}),
+        )
+
+    def test_mainstream_language(self, monkeypatch):
+        monkeypatch.setattr(
+            "gh_score.core.analyzers.languages._load_rankings", self._rankings
+        )
+        result = analyze_languages(self._repo("Python"))
+        assert result.is_exotic is False
+        assert result.popularity_rank == 1
+        assert result.popularity_source == "pypl"
+
+    def test_alias_variant_is_mainstream(self, monkeypatch):
+        # PYPL ranks "C/C++"; Linguist reports "C++".
+        monkeypatch.setattr(
+            "gh_score.core.analyzers.languages._load_rankings", self._rankings
+        )
+        result = analyze_languages(self._repo("C++"))
+        assert result.is_exotic is False
+        assert result.popularity_rank == 3
+
+    def test_exotic_language(self, monkeypatch):
+        monkeypatch.setattr(
+            "gh_score.core.analyzers.languages._load_rankings", self._rankings
+        )
+        result = analyze_languages(self._repo("LOLCODE"))
+        assert result.is_exotic is True
+        assert result.popularity_rank is None
+
+    def test_no_primary(self, monkeypatch):
+        monkeypatch.setattr(
+            "gh_score.core.analyzers.languages._load_rankings", self._rankings
+        )
+        result = analyze_languages(Repository(url=RepoUrl("o", "r")))
+        assert result.is_exotic is None
+
+    def test_datasets_unavailable(self, monkeypatch):
+        monkeypatch.setattr(
+            "gh_score.core.analyzers.languages._load_rankings", lambda: None
+        )
+        result = analyze_languages(self._repo("Python"))
+        assert result.is_exotic is None
+        assert result.popularity_rank is None
+
+
 class TestSustainabilityAnalyzer:
     def test_no_backing(self):
         repo = Repository(

@@ -222,6 +222,8 @@ def _md_languages(result: AnalysisResult, console: Console) -> None:
         sorted_langs = sorted(lang.breakdown.items(), key=lambda x: x[1], reverse=True)[:5]
         for lang_name, pct in sorted_langs:
             console.print(f"  - {lang_name}: {pct:.1f}%\n")
+    if lang.interpretation:
+        console.print(f"- {lang.interpretation}")
 
 
 def _md_sustainability(result: AnalysisResult, console: Console) -> None:

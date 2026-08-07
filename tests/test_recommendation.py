@@ -19,6 +19,7 @@ from gh_score.core.models import (
     RepositoryMeta,
     Status,
     SustainabilityIndicator,
+    SecurityIndicator,
     WebsiteIndicator,
 )
 
@@ -629,4 +630,33 @@ class TestExoticLanguage:
         result = self._result(exotic=False)
         result.languages = LanguagesIndicator(primary="Python", is_exotic=None)
         rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+
+
+class TestSecurityRecommendation:
+    """Pending security updates: overdue → red, recent → orange, none → no change."""
+
+    def _result(self, status: Status, pending: int = 1, days: int | None = None):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+        )
+        result.security = SecurityIndicator(
+            status=status, pending_count=pending, oldest_days=days
+        )
+        return result
+
+    def test_overdue_is_red(self):
+        rec = _recommend(self._result(Status.CRITICAL, days=10))
+        assert rec.level == RecommendationLevel.RED
+        assert "sécurité" in rec.message
+
+    def test_recent_is_orange(self):
+        rec = _recommend(self._result(Status.WARNING, days=2))
+        assert rec.level == RecommendationLevel.ORANGE
+
+    def test_none_does_not_change_verdict(self):
+        rec = _recommend(self._result(Status.HEALTHY))
         assert rec.level == RecommendationLevel.GREEN

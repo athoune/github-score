@@ -31,42 +31,50 @@ The rules are evaluated **in order**; the first matching branch wins.
    - Repository disabled → 🔴 "Disabled project"
    - Package marked deprecated on a registry → 🔴 "Project deprecated on the registry"
 
-2. **Homepage down** (only when the repository declares a homepage; repos
+2. **Pending security updates** (open Dependabot security PRs; detected by
+   the dependabot-core body marker "This update includes a security fix")
+   - A security update pending for more than 3 days → 🔴 "Known security
+     vulnerabilities unpatched"
+   - Fresh security updates (≤ 3 days, normal Dependabot flow)
+     → 🟠 "Recent security updates pending"
+   - No open security PR → falls through to the next branch
+
+3. **Homepage down** (only when the repository declares a homepage; repos
    without one skip both website steps)
    - DNS resolution failure, HTTP error (4xx/5xx), or redirect loop
      → 🔴 "Project homepage is down"
    - Timeout, or page behind a bot-protection check ("I'm not a robot")
      → 🟠 "Project homepage unreachable or bot-protected"
 
-3. **Ephemeral project** (created < 6 months, ≤ 200 stars, ≤ 3 authors)
+4. **Ephemeral project** (created < 6 months, ≤ 200 stars, ≤ 3 authors)
    → 🟠 "Ephemeral project accompanying an article"
    - **Exception:** organization-owned repositories are never judged
      ephemeral (`owner_type == "organization"`) — an organization does
      not create a repo merely to accompany an article, so the "weekend
      demo" heuristic does not apply.
 
-4. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
+5. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
    - Widely used (≥ 5k stars, ≥ 1k forks, or ≥ 1M registry downloads)
      → 🟠 "Large project, but now abandoned"
    - Otherwise → 🔴 "Abandoned project — no commit for N months"
 
-5. **Active development** (`MaintenanceState.ACTIVE`)
+6. **Active development** (`MaintenanceState.ACTIVE`)
    - ≥ 80% of commits from bots → 🟠 "Project maintained only by dependency-update bots"
    - No stable release (none, pre-release, or 0.x) → 🟠 "Active development but not yet stabilized"
    - Declining activity (3-month commits < 25% of 12-month commits) → 🟠 "Well-maintained project but in decline"
    - Large community (≥ 100 human authors or ≥ 10k stars), **or LLM-enabled with roadmap AND commercial support** → 🟢 "Active project with a large community"
    - Otherwise → 🟢 "Active project"
 
-6. **Maintenance mode** (infrequent commits, issues still closed)
+7. **Maintenance mode** (infrequent commits, issues still closed)
    - Last release more than 6 months ago → 🟠 "Well-maintained but no new features for N months"
    - Otherwise → 🟠 "Project in maintenance mode"
 
-7. **LLM-reported discontinuation** (only when the LLM is enabled AND the
+8. **LLM-reported discontinuation** (only when the LLM is enabled AND the
    maintenance state is unknown — commit data wins over prose)
    - Widely used → 🟠 "Large project, but now abandoned"
    - Otherwise → 🔴 "Project texts announce its discontinuation"
 
-8. **Unknown maintenance state**
+9. **Unknown maintenance state**
    - Widely used → 🟠 "Widely used project despite low maintenance"
    - LLM enabled, text declares active development AND (roadmap or
      commercial support) → 🟢 "Active project"
@@ -108,6 +116,16 @@ The homepage probe constants live in `fetchers/website.py` (not
 | `_TIMEOUT` | connect 10 s / read 15 s | homepage probe timeouts |
 | `_MAX_REDIRECTS` | 10 | redirects followed before failing |
 | `_CAPTCHA_SAMPLE_BYTES` | 64 KiB | body sample for the bot-protection heuristic |
+
+### Security updates (`analyzers/security.py`)
+
+| Constant | Value | Used for |
+|----------|-------|----------|
+| `_PENDING_LIMIT_DAYS` | 3 | a security update pending longer than this is critical |
+
+Pending updates are open Dependabot PRs detected by the dependabot-core
+body marker "This update includes a security fix." (plain version bumps
+mention "security" only inside the dependency changelog and are ignored).
 
 The bot-protection heuristic flags a page as captcha-protected when the
 response headers, title or first 64 KiB of HTML contain markers such as
@@ -204,6 +222,10 @@ declared maintenance state). Example:
 | `reason_site_captcha` | la page d'accueil est protégée par un contrôle anti-robot | the homepage is behind a bot-protection check |
 | `rec_language_exotic` | Langage principal peu répandu | Main language is uncommon |
 | `reason_language_exotic` | le langage principal ({language}) est peu répandu (hors top 20 PYPL et GitHub Innovation Graph) | the main language ({language}) is uncommon (outside the PYPL and GitHub Innovation Graph top 20) |
+| `rec_security_pending` | Mises à jour de sécurité récentes en attente | Recent security updates pending |
+| `rec_security_overdue` | Vulnérabilités de sécurité connues non corrigées | Known security vulnerabilities unpatched |
+| `reason_security_pending` | {count} mise(s) de sécurité en attente | {count} security update(s) pending |
+| `reason_security_overdue` | une mise à jour de sécurité est en attente depuis {days} jours | a security update has been pending for {days} days |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
 | `owner_type_user` | utilisateur | user |
 | `owner_type_organization` | organisation | organization |

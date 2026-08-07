@@ -215,6 +215,14 @@ top 20). The analyzer flags the primary language as **exotic** when it is
 not in either dataset (with a small alias map: PYPL "C/C++" covers
 Linguist "C" and "C++", "Visual Basic" covers "VBA", …).
 
+### 6.6 Pending security updates (Dependabot)
+
+Open pull requests authored by a Dependabot bot whose body carries the
+dependabot-core security marker ("This update includes a security fix.")
+are pending security updates. The marker is required: plain version bumps
+also mention "security" inside the dependency changelog. Fetched from
+`GET /repos/{owner}/{repo}/pulls?state=open`.
+
 ## 7. Indicator families
 
 The dashboard is organized into the following families. Each family exposes several concrete indicators. No global score is computed in the first version.
@@ -292,7 +300,14 @@ Only computed when the repository declares a homepage.
 - Status mapping: reachable 2xx → healthy; captcha or timeout → warning;
   DNS failure, HTTP error or redirect loop → critical; no homepage → unknown.
 
-### 7.8 Recommendation
+### 7.8 Security updates
+
+- Number of open Dependabot security PRs (pending updates).
+- Age in days of the oldest one.
+- Status mapping: none → healthy; pending ≤ 3 days → warning; pending
+  > 3 days → critical (a known vulnerability being ignored).
+
+### 7.9 Recommendation
 
 Cross-cutting verdict that aggregates every other indicator family into a
 single traffic-light judgment. It answers the question *"should I bet on
@@ -313,24 +328,26 @@ Decision tree (first matching branch wins):
 | # | Condition | Level | Message |
 |---|-----------|-------|---------|
 | 1 | Archived / disabled / registry deprecated | red | Archived / Disabled / Deprecated |
-| 2 | Homepage down: DNS failure, HTTP error (4xx/5xx) or redirect loop (only when a homepage is declared) | red | Project homepage is down |
-| 3 | Homepage degraded: timeout or bot-protection check ("I'm not a robot") | orange | Homepage unreachable or bot-protected |
-| 4 | Young, tiny, ≤ 3 authors (article demo) | orange | Ephemeral project |
-| 4b | Same, but organization-owned → skipped (org does not create repos for articles) | — | falls through to next branch |
-| 5 | Abandoned + widely used | orange | Large project, but now abandoned |
-| 6 | Abandoned | red | No commit for N months |
-| 7 | Active + ≥ 80% bots | orange | Maintained only by bots |
-| 8 | Active + no stable release | orange | Active but not stabilized |
-| 9 | Active + declining activity | orange | Well-maintained but in decline |
-| 10 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
-| 11 | Active | green | Active project |
-| 12 | Maintenance + no release for 6+ months | orange | No new features for N months |
-| 13 | Maintenance mode | orange | Project in maintenance mode |
-| 13b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
-| 13c | Same, but widely used | orange | Large project, but now abandoned |
-| 14 | Unknown + widely used | orange | Widely used despite low maintenance |
-| 14b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
-| 15 | Unknown | orange | Insufficient data |
+| 2 | Security update pending > 3 days (open Dependabot security PR) | red | Known security vulnerabilities unpatched |
+| 3 | Fresh security updates pending (≤ 3 days) | orange | Recent security updates pending |
+| 4 | Homepage down: DNS failure, HTTP error (4xx/5xx) or redirect loop (only when a homepage is declared) | red | Project homepage is down |
+| 5 | Homepage degraded: timeout or bot-protection check ("I'm not a robot") | orange | Homepage unreachable or bot-protected |
+| 6 | Young, tiny, ≤ 3 authors (article demo) | orange | Ephemeral project |
+| 6b | Same, but organization-owned → skipped (org does not create repos for articles) | — | falls through to next branch |
+| 7 | Abandoned + widely used | orange | Large project, but now abandoned |
+| 8 | Abandoned | red | No commit for N months |
+| 9 | Active + ≥ 80% bots | orange | Maintained only by bots |
+| 10 | Active + no stable release | orange | Active but not stabilized |
+| 11 | Active + declining activity | orange | Well-maintained but in decline |
+| 12 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
+| 13 | Active | green | Active project |
+| 14 | Maintenance + no release for 6+ months | orange | No new features for N months |
+| 15 | Maintenance mode | orange | Project in maintenance mode |
+| 15b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
+| 15c | Same, but widely used | orange | Large project, but now abandoned |
+| 16 | Unknown + widely used | orange | Widely used despite low maintenance |
+| 16b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
+| 17 | Unknown | orange | Insufficient data |
 
 **Modifier — exotic main language:** when the verdict would be green, an
 uncommon main language (outside the PYPL top-20 and the GitHub Innovation

@@ -189,6 +189,7 @@ def analyze_recommendation(
 
     for section in (
         _rec_red_flags,
+        _rec_security,
         _rec_website,
         _rec_ephemeral,
         _rec_abandoned,
@@ -200,6 +201,41 @@ def analyze_recommendation(
         if rec is not None:
             return rec
     return _rec_unknown(result, lang)
+
+
+def _rec_security(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """Pending Dependabot security updates.
+
+    Recent updates are normal Dependabot flow (orange); an update left
+    open for several days means a known vulnerability is being ignored
+    (red).
+    """
+    security = result.security
+    if security.status == Status.CRITICAL:
+        return _build(
+            RecommendationLevel.RED,
+            t("rec_security_overdue", lang=lang),
+            result,
+            lang,
+            t(
+                "reason_security_overdue",
+                lang=lang,
+                days=security.oldest_days or 0,
+            ),
+        )
+    if security.status == Status.WARNING:
+        return _build(
+            RecommendationLevel.ORANGE,
+            t("rec_security_pending", lang=lang),
+            result,
+            lang,
+            t(
+                "reason_security_pending",
+                lang=lang,
+                count=security.pending_count,
+            ),
+        )
+    return None
 
 
 def _rec_website(result: AnalysisResult, lang: str) -> Recommendation | None:

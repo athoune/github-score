@@ -7,6 +7,7 @@ from gh_score.core.models import (
     AnalysisResult,
     ContributorsIndicator,
     LicenseIndicator,
+    LanguagesIndicator,
     MaintenanceIndicator,
     MaintenanceState,
     QualitativeIndicator,
@@ -578,5 +579,54 @@ class TestWebsiteRecommendation:
             latest_version="v1.0.0",
             website=WebsiteIndicator(status=Status.UNKNOWN),
         )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+
+
+class TestExoticLanguage:
+    """An exotic main language downgrades green to orange, never rescues."""
+
+    def _result(self, *, exotic: bool, **kwargs):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+            **kwargs,
+        )
+        result.languages = LanguagesIndicator(
+            primary="LOLCODE" if exotic else "Python",
+            is_exotic=exotic,
+        )
+        return result
+
+    def test_exotic_downgrades_green_to_orange(self):
+        rec = _recommend(self._result(exotic=True))
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "peu répandu" in rec.message
+
+    def test_mainstream_keeps_green(self):
+        rec = _recommend(self._result(exotic=False))
+        assert rec.level == RecommendationLevel.GREEN
+        assert "Projet actif" in rec.message
+
+    def test_exotic_does_not_rescue_abandoned(self):
+        result = self._result(exotic=True)
+        result.maintenance = MaintenanceIndicator(
+            state=MaintenanceState.ABANDONED,
+            last_commit_days_ago=300,
+            status=Status.CRITICAL,
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.RED
+
+    def test_exotic_does_not_override_red_flags(self):
+        result = self._result(exotic=True, archived=True)
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.RED
+
+    def test_unknown_popularity_keeps_green(self):
+        result = self._result(exotic=False)
+        result.languages = LanguagesIndicator(primary="Python", is_exotic=None)
         rec = _recommend(result)
         assert rec.level == RecommendationLevel.GREEN

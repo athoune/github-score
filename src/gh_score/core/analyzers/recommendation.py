@@ -336,19 +336,40 @@ def _rec_active(result: AnalysisResult, lang: str) -> Recommendation | None:
         and result.qualitative.roadmap
         and result.qualitative.commercial_support
     ):
+        return _green_or_exotic(result, lang, "rec_active_community", "reason_active")
+    return _green_or_exotic(result, lang, "rec_active", "reason_active")
+
+
+def _green_or_exotic(
+    result: AnalysisResult,
+    lang: str,
+    message_key: str,
+    *reason_keys: str,
+) -> Recommendation:
+    """Return a green verdict, downgraded to orange when the main language
+    is exotic.
+
+    The exotic-language rule is a downgrade only: it never upgrades a
+    verdict, so it only replaces the green outcomes of the decision tree.
+    """
+    if result.languages is not None and result.languages.is_exotic is True:
         return _build(
-            RecommendationLevel.GREEN,
-            t("rec_active_community", lang=lang),
+            RecommendationLevel.ORANGE,
+            t("rec_language_exotic", lang=lang),
             result,
             lang,
-            t("reason_active", lang=lang),
+            t(
+                "reason_language_exotic",
+                lang=lang,
+                language=result.languages.primary or "?",
+            ),
         )
     return _build(
         RecommendationLevel.GREEN,
-        t("rec_active", lang=lang),
+        t(message_key, lang=lang),
         result,
         lang,
-        t("reason_active", lang=lang),
+        *(t(key, lang=lang) for key in reason_keys),
     )
 
 
@@ -422,13 +443,8 @@ def _rec_unknown(result: AnalysisResult, lang: str) -> Recommendation:
     ):
         # Commit data is missing, but the text declares active development
         # with a direction (roadmap or commercial support).
-        return _build(
-            RecommendationLevel.GREEN,
-            t("rec_active", lang=lang),
-            result,
-            lang,
-            t("reason_active", lang=lang),
-            t("reason_text_active", lang=lang),
+        return _green_or_exotic(
+            result, lang, "rec_active", "reason_active", "reason_text_active"
         )
     return _build(
         RecommendationLevel.ORANGE,

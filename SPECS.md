@@ -201,6 +201,20 @@ reachable. Repos without a homepage skip this check (the indicator is
 - **Caching**: results (successes and failures alike) are cached with the
   default TTL.
 
+### 6.5 Main-language popularity
+
+Two small datasets are committed under `src/gh_score/data/` and shipped in
+the wheel:
+
+- `pypl_languages.csv` — top-20 of the PYPL index (rank, language, share).
+- `github_languages.csv` — top-20 languages by number of pushers in the
+  most recent quarter of the GitHub Innovation Graph.
+
+Refresh them with `python scripts/refresh_language_datasets.py` (default
+top 20). The analyzer flags the primary language as **exotic** when it is
+not in either dataset (with a small alias map: PYPL "C/C++" covers
+Linguist "C" and "C++", "Visual Basic" covers "VBA", …).
+
 ## 7. Indicator families
 
 The dashboard is organized into the following families. Each family exposes several concrete indicators. No global score is computed in the first version.
@@ -253,6 +267,8 @@ Derived from commit and issue activity.
 - Primary language.
 - Full language breakdown from GitHub Linguist.
 - Ecosystem inference from manifest files (Python, Node, Rust, Go, etc.).
+- Main-language popularity: `is_exotic` flag, best popularity rank and
+  source (`pypl` / `github`) from the committed datasets.
 
 ### 7.6 Sustainability and backing
 
@@ -315,6 +331,11 @@ Decision tree (first matching branch wins):
 | 14 | Unknown + widely used | orange | Widely used despite low maintenance |
 | 14b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
 | 15 | Unknown | orange | Insufficient data |
+
+**Modifier — exotic main language:** when the verdict would be green, an
+uncommon main language (outside the PYPL top-20 and the GitHub Innovation
+Graph top-20) downgrades it to orange ("Main language is uncommon"). It
+never upgrades a verdict and never fires on red/orange outcomes.
 
 All thresholds are heuristics, defined as constants in
 `src/gh_score/core/analyzers/recommendation.py` and documented in

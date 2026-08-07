@@ -72,6 +72,13 @@ The rules are evaluated **in order**; the first matching branch wins.
      commercial support) → 🟢 "Active project"
    - Otherwise → 🟠 "Insufficient data for a reliable recommendation"
 
+**Modifier — exotic main language (downgrade only):** when the verdict
+would be green, an uncommon main language (outside the PYPL top-20 and
+the GitHub Innovation Graph top-20, see the language datasets below)
+downgrades it to 🟠 "Main language is uncommon". The rule never upgrades
+a verdict and never fires on red/orange outcomes: red flags, a dead
+homepage, abandonment, bot domination, etc. all keep their verdict.
+
 ## Thresholds
 
 All thresholds are module-level constants in `recommendation.py` and are
@@ -106,6 +113,20 @@ The bot-protection heuristic flags a page as captcha-protected when the
 response headers, title or first 64 KiB of HTML contain markers such as
 `g-recaptcha`, `hcaptcha`, Cloudflare `turnstile`/`cf-mitigated`, or the
 phrases "not a robot" / "verify you are human".
+
+### Main-language popularity (`data/` + `scripts/refresh_language_datasets.py`)
+
+A main language is **popular** when it appears in the top-20 of the PYPL
+index or the top-20 by pushers of the GitHub Innovation Graph. Both
+datasets are committed under `src/gh_score/data/` and refreshed with
+`python scripts/refresh_language_datasets.py --top 20`:
+
+| File | Source | Columns |
+|------|--------|---------|
+| `pypl_languages.csv` | https://pypl.github.io/PYPL.html | rank, language, share |
+| `github_languages.csv` | github/innovationgraph `data/languages.csv` (most recent quarter) | rank, language, num_pushers |
+
+The top-N threshold is a parameter of the refresh script (default 20).
 
 ## Confidence
 
@@ -181,6 +202,8 @@ declared maintenance state). Example:
 | `reason_site_redirect` | boucle de redirection sur la page d'accueil | redirect loop on the homepage |
 | `reason_site_timeout` | la page d'accueil a expiré (timeout) | the homepage timed out |
 | `reason_site_captcha` | la page d'accueil est protégée par un contrôle anti-robot | the homepage is behind a bot-protection check |
+| `rec_language_exotic` | Langage principal peu répandu | Main language is uncommon |
+| `reason_language_exotic` | le langage principal ({language}) est peu répandu (hors top 20 PYPL et GitHub Innovation Graph) | the main language ({language}) is uncommon (outside the PYPL and GitHub Innovation Graph top 20) |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
 | `owner_type_user` | utilisateur | user |
 | `owner_type_organization` | organisation | organization |

@@ -34,6 +34,7 @@ from gh_score.core.models import (
     RepoUrl,
     Repository,
     RepositoryMeta,
+    WebsiteInfo,
 )
 
 
@@ -518,3 +519,53 @@ class TestSyncWrapper:
         assert result == "RESULT"
         mock_async.assert_awaited_once()
         assert mock_async.await_args.args == ("https://github.com/owner/repo", config, True)
+
+
+class TestWebsiteProbe:
+    """The homepage probe runs only when a homepage is declared."""
+
+    @pytest.mark.asyncio
+    async def test_homepage_probed_and_stored(self, tmp_path):
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()
+        repo.meta.homepage = "https://example.com"
+        probed = WebsiteInfo(url="https://example.com", status_code=200)
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "gh_score.core.api.probe_website",
+                new=AsyncMock(return_value=probed),
+            ) as mock_probe,
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        mock_probe.assert_awaited_once()
+        assert mock_probe.await_args.args[0] == "https://example.com"
+        assert result.website.url == "https://example.com"
+        assert result.website.status_code == 200
+        assert result.website.status.name == "HEALTHY"
+
+    @pytest.mark.asyncio
+    async def test_no_homepage_skips_probe(self, tmp_path):
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()  # meta.homepage stays None
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch("gh_score.core.api.probe_website", new=AsyncMock()) as mock_probe,
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        mock_probe.assert_not_awaited()
+        assert result.website.status.name == "UNKNOWN"

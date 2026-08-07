@@ -20,11 +20,13 @@ from gh_score.core.analyzers import (
     analyze_recommendation,
     analyze_release_health,
     analyze_sustainability,
+    analyze_website,
 )
 from gh_score.core.cache import Cache
 from gh_score.core.fetchers.github import GitHubFetcher
 from gh_score.core.fetchers.local_git import fetch_local_repo
 from gh_score.core.fetchers.registries import fetch_registry_info
+from gh_score.core.fetchers.website import probe_website
 from gh_score.core.models import AnalysisResult, RepoUrl
 from gh_score.i18n import t
 from gh_score.llm.provider import (
@@ -109,6 +111,10 @@ async def analyze_repo_async(
     local_path = str(path) if is_local else None
     repo.registries = await fetch_registry_info(repo, local_path, cache)
 
+    # Probe the project homepage (skip when none is declared)
+    if repo.meta.homepage:
+        repo.website_info = await probe_website(repo.meta.homepage, cache)
+
     # Optional LLM analysis: qualitative signals (phase 1) + refined
     # recommendation (phase 2). Skipped entirely when the provider is
     # remote and no API key is configured.
@@ -133,6 +139,7 @@ async def analyze_repo_async(
         sustainability=analyze_sustainability(repo),
         qualitative=analyze_qualitative(repo),
         registries=repo.registries,
+        website=analyze_website(repo.website_info),
     )
 
     # Cross-cutting recommendation (needs the full result)

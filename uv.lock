@@ -116,7 +116,7 @@ wheels = [
 
 [[package]]
 name = "gh-score"
-version = "0.10.2"
+version = "0.10.4"
 source = { editable = "." }
 dependencies = [
     { name = "click" },

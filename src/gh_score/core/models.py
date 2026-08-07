@@ -246,6 +246,32 @@ class RegistryInfo:
 
 
 # ---------------------------------------------------------------------------
+# Website availability
+# ---------------------------------------------------------------------------
+
+class WebsiteError(Enum):
+    """Why a homepage probe failed."""
+    DNS = "dns"            # domain name resolution failed
+    TIMEOUT = "timeout"    # connect/read timed out
+    HTTP = "http"          # server answered a non-2xx status
+    REDIRECT = "redirect"  # redirect loop
+    OTHER = "other"        # any other failure
+
+
+@dataclass
+class WebsiteInfo:
+    """Raw homepage probe result."""
+    url: str
+    status_code: int | None = None
+    final_url: str | None = None
+    error: WebsiteError | None = None
+    error_detail: str | None = None
+    captcha: bool = False
+    captcha_type: str | None = None  # "recaptcha" | "hcaptcha" | "cloudflare" | "turnstile" | "generic"
+    checked_at: datetime | None = None
+
+
+# ---------------------------------------------------------------------------
 # Qualitative signals (optional LLM extraction)
 # ---------------------------------------------------------------------------
 
@@ -299,6 +325,7 @@ class Repository:
     governance_content: str | None = None
     security_content: str | None = None
     llm_signals: QualitativeSignals = field(default_factory=QualitativeSignals)
+    website_info: WebsiteInfo | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -400,6 +427,20 @@ class SustainabilityIndicator:
     interpretation: str = ""
 
 
+@dataclass
+class WebsiteIndicator:
+    """Analyzed homepage availability (shown in the report)."""
+    url: str | None = None
+    status_code: int | None = None
+    final_url: str | None = None
+    error: str | None = None          # WebsiteError.value, for JSON serialization
+    error_detail: str | None = None
+    captcha: bool = False
+    captcha_type: str | None = None
+    status: Status = Status.UNKNOWN
+    interpretation: str = ""
+
+
 # ---------------------------------------------------------------------------
 # Qualitative indicator (output of the qualitative analyzer)
 # ---------------------------------------------------------------------------
@@ -474,3 +515,4 @@ class AnalysisResult:
     qualitative: QualitativeIndicator = field(default_factory=QualitativeIndicator)
     llm_recommendation: LLMRecommendation | None = None
     warnings: list[str] = field(default_factory=list)  # human-readable, localized
+    website: WebsiteIndicator = field(default_factory=WebsiteIndicator)

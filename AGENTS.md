@@ -24,3 +24,20 @@ the recommendation decision tree).
 
 A code change that alters the verdict without updating `RULES.md` is
 incomplete and must not be committed as-is.
+
+### Keep TODO.md in sync
+
+`TODO.md` tracks remaining work (coverage gaps, code smells, housekeeping)
+and must stay current with the codebase.
+
+Whenever a change completes or invalidates a TODO item, update `TODO.md`
+in the same change:
+
+- Tick `[x]` or drop items that are done; reword items whose scope
+  shifted.
+- Refresh drifting numbers (coverage %, test counts) and bump the
+  "Last updated" date in the header.
+- Add follow-ups discovered along the way.
+
+A commit that resolves a TODO item without updating `TODO.md` is
+incomplete and must not be committed as-is.

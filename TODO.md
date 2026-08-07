@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the test-hardening session
-(suite at 87% coverage, 347 tests). Last updated: 2026-08-07.
+(suite at 87% coverage, 366 tests). Last updated: 2026-08-07.
 
 ## Tests / coverage
 
@@ -17,7 +17,8 @@ Remaining actions after the test-hardening session
 - [ ] `analyzers/sustainability.py` (70%) — detection helpers tested
       directly: `_detect_foundation`, `_detect_corporate_backing` (regex),
       `_detect_governance_model`.
-- [ ] `analyzers/languages.py` (76%) — `_infer_ecosystem` branches.
+- [x] (done 2026-08-07) `analyzers/languages.py` (90%) — `_infer_ecosystem`
+      branches covered by the popularity feature's tests.
 - [ ] `__main__.py` (0%) — trivial entry point, currently uncovered.
 - [x] (done 2026-08-06) `llm/provider.py` (93%) — no longer deferred: the LLM feature is
       now used (warnings, refined recommendation) and covered by
@@ -57,11 +58,11 @@ item.
       plus fork intent mentioned in the description or README.
 - [ ] **README language detection** — determine whether the README is
       written in English (documentation accessibility signal).
-- [ ] **Main-language popularity** — flag exotic (uncommon) primary
-      languages against committed CSV datasets built from
-      `innovationgraph.github.com/global-metrics/programming-languages`
-      and `pypl.github.io/PYPL.html`; ship a helper script to refresh
-      the datasets.
+- [x] (done 2026-08-07) **Main-language popularity** — flag exotic
+      (uncommon) primary languages against the committed PYPL top-20 +
+      GitHub Innovation Graph top-20 CSVs (`src/gh_score/data/`), with
+      `scripts/refresh_language_datasets.py` to refresh them; exotic
+      languages downgrade a green verdict to orange.
 - [ ] **Pending security updates (Dependabot)** — surface open Dependabot
       pull requests that address GitHub security advisories (pending
       security fixes).

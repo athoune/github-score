@@ -235,55 +235,75 @@ def _build_interpretation(
     lang: str | None = None,
 ) -> str:
     """Build human-readable interpretation."""
-    parts = []
+    parts = [t("int_state", lang=lang, state=_state_label(ind.state, lang))]
+    _append_last_commit(parts, ind, lang)
+    _append_commit_frequency(parts, ind, lang)
+    _append_issue_velocity(parts, ind, lang)
+    _append_stale_issues(parts, ind, lang)
+    return ", ".join(parts)
 
-    # State
-    parts.append(t("int_state", lang=lang, state=_state_label(ind.state, lang)))
 
-    # Last commit
-    if ind.last_commit_days_ago is not None:
-        if ind.last_commit_days_ago == 0:
-            parts.append(t("int_last_commit_today", lang=lang))
-        elif ind.last_commit_days_ago == 1:
-            parts.append(t("int_last_commit_yesterday", lang=lang))
-        else:
-            parts.append(
-                t("int_last_commit_days", lang=lang, days=ind.last_commit_days_ago)
-            )
+def _append_last_commit(
+    parts: list[str],
+    ind: MaintenanceIndicator,
+    lang: str | None,
+) -> None:
+    """Append the 'last commit' fragment."""
+    if ind.last_commit_days_ago is None:
+        return
+    if ind.last_commit_days_ago == 0:
+        parts.append(t("int_last_commit_today", lang=lang))
+    elif ind.last_commit_days_ago == 1:
+        parts.append(t("int_last_commit_yesterday", lang=lang))
+    else:
+        parts.append(
+            t("int_last_commit_days", lang=lang, days=ind.last_commit_days_ago)
+        )
 
-    # Commit frequency
-    if ind.commits_per_month is not None:
-        if ind.commits_per_month >= 10:
-            key = "int_cpm_very_active"
-        elif ind.commits_per_month >= 2:
-            key = "int_cpm_active"
-        elif ind.commits_per_month > 0:
-            key = "int_cpm_low"
-        else:
-            parts.append(t("int_cpm_none", lang=lang))
-            key = None
-        if key:
-            parts.append(t(key, lang=lang, rate=ind.commits_per_month))
 
-    # Issue velocity
-    if ind.issue_velocity_days is not None:
-        if ind.issue_velocity_days < 1:
-            parts.append(t("int_issues_lt1d", lang=lang))
-        elif ind.issue_velocity_days < 7:
-            parts.append(
-                t("int_issues_days", lang=lang, days=ind.issue_velocity_days)
-            )
-        elif ind.issue_velocity_days < 30:
-            parts.append(
-                t("int_issues_moderate", lang=lang, days=ind.issue_velocity_days)
-            )
-        else:
-            parts.append(
-                t("int_issues_slow", lang=lang, days=ind.issue_velocity_days)
-            )
+def _append_commit_frequency(
+    parts: list[str],
+    ind: MaintenanceIndicator,
+    lang: str | None,
+) -> None:
+    """Append the commits-per-month fragment."""
+    if ind.commits_per_month is None:
+        return
+    if ind.commits_per_month >= 10:
+        parts.append(t("int_cpm_very_active", lang=lang, rate=ind.commits_per_month))
+    elif ind.commits_per_month >= 2:
+        parts.append(t("int_cpm_active", lang=lang, rate=ind.commits_per_month))
+    elif ind.commits_per_month > 0:
+        parts.append(t("int_cpm_low", lang=lang, rate=ind.commits_per_month))
+    else:
+        parts.append(t("int_cpm_none", lang=lang))
 
-    # Stale issues
+
+def _append_issue_velocity(
+    parts: list[str],
+    ind: MaintenanceIndicator,
+    lang: str | None,
+) -> None:
+    """Append the issue-velocity fragment."""
+    if ind.issue_velocity_days is None:
+        return
+    if ind.issue_velocity_days < 1:
+        parts.append(t("int_issues_lt1d", lang=lang))
+    elif ind.issue_velocity_days < 7:
+        parts.append(t("int_issues_days", lang=lang, days=ind.issue_velocity_days))
+    elif ind.issue_velocity_days < 30:
+        parts.append(
+            t("int_issues_moderate", lang=lang, days=ind.issue_velocity_days)
+        )
+    else:
+        parts.append(t("int_issues_slow", lang=lang, days=ind.issue_velocity_days))
+
+
+def _append_stale_issues(
+    parts: list[str],
+    ind: MaintenanceIndicator,
+    lang: str | None,
+) -> None:
+    """Append the stale-issue fragment (only when the ratio is high)."""
     if ind.stale_issue_ratio is not None and ind.stale_issue_ratio > 0.2:
         parts.append(t("int_stale_issues", lang=lang, ratio=ind.stale_issue_ratio))
-
-    return ", ".join(parts)

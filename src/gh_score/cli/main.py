@@ -295,7 +295,11 @@ class _EpilogMixin:
     of text. We write the preformatted block as-is instead.
     """
 
-    def format_epilog(self, ctx, formatter):
+    # Declared here so static analyzers see it through the mixin; click
+    # sets it on commands/groups that define an epilog.
+    epilog: str | None = None
+
+    def format_epilog(self, ctx, formatter):  # pylint: disable=unused-argument
         if self.epilog:
             formatter.write(f"\n{self.epilog}")
 

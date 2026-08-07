@@ -45,6 +45,8 @@ Remaining actions after the test-hardening session
       (installed: 3.1.54; constraint is already `>=3.1`)
 - [x] Set up CI — `.github/workflows/ci.yml` (pytest + ruff + coverage)
       and `publish.yml` (PyPI on version tags) landed 2026-08-06.
+- [ ] Run prospector in CI — `ci.yml` only runs ruff + pytest today;
+      pylint/pyright/pycodestyle via prospector run only locally.
 - [x] Decide the fate of `toto.json` — removed; nothing in the codebase
       writes it anymore (it was never tracked).
 - [ ] Tune the recommendation thresholds (`RULES.md`) against real

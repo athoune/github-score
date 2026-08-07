@@ -86,21 +86,26 @@ def fetch_local_repo(path: str) -> Repository:
     try:
         head = git_repo.head.commit
         for commit in git_repo.iter_commits(head, max_count=10000):
-            # Use author name as login (email is protected/masked by GitHub)
-            author_login = commit.author.name
+            # Use author name as login (email is protected/masked by GitHub);
+            # fall back to a stable label when git reports no name.
+            author_login = commit.author.name or "unknown"
             author_date = datetime.fromtimestamp(commit.committed_date, tz=timezone.utc)
 
+            raw_message = commit.message
             commits.append(Commit(
                 sha=commit.hexsha,
                 author_login=author_login,
                 author_email=commit.author.email,
                 author_date=author_date,
-                message=commit.message,
+                message=raw_message.decode(errors="replace")
+                if isinstance(raw_message, bytes)
+                else raw_message,
             ))
 
             # Track contributor commits by name (not email)
-            key = commit.author.name
-            contributor_commits[key] = contributor_commits.get(key, 0) + 1
+            contributor_commits[author_login] = (
+                contributor_commits.get(author_login, 0) + 1
+            )
     except Exception:
         pass
 

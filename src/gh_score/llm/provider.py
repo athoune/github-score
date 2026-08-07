@@ -16,6 +16,7 @@ import httpx
 
 from gh_score.config import LLMConfig
 from gh_score.core.models import LLMRecommendation, QualitativeSignals
+from gh_score.i18n import t
 
 
 # Allowed values for the self-declared maintenance state the LLM may report.
@@ -31,6 +32,7 @@ class LLMError(Exception):
     Raised by :meth:`LLMProvider.extract_signals`; the public analysis
     helpers catch it and surface a warning instead of failing the pipeline.
     """
+
 
 # Deliberately EXCLUDED from the prompt: sponsors/backers and the
 # governance model already have deterministic implementations
@@ -372,6 +374,4 @@ async def analyze_recommendation_with_llm(
 def _append_warning(warnings: list[str] | None, key: str) -> None:
     """Append a localized warning message to the list, if provided."""
     if warnings is not None:
-        from gh_score.i18n import t
-
         warnings.append(t(key))

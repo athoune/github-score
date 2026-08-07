@@ -171,7 +171,10 @@ def analyze_recommendation(
 ) -> Recommendation:
     """Synthesize all indicator families into a traffic-light verdict.
 
-    Decision order matters: the strongest signals win first.
+    Decision order matters: the strongest signals win first. Each section
+    below is its own helper; the first non-None recommendation wins. The
+    final ``_rec_unknown`` always returns a verdict, so the function never
+    falls through.
 
     Args:
         result: Full analysis result.
@@ -184,9 +187,22 @@ def analyze_recommendation(
     if lang is None:
         lang = current_language()
 
-    maint = result.maintenance
+    for section in (
+        _rec_red_flags,
+        _rec_ephemeral,
+        _rec_abandoned,
+        _rec_active,
+        _rec_maintenance,
+        _rec_text_discontinued,
+    ):
+        rec = section(result, lang)
+        if rec is not None:
+            return rec
+    return _rec_unknown(result, lang)
 
-    # 1. Hard red flags: no development possible anymore.
+
+def _rec_red_flags(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """Hard red flags: no development possible anymore."""
     if result.meta.archived:
         return _build(
             RecommendationLevel.RED,
@@ -211,9 +227,12 @@ def analyze_recommendation(
             lang,
             t("reason_deprecated", lang=lang),
         )
+    return None
 
-    # 2. Ephemeral project (checked before activity: a young project can
-    #    still look "active" while being a weekend throwaway).
+
+def _rec_ephemeral(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """Ephemeral project (checked before activity: a young project can
+    still look "active" while being a weekend throwaway)."""
     if _is_ephemeral(result):
         return _build(
             RecommendationLevel.ORANGE,
@@ -222,119 +241,136 @@ def analyze_recommendation(
             lang,
             t("reason_ephemeral", lang=lang),
         )
+    return None
 
-    # 3. Abandoned.
-    if maint.state == MaintenanceState.ABANDONED:
-        if _is_widely_used(result):
-            return _build(
-                RecommendationLevel.ORANGE,
-                t("rec_abandoned_popular", lang=lang),
-                result,
-                lang,
-                t("reason_abandoned_popular", lang=lang),
-            )
-        n = maint.last_commit_days_ago or 0
-        months = max(1, round(n / 30))
+
+def _rec_abandoned(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """Abandoned: red, unless widely used (then orange: adoption at risk)."""
+    if result.maintenance.state != MaintenanceState.ABANDONED:
+        return None
+    if _is_widely_used(result):
         return _build(
-            RecommendationLevel.RED,
-            t("rec_abandoned_months", lang=lang, months=months),
+            RecommendationLevel.ORANGE,
+            t("rec_abandoned_popular", lang=lang),
             result,
             lang,
-            t("reason_last_commit_days", lang=lang, days=n),
+            t("reason_abandoned_popular", lang=lang),
         )
+    n = result.maintenance.last_commit_days_ago or 0
+    months = max(1, round(n / 30))
+    return _build(
+        RecommendationLevel.RED,
+        t("rec_abandoned_months", lang=lang, months=months),
+        result,
+        lang,
+        t("reason_last_commit_days", lang=lang, days=n),
+    )
 
-    # 4. Active development.
-    if maint.state == MaintenanceState.ACTIVE:
-        if _is_bot_dominated(result):
-            return _build(
-                RecommendationLevel.ORANGE,
-                t("rec_bots", lang=lang),
-                result,
-                lang,
-                t("reason_bots", lang=lang, ratio=result.contributors.bot_ratio),
-            )
-        if not _has_stable_release(result):
-            return _build(
-                RecommendationLevel.ORANGE,
-                t("rec_not_stable", lang=lang),
-                result,
-                lang,
-                t("reason_no_stable_release", lang=lang),
-            )
-        if _is_declining(result):
-            return _build(
-                RecommendationLevel.ORANGE,
-                t("rec_declining", lang=lang),
-                result,
-                lang,
-                t("reason_declining", lang=lang),
-            )
-        if _has_large_community(result) or (
-            result.qualitative.available
-            and result.qualitative.roadmap
-            and result.qualitative.commercial_support
-        ):
-            return _build(
-                RecommendationLevel.GREEN,
-                t("rec_active_community", lang=lang),
-                result,
-                lang,
-                t("reason_active", lang=lang),
-            )
+
+def _rec_active(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """Active development, with qualifiers checked strongest first."""
+    maint = result.maintenance
+    if maint.state != MaintenanceState.ACTIVE:
+        return None
+    if _is_bot_dominated(result):
+        return _build(
+            RecommendationLevel.ORANGE,
+            t("rec_bots", lang=lang),
+            result,
+            lang,
+            t("reason_bots", lang=lang, ratio=result.contributors.bot_ratio),
+        )
+    if not _has_stable_release(result):
+        return _build(
+            RecommendationLevel.ORANGE,
+            t("rec_not_stable", lang=lang),
+            result,
+            lang,
+            t("reason_no_stable_release", lang=lang),
+        )
+    if _is_declining(result):
+        return _build(
+            RecommendationLevel.ORANGE,
+            t("rec_declining", lang=lang),
+            result,
+            lang,
+            t("reason_declining", lang=lang),
+        )
+    if _has_large_community(result) or (
+        result.qualitative.available
+        and result.qualitative.roadmap
+        and result.qualitative.commercial_support
+    ):
         return _build(
             RecommendationLevel.GREEN,
-            t("rec_active", lang=lang),
+            t("rec_active_community", lang=lang),
             result,
             lang,
             t("reason_active", lang=lang),
         )
+    return _build(
+        RecommendationLevel.GREEN,
+        t("rec_active", lang=lang),
+        result,
+        lang,
+        t("reason_active", lang=lang),
+    )
 
-    # 5. Maintenance mode: fixes without new features.
-    if maint.state == MaintenanceState.MAINTENANCE:
-        rh = result.release_health
-        if rh.age_days is not None and rh.age_days > _NO_RELEASE_MONTHS * 30:
-            n = max(1, round(rh.age_days / 30))
-            return _build(
-                RecommendationLevel.ORANGE,
-                t("rec_maintenance_no_release", lang=lang, months=n),
-                result,
-                lang,
-                t("reason_release_age_days", lang=lang, days=rh.age_days),
-            )
+
+def _rec_maintenance(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """Maintenance mode: fixes without new features."""
+    maint = result.maintenance
+    if maint.state != MaintenanceState.MAINTENANCE:
+        return None
+    rh = result.release_health
+    if rh.age_days is not None and rh.age_days > _NO_RELEASE_MONTHS * 30:
+        n = max(1, round(rh.age_days / 30))
         return _build(
             RecommendationLevel.ORANGE,
-            t("rec_maintenance", lang=lang),
+            t("rec_maintenance_no_release", lang=lang, months=n),
             result,
             lang,
-            t("reason_maintenance", lang=lang),
+            t("reason_release_age_days", lang=lang, days=rh.age_days),
         )
+    return _build(
+        RecommendationLevel.ORANGE,
+        t("rec_maintenance", lang=lang),
+        result,
+        lang,
+        t("reason_maintenance", lang=lang),
+    )
 
-    # 5.5 LLM-reported discontinuation. Trusted only when commit data is
-    #     missing: explicit text ("no longer maintained") is a fact, but
-    #     actual commit activity wins over prose.
+
+def _rec_text_discontinued(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """LLM-reported discontinuation. Trusted only when commit data is
+    missing: explicit text ("no longer maintained") is a fact, but actual
+    commit activity wins over prose."""
     q = result.qualitative
-    if (
+    if not (
         q.available
-        and maint.state == MaintenanceState.UNKNOWN
+        and result.maintenance.state == MaintenanceState.UNKNOWN
         and q.text_maintenance_state == "abandoned"
     ):
-        if _is_widely_used(result):
-            return _build(
-                RecommendationLevel.ORANGE,
-                t("rec_abandoned_popular", lang=lang),
-                result,
-                lang,
-                t("reason_text_discontinued", lang=lang),
-            )
+        return None
+    if _is_widely_used(result):
         return _build(
-            RecommendationLevel.RED,
-            t("rec_text_discontinued", lang=lang),
+            RecommendationLevel.ORANGE,
+            t("rec_abandoned_popular", lang=lang),
             result,
             lang,
             t("reason_text_discontinued", lang=lang),
         )
+    return _build(
+        RecommendationLevel.RED,
+        t("rec_text_discontinued", lang=lang),
+        result,
+        lang,
+        t("reason_text_discontinued", lang=lang),
+    )
 
-    # 6. Unknown maintenance state.
+
+def _rec_unknown(result: AnalysisResult, lang: str) -> Recommendation:
+    """Unknown maintenance state: fall back to adoption / declared intent."""
     if _is_widely_used(result):
         return _build(
             RecommendationLevel.ORANGE,
@@ -343,6 +379,7 @@ def analyze_recommendation(
             lang,
             t("reason_unknown_widely_used", lang=lang),
         )
+    q = result.qualitative
     if (
         q.available
         and q.text_maintenance_state == "active"

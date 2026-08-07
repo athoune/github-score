@@ -307,6 +307,26 @@ def _render_sustainability(result: AnalysisResult) -> Panel:
     return Panel(content, title=t("panel_sustainability"), border_style=color)
 
 
+def _render_website(result: AnalysisResult) -> Panel:
+    """Render the website availability panel."""
+    site = result.website
+    glyph, color = _status_glyph(site.status)
+
+    content = Text()
+    content.append(f"{glyph} ", style=color)
+
+    if site.url:
+        content.append(site.url, style="bold")
+        if site.final_url and site.final_url != site.url:
+            content.append(f"\n→ {site.final_url}")
+        content.append("\n")
+
+    if site.interpretation:
+        content.append(f"\n{site.interpretation}", style="dim")
+
+    return Panel(content, title=t("panel_website"), border_style=color)
+
+
 def _render_qualitative(result: AnalysisResult) -> Panel | None:
     """Render the optional LLM qualitative signals panel."""
     q = result.qualitative
@@ -453,6 +473,9 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
     )
 
     console.print(grid2)
+
+    # Website availability (always shown, even when no homepage is declared)
+    console.print(_render_website(result))
 
     # Optional LLM qualitative signals panel
     qualitative_panel = _render_qualitative(result)

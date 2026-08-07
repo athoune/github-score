@@ -25,6 +25,7 @@ from gh_score.cli.tui import (
     _render_release_health,
     _render_sustainability,
     _render_warnings,
+    _render_website,
     _status_glyph,
     render_dashboard,
 )
@@ -48,6 +49,7 @@ from gh_score.core.models import (
     RepositoryMeta,
     Status,
     SustainabilityIndicator,
+    WebsiteIndicator,
 )
 from gh_score.i18n import t
 
@@ -253,6 +255,39 @@ class TestPanels:
         panel = _render_sustainability(result)
         assert "no backing detected" in _panel_text(panel)
 
+
+class TestWebsitePanel:
+    def test_panel_shows_url(self, result, en_locale):
+        result.website = WebsiteIndicator(
+            url="https://example.com",
+            status_code=200,
+            status=Status.HEALTHY,
+        )
+        panel = _render_website(result)
+        assert panel.title == "Website"
+        text = _panel_text(panel)
+        assert "https://example.com" in text
+
+    def test_panel_shows_final_url_after_redirect(self, result, en_locale):
+        result.website = WebsiteIndicator(
+            url="https://example.com",
+            final_url="https://www.example.com",
+            status_code=200,
+            status=Status.HEALTHY,
+        )
+        panel = _render_website(result)
+        text = _panel_text(panel)
+        assert "https://www.example.com" in text
+
+    def test_panel_no_homepage(self, result, en_locale):
+        from gh_score.core.analyzers.website import analyze_website
+
+        result.website = analyze_website(None, lang="en")
+        panel = _render_website(result)
+        assert panel.title == "Website"
+        text = _panel_text(panel)
+        assert "No homepage declared" in text
+
     def test_registries(self, result, en_locale):
         panel = _render_registries(result)
         assert panel is not None
@@ -362,6 +397,7 @@ class TestRenderDashboard:
             "Maintenance",
             "Languages",
             "Sustainability",
+            "Website",
             "Package Registries",
         ):
             assert title in output, f"missing panel title: {title}"

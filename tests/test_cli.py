@@ -274,3 +274,21 @@ class TestHelpEnvVars:
         result = runner.invoke(cli, ["analyze", "--help"])
         assert result.exit_code == 0
         assert "GITHUB_TOKEN" in result.output
+
+
+class TestMarkdownReport:
+    """The markdown report includes the website availability section."""
+
+    def test_website_section_present(self):
+        runner = CliRunner()
+        analysis = _result_with_warnings()
+
+        with (
+            patch("gh_score.cli.main.analyze_repo", return_value=analysis),
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = MagicMock()
+            result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
+
+        assert result.exit_code == 0
+        assert "## Website" in result.output

@@ -161,6 +161,7 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
     _md_maintenance(result, console)
     _md_languages(result, console)
     _md_sustainability(result, console)
+    _md_website(result, console)
     _md_qualitative(result, console)
 
 
@@ -235,6 +236,17 @@ def _md_sustainability(result: AnalysisResult, console: Console) -> None:
     if sust.corporate_backing:
         console.print(f"- {t('md_corporate', company=sust.corporate_backing)}")
     console.print(f"- {t('md_status', status=t(f'status_{sust.status.value}'))}\n")
+
+
+def _md_website(result: AnalysisResult, console: Console) -> None:
+    site = result.website
+    console.print(f"{t('md_section_website')}\n")
+    if site.url:
+        console.print(f"- {site.url}")
+        if site.final_url and site.final_url != site.url:
+            console.print(f"  → {site.final_url}")
+    console.print(f"- {t('md_status', status=t(f'status_{site.status.value}'))}")
+    console.print(f"- {site.interpretation}\n")
 
 
 def _md_qualitative(result: AnalysisResult, console: Console) -> None:

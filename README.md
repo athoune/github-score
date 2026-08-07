@@ -58,6 +58,10 @@ print(result.release_health.latest_version) # "v1.0.0"
 print(result.contributors.bus_factor)       # 3
 ```
 
+## Screenshot
+
+![gh-score in a terminal](./screenshots/gh-score-0-10.png)
+
 ## License
 
 GPL-3.0 — see [LICENSE](LICENSE).

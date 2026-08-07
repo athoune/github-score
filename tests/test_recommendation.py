@@ -660,3 +660,54 @@ class TestSecurityRecommendation:
     def test_none_does_not_change_verdict(self):
         rec = _recommend(self._result(Status.HEALTHY))
         assert rec.level == RecommendationLevel.GREEN
+
+
+class TestMirrorRecommendation:
+    """A mirror repository downgrades the verdict to orange."""
+
+    def test_mirror_is_orange_with_upstream(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+        )
+        result.meta.is_mirror = True
+        result.meta.mirror_upstream = "https://git.example.com/upstream"
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "miroir" in rec.message
+        assert "https://git.example.com/upstream" in rec.reasoning[0]
+
+    def test_mirror_without_upstream(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+        )
+        result.meta.is_mirror = True
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+
+    def test_not_a_mirror_is_unchanged(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+
+    def test_mirror_does_not_override_red_flags(self):
+        result = _make_result(
+            archived=True,
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+        )
+        result.meta.is_mirror = True
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.RED

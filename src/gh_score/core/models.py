@@ -207,6 +207,9 @@ class RepositoryMeta:
     has_wiki: bool = False
     homepage: str | None = None
     size_kb: int = 0
+    mirror_url: str | None = None       # GitHub mirroring feature URL (raw API)
+    is_mirror: bool = False             # computed: mirror_url OR text heuristic
+    mirror_upstream: str | None = None  # upstream URL when known
 
 
 # ---------------------------------------------------------------------------

@@ -599,3 +599,44 @@ class TestSecurityUpdates:
         instance.fetch_security_updates.assert_awaited_once()
         assert result.security.pending_count == 1
         assert result.security.status.name == "WARNING"
+
+
+class TestMirrorDetection:
+    """The pipeline flags mirror-only repositories from meta + readme."""
+
+    @pytest.mark.asyncio
+    async def test_read_only_mirror_description(self, tmp_path):
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()
+        repo.meta.description = "A read-only mirror of the upstream project"
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch("gh_score.core.api.probe_website", new=AsyncMock()),
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        assert result.meta.is_mirror is True
+
+    @pytest.mark.asyncio
+    async def test_plain_repo_not_mirror(self, tmp_path):
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()  # description="demo"
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch("gh_score.core.api.probe_website", new=AsyncMock()),
+        ):
+            _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        assert result.meta.is_mirror is False

@@ -223,6 +223,15 @@ are pending security updates. The marker is required: plain version bumps
 also mention "security" inside the dependency changelog. Fetched from
 `GET /repos/{owner}/{repo}/pulls?state=open`.
 
+### 6.7 Mirror-only repositories
+
+A repository is flagged as a mirror when no development happens in it:
+- the GitHub API `mirror_url` field is set (GitHub's native mirroring
+  feature), or
+- the description or README says so ("read-only mirror", "mirror of the
+  original", "official repo link below", …) — the fallback heuristic for
+  manually-pushed mirrors, which never populate `mirror_url`.
+
 ## 7. Indicator families
 
 The dashboard is organized into the following families. Each family exposes several concrete indicators. No global score is computed in the first version.
@@ -333,24 +342,25 @@ Decision tree (first matching branch wins):
 | 1 | Archived / disabled / registry deprecated | red | Archived / Disabled / Deprecated |
 | 2 | Security update pending > 3 days (open Dependabot security PR) | red | Known security vulnerabilities unpatched |
 | 3 | Fresh security updates pending (≤ 3 days) | orange | Recent security updates pending |
-| 4 | Homepage down: DNS failure, HTTP error (4xx/5xx) or redirect loop (only when a homepage is declared) | red | Project homepage is down |
-| 5 | Homepage degraded: timeout or bot-protection check ("I'm not a robot") | orange | Homepage unreachable or bot-protected |
-| 6 | Young, tiny, ≤ 3 authors (article demo) | orange | Ephemeral project |
-| 6b | Same, but organization-owned → skipped (org does not create repos for articles) | — | falls through to next branch |
-| 7 | Abandoned + widely used | orange | Large project, but now abandoned |
-| 8 | Abandoned | red | No commit for N months |
-| 9 | Active + ≥ 80% bots | orange | Maintained only by bots |
-| 10 | Active + no stable release | orange | Active but not stabilized |
-| 11 | Active + declining activity | orange | Well-maintained but in decline |
-| 12 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
-| 13 | Active | green | Active project |
-| 14 | Maintenance + no release for 6+ months | orange | No new features for N months |
-| 15 | Maintenance mode | orange | Project in maintenance mode |
-| 15b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
-| 15c | Same, but widely used | orange | Large project, but now abandoned |
-| 16 | Unknown + widely used | orange | Widely used despite low maintenance |
-| 16b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
-| 17 | Unknown | orange | Insufficient data |
+| 4 | Mirror-only repository (no development happens here) | orange | Repository is a mirror of an upstream project |
+| 5 | Homepage down: DNS failure, HTTP error (4xx/5xx) or redirect loop (only when a homepage is declared) | red | Project homepage is down |
+| 6 | Homepage degraded: timeout or bot-protection check ("I'm not a robot") | orange | Homepage unreachable or bot-protected |
+| 7 | Young, tiny, ≤ 3 authors (article demo) | orange | Ephemeral project |
+| 7b | Same, but organization-owned → skipped (org does not create repos for articles) | — | falls through to next branch |
+| 8 | Abandoned + widely used | orange | Large project, but now abandoned |
+| 9 | Abandoned | red | No commit for N months |
+| 10 | Active + ≥ 80% bots | orange | Maintained only by bots |
+| 11 | Active + no stable release | orange | Active but not stabilized |
+| 12 | Active + declining activity | orange | Well-maintained but in decline |
+| 13 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
+| 14 | Active | green | Active project |
+| 15 | Maintenance + no release for 6+ months | orange | No new features for N months |
+| 16 | Maintenance mode | orange | Project in maintenance mode |
+| 16b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
+| 16c | Same, but widely used | orange | Large project, but now abandoned |
+| 17 | Unknown + widely used | orange | Widely used despite low maintenance |
+| 17b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
+| 18 | Unknown | orange | Insufficient data |
 
 **Modifier — exotic main language:** when the verdict would be green, an
 uncommon main language (outside the PYPL top-20 and the GitHub Innovation

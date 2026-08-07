@@ -18,6 +18,7 @@ from gh_score.core.models import (
     Status,
     MaintenanceState,
 )
+from gh_score.core.analyzers.mirror import detect_mirror
 from gh_score.core.analyzers import (
     analyze_release_health,
     analyze_license,
@@ -427,3 +428,47 @@ class TestReadmeLanguage:
         repo = Repository(url=RepoUrl("owner", "repo"), readme_content=noisy)
         result = analyze_languages(repo)
         assert result.readme_is_english is True
+
+
+class TestMirrorDetection:
+    """Mirror-only repository detection (mirror_url + text heuristic)."""
+
+    def test_mirror_url_wins(self):
+        is_mirror, upstream = detect_mirror(
+            "https://git.example.com/upstream.git", "some description", None
+        )
+        assert is_mirror is True
+        assert upstream == "https://git.example.com/upstream.git"
+
+    def test_read_only_mirror_description(self):
+        is_mirror, upstream = detect_mirror(
+            None, "A read-only mirror of the project", None
+        )
+        assert is_mirror is True
+
+    def test_mirror_mentioned_in_readme(self):
+        is_mirror, upstream = detect_mirror(
+            None,
+            "Package X",
+            "This repository is a mirror of the original project. See https://git.example.com/x",
+        )
+        assert is_mirror is True
+        assert upstream == "https://git.example.com/x"
+
+    def test_official_repo_link_phrase(self):
+        # gnu-mirror-unofficial pattern: no word "mirror" at all.
+        is_mirror, _ = detect_mirror(
+            None, "GNU C Compiler - Official repo link below.", None
+        )
+        assert is_mirror is True
+
+    def test_not_a_mirror(self):
+        # "The official repository of X" is the original, not a mirror.
+        is_mirror, _ = detect_mirror(
+            None, "The official repository of project X", "Welcome to project X."
+        )
+        assert is_mirror is False
+
+    def test_plain_repo(self):
+        is_mirror, _ = detect_mirror(None, "A fast web framework", None)
+        assert is_mirror is False

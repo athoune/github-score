@@ -48,9 +48,10 @@ item.
       `RepoUrl.parse`; extend this to repositories that do not exist
       (GitHub API 404) or that are not repositories, with a clear,
       localized error instead of a raw exception.
-- [ ] **Mirror-only repositories** — flag repositories that are pure
-      mirrors (all commits imported from an upstream, no original
-      development), using GitHub API mirror metadata.
+- [x] (done 2026-08-07) **Mirror-only repositories** — flag repositories
+      that are pure mirrors (all commits imported from an upstream, no
+      original development): GitHub `mirror_url` field or a text heuristic
+      on description/README; the verdict points at the upstream.
 - [ ] **Fork divergence analysis** — when the repository is a fork,
       measure how far behind the upstream it is and classify it:
       *soft fork* (kept alive to contribute pull requests) vs *hard fork*

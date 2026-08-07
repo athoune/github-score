@@ -432,6 +432,13 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
     console.print()
     console.print(f"[bold]{t('tui_header')}[/bold] - {result.url}", style="blue")
     console.print(f"[dim]{result.meta.description or t('tui_no_description')}[/dim]")
+    if result.meta.is_mirror:
+        if result.meta.mirror_upstream:
+            console.print(
+                f"[yellow]{t('tui_mirror_upstream', upstream=result.meta.mirror_upstream)}[/yellow]"
+            )
+        else:
+            console.print(f"[yellow]{t('tui_mirror')}[/yellow]")
     console.print()
 
     # Summary table

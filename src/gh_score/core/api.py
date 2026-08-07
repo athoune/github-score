@@ -23,6 +23,7 @@ from gh_score.core.analyzers import (
     analyze_sustainability,
     analyze_website,
 )
+from gh_score.core.analyzers.mirror import detect_mirror
 from gh_score.core.cache import Cache
 from gh_score.core.fetchers.github import GitHubFetcher
 from gh_score.core.fetchers.local_git import fetch_local_repo
@@ -109,6 +110,12 @@ async def analyze_repo_async(
             repo.security_updates = await fetcher.fetch_security_updates(repo_url)
         finally:
             await fetcher.close()
+
+    # Mirror-only repositories: flag them so the report points at the
+    # upstream instead of judging a repo where no development happens.
+    repo.meta.is_mirror, repo.meta.mirror_upstream = detect_mirror(
+        repo.meta.mirror_url, repo.meta.description, repo.readme_content
+    )
 
     # Fetch registry information
     local_path = str(path) if is_local else None

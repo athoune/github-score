@@ -143,6 +143,15 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
     if result.meta.description:
         console.print(f"_{result.meta.description}_\n")
 
+    if result.meta.is_mirror:
+        if result.meta.mirror_upstream:
+            console.print(
+                t("tui_mirror_upstream", upstream=result.meta.mirror_upstream)
+            )
+        else:
+            console.print(t("tui_mirror"))
+        console.print()
+
     console.print(
         f"{t('md_header_stars', count=result.meta.stars)} | "
         f"{t('md_header_forks', count=result.meta.forks)}"

@@ -39,42 +39,48 @@ The rules are evaluated **in order**; the first matching branch wins.
      → 🟠 "Recent security updates pending"
    - No open security PR → falls through to the next branch
 
-3. **Homepage down** (only when the repository declares a homepage; repos
+3. **Mirror-only repository** (no development happens here; detected by
+   the GitHub `mirror_url` field or a text heuristic on description/README)
+   → 🟠 "Repository is a mirror of an upstream project", with the upstream
+   URL when known. The maintenance/contributor signals reflect the
+   upstream, so the verdict points the user there instead.
+
+4. **Homepage down** (only when the repository declares a homepage; repos
    without one skip both website steps)
    - DNS resolution failure, HTTP error (4xx/5xx), or redirect loop
      → 🔴 "Project homepage is down"
    - Timeout, or page behind a bot-protection check ("I'm not a robot")
      → 🟠 "Project homepage unreachable or bot-protected"
 
-4. **Ephemeral project** (created < 6 months, ≤ 200 stars, ≤ 3 authors)
+5. **Ephemeral project** (created < 6 months, ≤ 200 stars, ≤ 3 authors)
    → 🟠 "Ephemeral project accompanying an article"
    - **Exception:** organization-owned repositories are never judged
      ephemeral (`owner_type == "organization"`) — an organization does
      not create a repo merely to accompany an article, so the "weekend
      demo" heuristic does not apply.
 
-5. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
+6. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
    - Widely used (≥ 5k stars, ≥ 1k forks, or ≥ 1M registry downloads)
      → 🟠 "Large project, but now abandoned"
    - Otherwise → 🔴 "Abandoned project — no commit for N months"
 
-6. **Active development** (`MaintenanceState.ACTIVE`)
+7. **Active development** (`MaintenanceState.ACTIVE`)
    - ≥ 80% of commits from bots → 🟠 "Project maintained only by dependency-update bots"
    - No stable release (none, pre-release, or 0.x) → 🟠 "Active development but not yet stabilized"
    - Declining activity (3-month commits < 25% of 12-month commits) → 🟠 "Well-maintained project but in decline"
    - Large community (≥ 100 human authors or ≥ 10k stars), **or LLM-enabled with roadmap AND commercial support** → 🟢 "Active project with a large community"
    - Otherwise → 🟢 "Active project"
 
-7. **Maintenance mode** (infrequent commits, issues still closed)
+8. **Maintenance mode** (infrequent commits, issues still closed)
    - Last release more than 6 months ago → 🟠 "Well-maintained but no new features for N months"
    - Otherwise → 🟠 "Project in maintenance mode"
 
-8. **LLM-reported discontinuation** (only when the LLM is enabled AND the
+9. **LLM-reported discontinuation** (only when the LLM is enabled AND the
    maintenance state is unknown — commit data wins over prose)
    - Widely used → 🟠 "Large project, but now abandoned"
    - Otherwise → 🔴 "Project texts announce its discontinuation"
 
-9. **Unknown maintenance state**
+10. **Unknown maintenance state**
    - Widely used → 🟠 "Widely used project despite low maintenance"
    - LLM enabled, text declares active development AND (roadmap or
      commercial support) → 🟢 "Active project"
@@ -231,6 +237,9 @@ declared maintenance state). Example:
 | `rec_security_overdue` | Vulnérabilités de sécurité connues non corrigées | Known security vulnerabilities unpatched |
 | `reason_security_pending` | {count} mise(s) de sécurité en attente | {count} security update(s) pending |
 | `reason_security_overdue` | une mise à jour de sécurité est en attente depuis {days} jours | a security update has been pending for {days} days |
+| `rec_mirror` | Dépôt miroir d'un projet amont | Repository is a mirror of an upstream project |
+| `reason_mirror` | ce dépôt est un miroir — le développement a lieu ailleurs | this repository is a mirror — development happens elsewhere |
+| `reason_mirror_upstream` | ce dépôt est un miroir de {upstream} | this repository is a mirror of {upstream} |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
 | `owner_type_user` | utilisateur | user |
 | `owner_type_organization` | organisation | organization |

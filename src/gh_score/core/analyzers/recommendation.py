@@ -190,6 +190,7 @@ def analyze_recommendation(
     for section in (
         _rec_red_flags,
         _rec_security,
+        _rec_mirror,
         _rec_website,
         _rec_ephemeral,
         _rec_abandoned,
@@ -201,6 +202,25 @@ def analyze_recommendation(
         if rec is not None:
             return rec
     return _rec_unknown(result, lang)
+
+
+def _rec_mirror(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """Mirror-only repositories: no development happens here.
+
+    The maintenance/contributor signals reflect the upstream, so the
+    verdict is unreliable — downgrade to orange and point at the upstream.
+    """
+    if not result.meta.is_mirror:
+        return None
+    upstream = result.meta.mirror_upstream
+    reason_key = "reason_mirror_upstream" if upstream else "reason_mirror"
+    return _build(
+        RecommendationLevel.ORANGE,
+        t("rec_mirror", lang=lang),
+        result,
+        lang,
+        t(reason_key, lang=lang, upstream=upstream or ""),
+    )
 
 
 def _rec_security(result: AnalysisResult, lang: str) -> Recommendation | None:

@@ -60,6 +60,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_site_degraded": "Page d'accueil injoignable ou protégée par un anti-robot",
         "rec_language_exotic": "Langage principal peu répandu",
         "rec_security_pending": "Mises à jour de sécurité récentes en attente",
+        "rec_mirror": "Dépôt miroir d'un projet amont",
         "rec_security_overdue": "Vulnérabilités de sécurité connues non corrigées",
         "rec_text_discontinued": "Les textes du projet annoncent son abandon",
 
@@ -95,6 +96,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_language_exotic": "le langage principal ({language}) est peu répandu (hors top 20 PYPL et GitHub Innovation Graph)",
         "reason_security_pending": "{count} mise(s) de sécurité en attente",
         "reason_security_overdue": "une mise à jour de sécurité est en attente depuis {days} jours",
+        "reason_mirror": "ce dépôt est un miroir — le développement a lieu ailleurs",
+        "reason_mirror_upstream": "ce dépôt est un miroir de {upstream}",
         "reason_text_active": "le texte du projet déclare un développement actif",
 
         # Objective facts appended to the reasoning
@@ -243,6 +246,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "panel_qualitative": "Signaux qualitatifs",
         "panel_website": "Site web",
         "panel_security": "Sécurité",
+        "tui_mirror": "⚠ Dépôt miroir — le développement a lieu ailleurs",
+        "tui_mirror_upstream": "⚠ Miroir de {upstream}",
         "panel_llm_recommendation": "Recommandation affinée (LLM)",
         "tui_latest": "dernière : {version}",
         "tui_age": "âge : {days} jours",
@@ -394,6 +399,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_site_degraded": "Project homepage unreachable or bot-protected",
         "rec_language_exotic": "Main language is uncommon",
         "rec_security_pending": "Recent security updates pending",
+        "rec_mirror": "Repository is a mirror of an upstream project",
         "rec_security_overdue": "Known security vulnerabilities unpatched",
         "rec_text_discontinued": "Project texts announce its discontinuation",
 
@@ -425,6 +431,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_language_exotic": "the main language ({language}) is uncommon (outside the PYPL and GitHub Innovation Graph top 20)",
         "reason_security_pending": "{count} security update(s) pending",
         "reason_security_overdue": "a security update has been pending for {days} days",
+        "reason_mirror": "this repository is a mirror — development happens elsewhere",
+        "reason_mirror_upstream": "this repository is a mirror of {upstream}",
         "reason_text_active": "the project text declares active development",
 
         # Objective facts appended to the reasoning
@@ -573,6 +581,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "panel_qualitative": "Qualitative Signals",
         "panel_website": "Website",
         "panel_security": "Security",
+        "tui_mirror": "⚠ Mirror repository — development happens elsewhere",
+        "tui_mirror_upstream": "⚠ Mirror of {upstream}",
         "panel_llm_recommendation": "Refined recommendation (LLM)",
         "tui_latest": "latest: {version}",
         "tui_age": "age: {days} days",

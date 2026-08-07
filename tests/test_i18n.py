@@ -382,3 +382,20 @@ class TestReadmeLanguageKeys:
         for lang in ("fr", "en"):
             for key in ("int_readme_english", "int_readme_not_english"):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
+class TestMirrorKeys:
+    """Mirror keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "rec_mirror",
+                "reason_mirror",
+                "reason_mirror_upstream",
+                "tui_mirror",
+                "tui_mirror_upstream",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"

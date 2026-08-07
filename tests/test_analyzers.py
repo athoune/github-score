@@ -14,6 +14,7 @@ from gh_score.core.models import (
     Commit,
     LanguageBreakdown,
     CommunityFiles,
+    SecurityUpdate,
     Status,
     MaintenanceState,
 )
@@ -23,6 +24,7 @@ from gh_score.core.analyzers import (
     analyze_contributors,
     analyze_maintenance,
     analyze_languages,
+    analyze_security,
     analyze_sustainability,
 )
 
@@ -308,3 +310,44 @@ class TestSustainabilityAnalyzer:
         result = analyze_sustainability(repo)
         assert result.has_funding is True
         assert "GitHub Sponsors" in result.funding_platforms
+
+
+class TestSecurityAnalyzer:
+    """Pending Dependabot security updates: recent = warning, old = critical."""
+
+    def _repo(self, *days_ago: int) -> Repository:
+        repo = Repository(url=RepoUrl("owner", "repo"))
+        now = datetime.now(timezone.utc)
+        for i, days in enumerate(days_ago, start=1):
+            repo.security_updates.append(
+                SecurityUpdate(
+                    number=i,
+                    title=f"Bump package {i}",
+                    created_at=now - timedelta(days=days),
+                )
+            )
+        return repo
+
+    def test_none_healthy(self):
+        ind = analyze_security(self._repo())
+        assert ind.status == Status.HEALTHY
+        assert ind.pending_count == 0
+        assert ind.oldest_days is None
+
+    def test_recent_pending_warning(self):
+        ind = analyze_security(self._repo(2))
+        assert ind.status == Status.WARNING
+        assert ind.pending_count == 1
+        assert ind.oldest_days == 2
+
+    def test_overdue_critical(self):
+        ind = analyze_security(self._repo(10))
+        assert ind.status == Status.CRITICAL
+        assert ind.oldest_days == 10
+
+    def test_oldest_drives_status(self):
+        # One fresh update (1 day) + one overdue (5 days) → critical.
+        ind = analyze_security(self._repo(1, 5))
+        assert ind.status == Status.CRITICAL
+        assert ind.oldest_days == 5
+        assert ind.pending_count == 2

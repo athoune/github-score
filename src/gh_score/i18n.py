@@ -59,6 +59,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_site_down": "La page d'accueil du projet est hors ligne",
         "rec_site_degraded": "Page d'accueil injoignable ou protégée par un anti-robot",
         "rec_language_exotic": "Langage principal peu répandu",
+        "rec_security_pending": "Mises à jour de sécurité récentes en attente",
+        "rec_security_overdue": "Vulnérabilités de sécurité connues non corrigées",
         "rec_text_discontinued": "Les textes du projet annoncent son abandon",
 
         # Recommendation reasoning lines
@@ -91,6 +93,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_site_timeout": "la page d'accueil a expiré (timeout)",
         "reason_site_captcha": "la page d'accueil est protégée par un contrôle anti-robot",
         "reason_language_exotic": "le langage principal ({language}) est peu répandu (hors top 20 PYPL et GitHub Innovation Graph)",
+        "reason_security_pending": "{count} mise(s) de sécurité en attente",
+        "reason_security_overdue": "une mise à jour de sécurité est en attente depuis {days} jours",
         "reason_text_active": "le texte du projet déclare un développement actif",
 
         # Objective facts appended to the reasoning
@@ -175,6 +179,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_site_unreachable": "Site injoignable : {site}",
 
         # ------------------------------------------------------------------
+        # Security updates interpretation
+        # ------------------------------------------------------------------
+        "int_security_none": "Aucune mise à jour de sécurité en attente",
+        "int_security_pending": "{count} mise(s) à jour de sécurité en attente",
+        "int_security_overdue": "{count} mise(s) à jour de sécurité en attente depuis {days} jours",
+
+        # ------------------------------------------------------------------
         # Languages interpretation
         # ------------------------------------------------------------------
         "int_primary": "principal : {language}",
@@ -229,6 +240,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "panel_registries": "Registres de paquets",
         "panel_qualitative": "Signaux qualitatifs",
         "panel_website": "Site web",
+        "panel_security": "Sécurité",
         "panel_llm_recommendation": "Recommandation affinée (LLM)",
         "tui_latest": "dernière : {version}",
         "tui_age": "âge : {days} jours",
@@ -303,6 +315,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_qualitative": "## Signaux qualitatifs",
         "md_section_llm_recommendation": "## Recommandation affinée (LLM)",
         "md_section_website": "## Site web",
+        "md_section_security": "## Sécurité",
         "md_header_stars": "**Étoiles :** {count:,}",
         "md_header_forks": "**Forks :** {count:,}",
         "md_owner": "**Propriétaire :** {type}",
@@ -378,6 +391,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_site_down": "Project homepage is down",
         "rec_site_degraded": "Project homepage unreachable or bot-protected",
         "rec_language_exotic": "Main language is uncommon",
+        "rec_security_pending": "Recent security updates pending",
+        "rec_security_overdue": "Known security vulnerabilities unpatched",
         "rec_text_discontinued": "Project texts announce its discontinuation",
 
         # Recommendation reasoning lines
@@ -406,6 +421,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_site_timeout": "the homepage timed out",
         "reason_site_captcha": "the homepage is behind a bot-protection check",
         "reason_language_exotic": "the main language ({language}) is uncommon (outside the PYPL and GitHub Innovation Graph top 20)",
+        "reason_security_pending": "{count} security update(s) pending",
+        "reason_security_overdue": "a security update has been pending for {days} days",
         "reason_text_active": "the project text declares active development",
 
         # Objective facts appended to the reasoning
@@ -490,6 +507,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_site_unreachable": "Site unreachable: {site}",
 
         # ------------------------------------------------------------------
+        # Security updates interpretation
+        # ------------------------------------------------------------------
+        "int_security_none": "No pending security updates",
+        "int_security_pending": "{count} pending security update(s)",
+        "int_security_overdue": "{count} security update(s) pending for {days} days",
+
+        # ------------------------------------------------------------------
         # Languages interpretation
         # ------------------------------------------------------------------
         "int_primary": "primary: {language}",
@@ -544,6 +568,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "panel_registries": "Package Registries",
         "panel_qualitative": "Qualitative Signals",
         "panel_website": "Website",
+        "panel_security": "Security",
         "panel_llm_recommendation": "Refined recommendation (LLM)",
         "tui_latest": "latest: {version}",
         "tui_age": "age: {days} days",
@@ -616,6 +641,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_qualitative": "## Qualitative Signals",
         "md_section_llm_recommendation": "## Refined recommendation (LLM)",
         "md_section_website": "## Website",
+        "md_section_security": "## Security",
         "md_header_stars": "**Stars:** {count:,}",
         "md_header_forks": "**Forks:** {count:,}",
         "md_owner": "**Owner:** {type}",

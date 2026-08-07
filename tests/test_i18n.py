@@ -355,3 +355,19 @@ class TestContradictionGuardKeys:
                 "fact_foundation",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
+class TestSecurityKeys:
+    """Security indicator keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "panel_security", "md_section_security",
+                "int_security_none", "int_security_pending", "int_security_overdue",
+                "rec_security_pending", "rec_security_overdue",
+                "reason_security_pending", "reason_security_overdue",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"

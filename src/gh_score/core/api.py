@@ -19,6 +19,7 @@ from gh_score.core.analyzers import (
     analyze_qualitative,
     analyze_recommendation,
     analyze_release_health,
+    analyze_security,
     analyze_sustainability,
     analyze_website,
 )
@@ -93,6 +94,7 @@ async def analyze_repo_async(
                 repo.languages = api_repo.languages
                 repo.community = api_repo.community
                 repo.issues = api_repo.issues
+                repo.security_updates = await fetcher.fetch_security_updates(repo.url)
                 # Keep local commits and contributors (more complete)
             finally:
                 await fetcher.close()
@@ -104,6 +106,7 @@ async def analyze_repo_async(
         fetcher = GitHubFetcher(config, cache)
         try:
             repo = await fetcher.fetch_all(repo_url)
+            repo.security_updates = await fetcher.fetch_security_updates(repo_url)
         finally:
             await fetcher.close()
 
@@ -140,6 +143,7 @@ async def analyze_repo_async(
         qualitative=analyze_qualitative(repo),
         registries=repo.registries,
         website=analyze_website(repo.website_info),
+        security=analyze_security(repo),
     )
 
     # Cross-cutting recommendation (needs the full result)

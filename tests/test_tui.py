@@ -23,6 +23,7 @@ from gh_score.cli.tui import (
     _render_recommendation,
     _render_registries,
     _render_release_health,
+    _render_security,
     _render_sustainability,
     _render_warnings,
     _render_website,
@@ -304,6 +305,37 @@ class TestWebsitePanel:
         assert _render_registries(result) is None
 
 
+class TestSecurityPanel:
+    def test_panel_shows_pending_updates(self, result, en_locale):
+        from gh_score.core.models import SecurityIndicator, SecurityUpdate, Status
+
+        result.security = SecurityIndicator(
+            status=Status.WARNING,
+            pending_count=1,
+            oldest_days=2,
+            updates=[
+                SecurityUpdate(
+                    number=42,
+                    title="Bump dotnet sdk",
+                    url="https://github.com/o/r/pull/42",
+                )
+            ],
+        )
+        panel = _render_security(result)
+        assert panel.title == "Security"
+        text = _panel_text(panel)
+        assert "#42 Bump dotnet sdk" in text
+
+    def test_panel_no_updates(self, result, en_locale):
+        from gh_score.core.analyzers.security import analyze_security
+        from gh_score.core.models import Repository, RepoUrl
+
+        result.security = analyze_security(Repository(url=RepoUrl("o", "r")), lang="en")
+        panel = _render_security(result)
+        assert panel.title == "Security"
+        assert "No pending security updates" in _panel_text(panel)
+
+
 class TestQualitativePanel:
     def test_panel_shows_signals(self, result, en_locale):
         result.qualitative = QualitativeIndicator(
@@ -398,6 +430,7 @@ class TestRenderDashboard:
             "Languages",
             "Sustainability",
             "Website",
+            "Security",
             "Package Registries",
         ):
             assert title in output, f"missing panel title: {title}"

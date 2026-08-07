@@ -327,6 +327,23 @@ def _render_website(result: AnalysisResult) -> Panel:
     return Panel(content, title=t("panel_website"), border_style=color)
 
 
+def _render_security(result: AnalysisResult) -> Panel:
+    """Render the pending security updates panel."""
+    security = result.security
+    glyph, color = _status_glyph(security.status)
+
+    content = Text()
+    content.append(f"{glyph} ", style=color)
+
+    for update in security.updates:
+        content.append(f"#{update.number} {update.title}\n")
+
+    if security.interpretation:
+        content.append(f"\n{security.interpretation}", style="dim")
+
+    return Panel(content, title=t("panel_security"), border_style=color)
+
+
 def _render_qualitative(result: AnalysisResult) -> Panel | None:
     """Render the optional LLM qualitative signals panel."""
     q = result.qualitative
@@ -476,6 +493,9 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
 
     # Website availability (always shown, even when no homepage is declared)
     console.print(_render_website(result))
+
+    # Pending security updates
+    console.print(_render_security(result))
 
     # Optional LLM qualitative signals panel
     qualitative_panel = _render_qualitative(result)

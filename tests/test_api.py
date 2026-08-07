@@ -34,6 +34,7 @@ from gh_score.core.models import (
     RepoUrl,
     Repository,
     RepositoryMeta,
+    SecurityUpdate,
     WebsiteInfo,
 )
 
@@ -98,6 +99,7 @@ def _mock_fetcher(mock_cls, repo: Repository) -> MagicMock:
     fetch_all, and record the close() call."""
     instance = MagicMock()
     instance.fetch_all = AsyncMock(return_value=repo)
+    instance.fetch_security_updates = AsyncMock(return_value=[])
     instance.close = AsyncMock()
     mock_cls.return_value = instance
     return instance
@@ -569,3 +571,31 @@ class TestWebsiteProbe:
 
         mock_probe.assert_not_awaited()
         assert result.website.status.name == "UNKNOWN"
+
+
+class TestSecurityUpdates:
+    """Open Dependabot security PRs flow through the pipeline."""
+
+    @pytest.mark.asyncio
+    async def test_fetched_and_analyzed(self, tmp_path):
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()
+        updates = [
+            SecurityUpdate(number=1, title="Bump pkg", url="https://github.com/o/r/pull/1"),
+        ]
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch("gh_score.core.api.probe_website", new=AsyncMock()),
+        ):
+            instance = _mock_fetcher(mock_fetcher_cls, repo)
+            instance.fetch_security_updates = AsyncMock(return_value=updates)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        instance.fetch_security_updates.assert_awaited_once()
+        assert result.security.pending_count == 1
+        assert result.security.status.name == "WARNING"

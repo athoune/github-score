@@ -63,9 +63,9 @@ item.
       GitHub Innovation Graph top-20 CSVs (`src/gh_score/data/`), with
       `scripts/refresh_language_datasets.py` to refresh them; exotic
       languages downgrade a green verdict to orange.
-- [ ] **Pending security updates (Dependabot)** — surface open Dependabot
-      pull requests that address GitHub security advisories (pending
-      security fixes).
+- [x] (done 2026-08-07) **Pending security updates (Dependabot)** — surface
+      open Dependabot PRs that address security advisories (dependabot-core
+      body marker); recent updates → orange, updates pending > 3 days → red.
 - [x] (done 2026-08-07) **LLM contradiction guard** — the refined
       recommendation prompt forbids denying the extracted qualitative
       signals, and a deterministic windowed heuristic surfaces a warning

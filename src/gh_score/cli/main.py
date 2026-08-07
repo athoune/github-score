@@ -162,6 +162,7 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
     _md_languages(result, console)
     _md_sustainability(result, console)
     _md_website(result, console)
+    _md_security(result, console)
     _md_qualitative(result, console)
 
 
@@ -249,6 +250,15 @@ def _md_website(result: AnalysisResult, console: Console) -> None:
             console.print(f"  → {site.final_url}")
     console.print(f"- {t('md_status', status=t(f'status_{site.status.value}'))}")
     console.print(f"- {site.interpretation}\n")
+
+
+def _md_security(result: AnalysisResult, console: Console) -> None:
+    security = result.security
+    console.print(f"{t('md_section_security')}\n")
+    console.print(f"- {t('md_status', status=t(f'status_{security.status.value}'))}")
+    for update in security.updates:
+        console.print(f"- #{update.number} {update.title}")
+    console.print(f"- {security.interpretation}\n")
 
 
 def _md_qualitative(result: AnalysisResult, console: Console) -> None:

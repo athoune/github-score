@@ -277,6 +277,9 @@ Derived from commit and issue activity.
 - Ecosystem inference from manifest files (Python, Node, Rust, Go, etc.).
 - Main-language popularity: `is_exotic` flag, best popularity rank and
   source (`pypl` / `github`) from the committed datasets.
+- README language: `readme_is_english` flag (dependency-free heuristic on
+  the dominant script + English stopword density; informational only, it
+  never affects the verdict).
 
 ### 7.6 Sustainability and backing
 

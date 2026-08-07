@@ -56,8 +56,10 @@ item.
       *soft fork* (kept alive to contribute pull requests) vs *hard fork*
       (deliberately diverged). Sources: API `parent` / `source` fields,
       plus fork intent mentioned in the description or README.
-- [ ] **README language detection** — determine whether the README is
-      written in English (documentation accessibility signal).
+- [x] (done 2026-08-07) **README language detection** — determine whether
+      the README is written in English (dependency-free heuristic on the
+      dominant script + English stopword density; informational only,
+      never affects the verdict).
 - [x] (done 2026-08-07) **Main-language popularity** — flag exotic
       (uncommon) primary languages against the committed PYPL top-20 +
       GitHub Innovation Graph top-20 CSVs (`src/gh_score/data/`), with

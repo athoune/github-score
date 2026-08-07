@@ -419,6 +419,7 @@ class LanguagesIndicator:
     is_exotic: bool | None = None          # True = main language outside the popularity datasets
     popularity_rank: int | None = None     # best (lowest) rank across datasets
     popularity_source: str | None = None   # "pypl" | "github" | None
+    readme_is_english: bool | None = None  # None = unknown (no/too-short README)
     interpretation: str = ""
 
 

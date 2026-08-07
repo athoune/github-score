@@ -87,6 +87,11 @@ downgrades it to 🟠 "Main language is uncommon". The rule never upgrades
 a verdict and never fires on red/orange outcomes: red flags, a dead
 homepage, abandonment, bot domination, etc. all keep their verdict.
 
+**Informational signal — README language:** whether the README is written
+in English is displayed in the report (dependency-free heuristic on the
+dominant script and English stopword density) but **never affects the
+verdict**.
+
 ## Thresholds
 
 All thresholds are module-level constants in `recommendation.py` and are

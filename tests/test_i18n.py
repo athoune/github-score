@@ -371,3 +371,14 @@ class TestSecurityKeys:
                 "reason_security_pending", "reason_security_overdue",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
+class TestReadmeLanguageKeys:
+    """README language interpretation keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in ("int_readme_english", "int_readme_not_english"):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"

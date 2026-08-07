@@ -351,3 +351,79 @@ class TestSecurityAnalyzer:
         assert ind.status == Status.CRITICAL
         assert ind.oldest_days == 5
         assert ind.pending_count == 2
+
+
+_ENGLISH_README = """\
+# gh-score
+
+GitHub Project Health Scorer — evaluate maturity, maintenance, community health and sustainability of any GitHub project, in your terminal.
+
+The tool turns raw GitHub signals into a single traffic-light verdict: green (safe to bet on), orange (proceed with caution), red (risky). It checks the homepage, the registries, and the community files before printing the dashboard.
+"""
+
+_FRENCH_README = """\
+# Mon Projet
+
+Ce projet est une bibliothèque Python pour analyser des dépôts GitHub. Il collecte des données sur la maintenance, les contributeurs et la durabilité, puis affiche un tableau de bord dans le terminal. Installez le paquet avec pip et lancez l'analyse sur n'importe quel dépôt.
+"""
+
+_CJK_README = """\
+# プロジェクト
+
+このプロジェクトは、GitHubのリポジトリを分析するためのライブラリです。メンテナンス状態、貢献者、持続可能性などのデータを収集し、評価を提供します。
+
+## 使い方
+
+コマンドラインから実行してください。
+"""
+
+
+class TestReadmeLanguage:
+    """README language detection (informational, dependency-free)."""
+
+    def test_english_readme(self):
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            readme_content=_ENGLISH_README,
+        )
+        result = analyze_languages(repo)
+        assert result.readme_is_english is True
+
+    def test_french_readme(self):
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            readme_content=_FRENCH_README,
+        )
+        result = analyze_languages(repo)
+        assert result.readme_is_english is False
+
+    def test_non_latin_script(self):
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            readme_content=_CJK_README,
+        )
+        result = analyze_languages(repo)
+        assert result.readme_is_english is False
+
+    def test_no_readme(self):
+        repo = Repository(url=RepoUrl("owner", "repo"))
+        result = analyze_languages(repo)
+        assert result.readme_is_english is None
+
+    def test_too_short_to_judge(self):
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            readme_content="Hello world.",
+        )
+        result = analyze_languages(repo)
+        assert result.readme_is_english is None
+
+    def test_markdown_noise_stripped(self):
+        noisy = (
+            "[![build](https://ci.example.com/badge.svg)](https://ci.example.com)\n"
+            "# My Tool\n\n"
+            + _ENGLISH_README
+        )
+        repo = Repository(url=RepoUrl("owner", "repo"), readme_content=noisy)
+        result = analyze_languages(repo)
+        assert result.readme_is_english is True

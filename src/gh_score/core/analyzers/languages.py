@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from functools import lru_cache
 from importlib import resources
 
@@ -63,10 +64,73 @@ def analyze_languages(
 
     # Infer ecosystem from primary language or manifest files
     indicator.ecosystem = _infer_ecosystem(repo)
+    indicator.readme_is_english = detect_readme_language(repo.readme_content)
     _apply_popularity(indicator)
     indicator.interpretation = _build_interpretation(indicator, lang)
 
     return indicator
+
+
+# ---------------------------------------------------------------------------
+# README language detection (dependency-free heuristic)
+# ---------------------------------------------------------------------------
+
+# English function words; their density is the "is this English?" signal.
+_ENGLISH_STOPWORDS = frozenset({
+    "the", "and", "of", "to", "for", "is", "in", "on", "with", "that",
+    "this", "from", "by", "as", "at", "are", "it", "or", "an", "be",
+    "you", "your", "can", "not", "has", "have",
+})
+
+# Minimum stopword share over the word sample to call the text English.
+_ENGLISH_STOPWORD_RATIO = 0.12
+
+# Below this many words the sample is too small to judge.
+_MIN_README_WORDS = 20
+
+# Non-Latin scripts: a sample dominated by them is definitely not English.
+_NON_LATIN_RE = re.compile(
+    "[\u0370-\u03FF"    # Greek
+    "\u0400-\u04FF"     # Cyrillic
+    "\u0590-\u05FF"     # Hebrew
+    "\u0600-\u06FF"     # Arabic
+    "\u0900-\u097F"     # Devanagari
+    "\u0E00-\u0E7F"     # Thai
+    "\u3040-\u30FF"     # Hiragana / Katakana
+    "\u4E00-\u9FFF"     # CJK ideographs
+    "]"
+)
+
+# A sample with more than this share of non-Latin characters is not English.
+_NON_LATIN_MAX_SHARE = 0.05
+
+
+def _extract_readme_sample(text: str, max_chars: int = 4000) -> str:
+    """Strip markdown/URLs/code blocks and keep the leading prose."""
+    text = re.sub(r"```.*?```", " ", text, flags=re.DOTALL)  # fenced code
+    text = re.sub(r"`[^`]*`", " ", text)                      # inline code
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)      # links → label
+    text = re.sub(r"https?://\S+", " ", text)                 # bare URLs
+    text = re.sub(r"[#>*_\-|~]", " ", text)                   # markdown marks
+    return text[:max_chars]
+
+
+def detect_readme_language(text: str | None) -> bool | None:
+    """True when the README looks like English, False when it clearly is
+    not, None when there is no usable sample (no README or too little
+    prose). Heuristic: dominant script + English stopword density."""
+    if not text:
+        return None
+    sample = _extract_readme_sample(text)
+    # A sample dominated by a non-Latin script is definitely not English,
+    # whatever its Latin word count (a CJK README has almost none).
+    if len(_NON_LATIN_RE.findall(sample)) > len(sample) * _NON_LATIN_MAX_SHARE:
+        return False
+    words = re.findall(r"[a-zà-ÿ]+", sample.lower())
+    if len(words) < _MIN_README_WORDS:
+        return None
+    stopwords = sum(1 for w in words if w in _ENGLISH_STOPWORDS)
+    return stopwords / len(words) >= _ENGLISH_STOPWORD_RATIO
 
 
 @lru_cache(maxsize=1)
@@ -168,5 +232,10 @@ def _build_interpretation(
 
     if ind.ecosystem:
         parts.append(t("int_ecosystem", lang=lang, ecosystem=ind.ecosystem))
+
+    if ind.readme_is_english is True:
+        parts.append(t("int_readme_english", lang=lang))
+    elif ind.readme_is_english is False:
+        parts.append(t("int_readme_not_english", lang=lang))
 
     return ", ".join(parts) if parts else t("int_no_language", lang=lang)

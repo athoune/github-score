@@ -10,6 +10,7 @@ from gh_score.core.cache import Cache
 from gh_score.core.fetchers.github import (
     GitHubFetcher,
     _classify_license,
+    _is_security_update,
     _parse_datetime,
     _parse_funding_yml,
     _rolling_since,
@@ -350,3 +351,77 @@ class TestParseFundingYml:
     def test_comments_and_blank_lines_ignored(self):
         result = _parse_funding_yml("# comment\n\ngithub: alice\n")
         assert result == {"github": ["alice"]}
+
+
+class TestSecurityUpdateMarkers:
+    """The Dependabot security marker distinguishes security from version
+    bumps (whose bodies mention 'security' inside the changelog)."""
+
+    def test_security_marker_singular(self):
+        assert _is_security_update(
+            "Bumps [dotnet sdk] from 8.0.1 to 8.0.2. **This update includes a security fix.**"
+        )
+
+    def test_security_marker_plural(self):
+        assert _is_security_update(
+            "**This update includes security fixes.**"
+        )
+
+    def test_regular_version_bump_is_not_security(self):
+        # The changelog mentions SECURITY ISSUE/CVE, but the PR is a plain bump.
+        assert not _is_security_update(
+            "Bumps [cryptography] from 45.0.7 to 46.0.6.\n"
+            "* **SECURITY ISSUE**: Fixed a bug. **CVE-2026-34073**"
+        )
+
+    def test_empty_body(self):
+        assert not _is_security_update("")
+
+
+class TestFetchSecurityUpdates:
+    @pytest.mark.asyncio
+    async def test_keeps_marker_prs_any_author(self, tmp_path):
+        """The body marker is the signal, not the author login: a
+        non-Dependabot bot (e.g. dotnet-updater[bot]) or a human PR
+        carrying the marker still counts."""
+        fetcher = _make_fetcher(tmp_path)
+        now = datetime.now(timezone.utc)
+        prs = [
+            {
+                "number": 1,
+                "title": "Bump dotnet sdk from 8.0.1 to 8.0.2",
+                "html_url": "https://github.com/o/r/pull/1",
+                "created_at": now.isoformat(),
+                "user": {"login": "dependabot[bot]"},
+                "body": "Bumps [dotnet sdk]. **This update includes a security fix.**",
+            },
+            {
+                "number": 2,
+                "title": "Bump requests from 2.31.0 to 2.32.0",
+                "html_url": "https://github.com/o/r/pull/2",
+                "created_at": now.isoformat(),
+                "user": {"login": "dependabot[bot]"},
+                "body": "Bumps [requests].\n* **SECURITY ISSUE**: fixed. **CVE-2026-1**",
+            },
+            {
+                "number": 3,
+                "title": "Bump dotnet sdk from 8.0.3 to 8.0.4",
+                "html_url": "https://github.com/o/r/pull/3",
+                "created_at": now.isoformat(),
+                "user": {"login": "dotnet-updater[bot]"},
+                "body": "Bumps [dotnet sdk]. **This update includes security fixes.**",
+            },
+        ]
+        fetcher._get_all_pages = AsyncMock(return_value=prs)
+
+        updates = await fetcher.fetch_security_updates(URL)
+
+        assert {u.number for u in updates} == {1, 3}
+        assert updates[0].url == "https://github.com/o/r/pull/1"
+        fetcher._get_all_pages.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_no_security_prs(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get_all_pages = AsyncMock(return_value=[])
+        assert await fetcher.fetch_security_updates(URL) == []

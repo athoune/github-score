@@ -326,6 +326,7 @@ class Repository:
     security_content: str | None = None
     llm_signals: QualitativeSignals = field(default_factory=QualitativeSignals)
     website_info: WebsiteInfo | None = None
+    security_updates: list[SecurityUpdate] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -445,6 +446,29 @@ class WebsiteIndicator:
 
 
 # ---------------------------------------------------------------------------
+# Security updates
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SecurityUpdate:
+    """An open Dependabot pull request fixing a security advisory."""
+    number: int
+    title: str
+    url: str = ""
+    created_at: datetime | None = None
+
+
+@dataclass
+class SecurityIndicator:
+    """Pending security-update indicator (open Dependabot security PRs)."""
+    pending_count: int = 0
+    oldest_days: int | None = None    # age in days of the oldest pending update
+    updates: list[SecurityUpdate] = field(default_factory=list)
+    status: Status = Status.UNKNOWN
+    interpretation: str = ""
+
+
+# ---------------------------------------------------------------------------
 # Qualitative indicator (output of the qualitative analyzer)
 # ---------------------------------------------------------------------------
 
@@ -519,3 +543,4 @@ class AnalysisResult:
     llm_recommendation: LLMRecommendation | None = None
     warnings: list[str] = field(default_factory=list)  # human-readable, localized
     website: WebsiteIndicator = field(default_factory=WebsiteIndicator)
+    security: SecurityIndicator = field(default_factory=SecurityIndicator)

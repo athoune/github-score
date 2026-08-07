@@ -59,9 +59,12 @@ def _collect_items(lines: list[str]) -> list[list]:
             if current is not None:
                 items.append(current)
             current = [i, m.group("check") == "x", _parse_done_date(line), [line]]
-        elif current is not None and line[:1] in (" ", "\t") and line.strip():
+            continue
+        if current is None:
+            continue
+        if line[:1] in (" ", "\t") and line.strip():
             current[3].append(line)
-        elif current is not None:
+        else:
             items.append(current)
             current = None
     if current is not None:

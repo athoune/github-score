@@ -94,6 +94,11 @@ class TestRepoUrl:
         assert url.owner == "owner"
         assert url.repo == "repo"
 
+    def test_parse_https_with_points(self):
+        url = RepoUrl.parse("https://www.github.com/owner/repo.x.y.z")
+        assert url.owner == "owner"
+        assert url.repo == "repo.x.y.z"
+
     def test_parse_invalid(self):
         with pytest.raises(ValueError):
             RepoUrl.parse("not-a-url")

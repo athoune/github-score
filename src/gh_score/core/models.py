@@ -18,7 +18,7 @@ from enum import Enum
 # ---------------------------------------------------------------------------
 
 _GITHUB_URL_RE = re.compile(
-    r"^https?://(?:www\.)?github\.com/(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?/?$"
+    r"^https?://(?:www\.)?github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/?$"
 )
 
 
@@ -35,6 +35,8 @@ class RepoUrl:
 
         Raises ValueError if the URL is not a valid GitHub repository URL.
         """
+        if url.endswith(".git"):
+            url = url[:-4]
         m = _GITHUB_URL_RE.match(url.strip())
         if not m:
             raise ValueError(f"Not a valid GitHub repository URL: {url!r}")

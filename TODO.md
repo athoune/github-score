@@ -37,6 +37,35 @@ Remaining actions after the test-hardening session
 - [x] `_get_all_pages` mutates its `params` dict in place (aliasing) —
       fixed: it now rebinds to a fresh dict (`{**params, ...}`) per request.
 
+## Planned features
+
+Feature ideas carried over from the maintainer's notes (`TODO.txt`),
+described cleanly. Scope and acceptance criteria still to be defined per
+item.
+
+- [ ] **Broken repository URLs** — malformed URLs are already rejected by
+      `RepoUrl.parse`; extend this to repositories that do not exist
+      (GitHub API 404) or that are not repositories, with a clear,
+      localized error instead of a raw exception.
+- [ ] **Mirror-only repositories** — flag repositories that are pure
+      mirrors (all commits imported from an upstream, no original
+      development), using GitHub API mirror metadata.
+- [ ] **Fork divergence analysis** — when the repository is a fork,
+      measure how far behind the upstream it is and classify it:
+      *soft fork* (kept alive to contribute pull requests) vs *hard fork*
+      (deliberately diverged). Sources: API `parent` / `source` fields,
+      plus fork intent mentioned in the description or README.
+- [ ] **README language detection** — determine whether the README is
+      written in English (documentation accessibility signal).
+- [ ] **Main-language popularity** — flag exotic (uncommon) primary
+      languages against committed CSV datasets built from
+      `innovationgraph.github.com/global-metrics/programming-languages`
+      and `pypl.github.io/PYPL.html`; ship a helper script to refresh
+      the datasets.
+- [ ] **Pending security updates (Dependabot)** — surface open Dependabot
+      pull requests that address GitHub security advisories (pending
+      security fixes).
+
 ## Product / housekeeping
 
 - [x] Upgrade `gitpython` to `>=3.1.57` — fixes 3 open Dependabot
@@ -57,6 +86,8 @@ Remaining actions after the test-hardening session
 - [ ] Tune the recommendation thresholds (`RULES.md`) against real
       projects — includes the new website probe heuristics (timeouts,
       redirect cap, captcha markers) and the homepage-downgrade branches.
+- [ ] Prune TODO.md items older than one month (periodic cleanup of
+      stale entries).
 
 ## Workflow
 

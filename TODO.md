@@ -1,31 +1,35 @@
 # TODO
 
 Remaining actions after the test-hardening session
-(suite at 81% coverage, 247 tests). Last updated: 2026-08-05.
+(suite at 86% coverage, 320 tests). Last updated: 2026-08-07.
 
 ## Tests / coverage
 
-- [ ] `cli/main.py` (59%) — direct tests for the Markdown renderers
+- [ ] `cli/main.py` (79%) — direct tests for the Markdown renderers
       (`_md_*`), `_render_json` and the CLI commands (`analyze`, `report`,
       `config`).
-- [ ] `fetchers/github.py` (66%) — cover `_get` (rate-limit warning,
+- [ ] `fetchers/github.py` (68%) — cover `_get` (rate-limit warning,
       cache write), `fetch_community_files` (base64 FUNDING.yml),
       `fetch_readme`, `fetch_all` (asyncio.gather).
-- [ ] `analyzers/sustainability.py` (71%) — detection helpers tested
+- [ ] `analyzers/sustainability.py` (70%) — detection helpers tested
       directly: `_detect_foundation`, `_detect_corporate_backing` (regex),
       `_detect_governance_model`.
 - [ ] `analyzers/languages.py` (76%) — `_infer_ecosystem` branches.
-- [ ] `llm/provider.py` (19%) — deferred by design: test once the LLM
-      feature is actually used.
+- [ ] `__main__.py` (0%) — trivial entry point, currently uncovered.
+- [x] `llm/provider.py` (93%) — no longer deferred: the LLM feature is
+      now used (warnings, refined recommendation) and covered by
+      `test_provider.py` + `test_llm_functional.py` (landed 2026-08-06).
 
 ## Code smells (spotted while writing tests)
 
-- [ ] `local_git.py`: the `_extract_package_name` result is called but
-      discarded (line ~200); the ecosystem/package is never stored on the
-      `Repository` for registry use.
+- [ ] `local_git.py`: the `_extract_package_name` result is still called
+      and discarded (line ~200). The registry lookup now lives in
+      `registries.py` (which extracts and uses the package name itself), so
+      this local_git.py call is dead code.
 - [ ] `_parse_maven_response` uses naive `datetime.fromtimestamp` (local
       timezone) — inconsistent with the other parsers, which use UTC.
-- [ ] `_get_all_pages` mutates its `params` dict in place (aliasing).
+- [x] `_get_all_pages` mutates its `params` dict in place (aliasing) —
+      fixed: it now rebinds to a fresh dict (`{**params, ...}`) per request.
 
 ## Product / housekeeping
 
@@ -38,10 +42,12 @@ Remaining actions after the test-hardening session
       - medium GHSA-p538-c434-8v24 — arbitrary file truncation via
         `git rev-list --output`, patched in 3.1.56
       (installed: 3.1.54; constraint is already `>=3.1`)
+- [x] Set up CI — `.github/workflows/ci.yml` (pytest + ruff + coverage)
+      and `publish.yml` (PyPI on version tags) landed 2026-08-06.
+- [x] Decide the fate of `toto.json` — removed; nothing in the codebase
+      writes it anymore (it was never tracked).
 - [ ] Tune the recommendation thresholds (`RULES.md`) against real
       projects.
-- [ ] Decide the fate of `toto.json` (untracked test artifact).
-- [ ] Set up CI (pytest + ruff + coverage).
 
 ## Workflow
 

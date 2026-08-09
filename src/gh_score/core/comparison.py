@@ -202,6 +202,22 @@ def consumer_languages(result: AnalysisResult) -> frozenset[str]:
 
 _SUBJECT_MIN_TOKEN_LEN = 3
 
+# Language names carry no subject information: a "python" topic is shared
+# by every Python project whatever its purpose. Used both to exclude
+# language topics and to filter description tokens.
+_GENERIC_LANGUAGE_NAMES = frozenset({
+    "python", "javascript", "typescript", "rust", "go", "golang", "java",
+    "ruby", "c", "c++", "cpp", "php", "swift", "kotlin", "scala",
+    "csharp", "elixir", "haskell", "clojure", "dart", "objective",
+    "perl", "lua", "shell", "bash", "gcc",
+})
+
+# GitHub topics that are too generic to discriminate subjects.
+_GENERIC_TOPICS = _GENERIC_LANGUAGE_NAMES | frozenset({
+    "library", "libraries", "framework", "frameworks",
+    "hacktoberfest", "awesome",
+})
+
 # Function words, generic project words and language names: they carry no
 # subject information and would produce false positives ("a python tool"
 # vs "a python framework" share "python" and "tool").
@@ -219,12 +235,7 @@ _SUBJECT_GENERIC_TOKENS = frozenset({
     "users", "built", "written", "based", "make", "making", "provide",
     "provides", "allows", "allowing", "designed", "code", "source",
     "open", "free", "small", "lightweight", "modern", "full",
-    # language names are too generic to discriminate subjects
-    "python", "javascript", "typescript", "rust", "go", "golang", "java",
-    "ruby", "c", "c++", "cpp", "php", "swift", "kotlin", "scala",
-    "csharp", "elixir", "haskell", "clojure", "dart", "objective",
-    "perl", "lua", "shell", "bash", "gcc",
-})
+}) | _GENERIC_LANGUAGE_NAMES
 
 
 def _description_tokens(description: str | None) -> frozenset[str]:
@@ -238,21 +249,32 @@ def _description_tokens(description: str | None) -> frozenset[str]:
     return frozenset(tokens)
 
 
+def _meaningful_topics(result: AnalysisResult) -> frozenset[str]:
+    """Topics that carry subject information (language/generic tags out)."""
+    return frozenset(
+        x.strip().lower()
+        for x in result.meta.topics
+        if x.strip() and x.strip().lower() not in _GENERIC_TOPICS
+    )
+
+
 def _assess_subject(a: AnalysisResult, b: AnalysisResult) -> tuple[SubjectVerdict, str]:
     """Subject verdict with a localized explanation.
 
-    Topics when both projects have some, then description keywords, then
-    ``unknown`` (see SPECS §8.4).
+    Non-generic topics when both projects have some, then description
+    keywords, then ``unknown`` (see SPECS §8.4). Disjoint non-generic
+    topics are not decisive on their own: the descriptions get a second
+    opinion before the pair is judged incompatible.
     """
-    topics_a = {x.strip().lower() for x in a.meta.topics if x.strip()}
-    topics_b = {x.strip().lower() for x in b.meta.topics if x.strip()}
+    topics_a = _meaningful_topics(a)
+    topics_b = _meaningful_topics(b)
     if topics_a and topics_b:
         shared = topics_a & topics_b
         if shared:
             return SubjectVerdict.COMPATIBLE, t(
                 "cmp_subject_topic", topics=", ".join(sorted(shared))
             )
-        return SubjectVerdict.INCOMPATIBLE, t("cmp_subject_topics_disjoint")
+        # Both tagged, no overlap: fall through to the description rule.
 
     tokens_a = _description_tokens(a.meta.description)
     tokens_b = _description_tokens(b.meta.description)

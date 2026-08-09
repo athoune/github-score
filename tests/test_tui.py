@@ -562,7 +562,7 @@ class TestRenderComparison:
 
         output = self._render(comparison)
         assert "⚠" in output
-        assert t("cmp_subject_topics_disjoint", lang="en") in output
+        assert t("cmp_subject_unknown", lang="en") in output
 
     def test_warnings_line_deduplicated(self, en_locale):
         a = _project("fastapi", 76000, ["http"])

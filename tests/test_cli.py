@@ -2,7 +2,6 @@
 
 import io
 import json
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -240,6 +239,135 @@ class TestDefaultGroupForwardsArgs:
         assert expected_title in result.output
 
 
+class TestComparisonCli:
+    """Two or more URLs route to comparison mode (SPECS §8.1)."""
+
+    @staticmethod
+    def _result(name: str, topics: list[str]) -> AnalysisResult:
+        return AnalysisResult(
+            url=RepoUrl("owner", name),
+            meta=RepositoryMeta(full_name=f"owner/{name}", stars=100, topics=topics),
+            release_health=ReleaseHealthIndicator(),
+            license=LicenseIndicator(),
+            contributors=ContributorsIndicator(),
+            maintenance=MaintenanceIndicator(state=MaintenanceState.ACTIVE),
+            languages=LanguagesIndicator(primary="Python"),
+            sustainability=SustainabilityIndicator(),
+            recommendation=Recommendation(level=RecommendationLevel.GREEN),
+        )
+
+    def test_two_urls_render_comparison(self):
+        runner = CliRunner()
+        with (
+            patch(
+                "gh_score.cli.main.analyze_repo_async",
+                side_effect=[
+                    self._result("fastapi", ["http"]),
+                    self._result("flask", ["http"]),
+                ],
+            ) as mock_async,
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = MagicMock()
+            result = runner.invoke(cli, ["https://github.com/a/fastapi", "https://github.com/b/flask"])
+
+        assert result.exit_code == 0
+        assert mock_async.await_count == 2
+        assert "Project comparison" in result.output
+        assert "owner/fastapi" in result.output
+        assert "owner/flask" in result.output
+
+    def test_two_urls_json_format(self):
+        runner = CliRunner()
+        with (
+            patch(
+                "gh_score.cli.main.analyze_repo_async",
+                side_effect=[
+                    self._result("fastapi", ["http"]),
+                    self._result("flask", ["http"]),
+                ],
+            ),
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = MagicMock()
+            result = runner.invoke(cli, [
+                "https://github.com/a/fastapi", "https://github.com/b/flask",
+                "--format", "json",
+            ])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert len(payload["projects"]) == 2
+        assert len(payload["pairs"]) == 1
+        assert payload["pairs"][0]["verdict"] == "ok"
+
+    def test_two_urls_markdown_format(self):
+        runner = CliRunner()
+        with (
+            patch(
+                "gh_score.cli.main.analyze_repo_async",
+                side_effect=[
+                    self._result("fastapi", ["http"]),
+                    self._result("flask", ["http"]),
+                ],
+            ),
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = MagicMock()
+            result = runner.invoke(cli, [
+                "https://github.com/a/fastapi", "https://github.com/b/flask",
+                "--format", "markdown",
+            ])
+
+        assert result.exit_code == 0
+        assert "# GitHub Health Comparison" in result.output
+        assert "## Comparability" in result.output
+
+    def test_single_url_keeps_single_analysis(self):
+        """A single URL must NOT enter comparison mode."""
+        runner = CliRunner()
+        with (
+            patch("gh_score.cli.main.analyze_repo") as mock_analyze,
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = MagicMock()
+            mock_analyze.return_value = self._result("fastapi", ["http"])
+            result = runner.invoke(cli, ["https://github.com/a/fastapi"])
+
+        assert mock_analyze.called
+        assert "Project comparison" not in result.output
+
+    def test_report_with_two_urls_compares(self):
+        runner = CliRunner()
+        with (
+            patch(
+                "gh_score.cli.main.analyze_repo_async",
+                side_effect=[
+                    self._result("fastapi", ["http"]),
+                    self._result("flask", ["http"]),
+                ],
+            ),
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = MagicMock()
+            result = runner.invoke(cli, [
+                "report", "https://github.com/a/fastapi", "https://github.com/b/flask",
+            ])
+
+        assert result.exit_code == 0
+        assert "Project comparison" in result.output
+
+    def test_invalid_url_in_comparison_exits(self):
+        runner = CliRunner()
+        with patch("gh_score.cli.main._prepare_config") as mock_cfg:
+            mock_cfg.return_value = MagicMock()
+            result = runner.invoke(cli, [
+                "https://github.com/a/fastapi", "https://gitlab.com/b/flask",
+            ])
+
+        assert result.exit_code == 1
+
+
 class TestWarningsStderr:
     """File-based formats emit warnings on stderr."""
 
@@ -313,7 +441,6 @@ class TestComparisonRenderers:
 
     @staticmethod
     def _comparison() -> ComparisonResult:
-        now = datetime.now(timezone.utc)
         a = AnalysisResult(
             url=RepoUrl("owner", "fastapi"),
             meta=RepositoryMeta(full_name="owner/fastapi", stars=76000, topics=["http"]),
@@ -362,9 +489,10 @@ class TestComparisonRenderers:
         assert "# GitHub Health Comparison" in output
         assert "## Comparability" in output
         assert "## Comparison" in output
-        # Flagged pair with its reason
+        # Flagged pair with its reason (subjects not verifiable: disjoint
+        # topics, no descriptions)
         assert "owner/fastapi vs owner/asyncpg" in output
-        assert "different subjects" in output
+        assert "subjects cannot be verified" in output
         # Table with per-project rows and verdict glyphs
         assert "| owner/fastapi | 76,000 |" in output
         assert "| owner/asyncpg | 9,000 |" in output
@@ -381,7 +509,7 @@ class TestComparisonRenderers:
         assert len(payload["pairs"]) == 1
         pair = payload["pairs"][0]
         assert pair["url_a"] == "https://github.com/owner/fastapi"
-        assert pair["subject"] == "incompatible"
+        assert pair["subject"] == "unknown"
         assert pair["language_compatible"] is None
         assert pair["verdict"] == "warning"
         assert len(payload["warnings"]) == 1

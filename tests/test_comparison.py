@@ -149,12 +149,31 @@ class TestAssessPair:
         assert pair.language_compatible is True
         assert t("cmp_subject_topic", lang="en", topics="http") in pair.reasons
 
-    def test_disjoint_topics_warn(self):
+    def test_disjoint_topics_without_descriptions_unknown(self):
+        # Disjoint non-generic topics are not decisive on their own: the
+        # descriptions get a second opinion, and without any the subject
+        # is unknown (still flagged as a warning).
         a = _result(topics=["http"])
         b = _result(topics=["database"])
         pair = assess_pair(a, b)
         assert pair.verdict == ComparisonVerdict.WARNING
+        assert pair.subject == SubjectVerdict.UNKNOWN
+
+    def test_disjoint_topics_and_descriptions_warn(self):
+        a = _result(topics=["http"], description="HTTP framework")
+        b = _result(topics=["database"], description="PostgreSQL driver")
+        pair = assess_pair(a, b)
         assert pair.subject == SubjectVerdict.INCOMPATIBLE
+        assert pair.verdict == ComparisonVerdict.WARNING
+
+    def test_language_topic_is_not_a_subject_signal(self):
+        # Both projects share the "python" topic only: the descriptions
+        # decide. "database" is shared → compatible.
+        a = _result(topics=["python"], description="PostgreSQL database driver")
+        b = _result(topics=["python"], description="The database toolkit")
+        pair = assess_pair(a, b)
+        assert pair.subject == SubjectVerdict.COMPATIBLE
+        assert t("cmp_subject_desc", lang="en", tokens="database") in pair.reasons
 
     def test_description_keywords_match(self):
         a = _result(description="An HTTP client library for Python")

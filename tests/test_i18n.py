@@ -240,6 +240,12 @@ class TestCliStrings:
     def test_analyzing_en(self):
         assert t("cli_analyzing", lang="en") == "Analyzing repository..."
 
+    def test_analyzing_many_fr(self):
+        assert t("cli_analyzing_many", lang="fr") == "Analyse des dépôts..."
+
+    def test_analyzing_many_en(self):
+        assert t("cli_analyzing_many", lang="en") == "Analyzing repositories..."
+
     def test_config_title_fr(self):
         assert t("cli_config_title", lang="fr") == "Configuration actuelle"
 
@@ -410,7 +416,6 @@ class TestComparisonKeys:
         for lang in ("fr", "en"):
             for key in (
                 "cmp_subject_topic",
-                "cmp_subject_topics_disjoint",
                 "cmp_subject_desc",
                 "cmp_subject_desc_disjoint",
                 "cmp_subject_unknown",

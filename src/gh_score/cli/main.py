@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 import textwrap
@@ -13,13 +14,17 @@ from rich.console import Console
 from rich.table import Table
 
 from gh_score.config import Config
-from gh_score.core.api import analyze_repo
+from gh_score.core.api import analyze_repo, analyze_repo_async
 from gh_score.core.analyzers.license_analyzer import license_family_label
 from gh_score.core.cache import Cache
-from gh_score.core.comparison import ComparisonResult, ComparisonVerdict
+from gh_score.core.comparison import (
+    ComparisonResult,
+    ComparisonVerdict,
+    compare_results,
+)
 from gh_score.core.models import AnalysisResult, RecommendationLevel, RepoUrl
 from gh_score.i18n import t
-from gh_score.cli.tui import render_dashboard
+from gh_score.cli.tui import render_comparison, render_dashboard
 
 
 # ---------------------------------------------------------------------------
@@ -385,6 +390,12 @@ _RENDERERS = {
     "markdown": _render_markdown,
 }
 
+_COMPARISON_RENDERERS = {
+    "tui": render_comparison,
+    "json": _render_comparison_json,
+    "markdown": _render_comparison_markdown,
+}
+
 
 # ---------------------------------------------------------------------------
 # CLI group & commands
@@ -481,10 +492,45 @@ cli = DefaultGroup(
 )
 
 
+async def _gather_analyses(
+    targets: list[tuple[str, bool]], config: Config
+) -> list[AnalysisResult]:
+    """Analyze every target concurrently, each with its own local/remote
+    mode (the gather lives inside asyncio.run, which cannot wrap
+    asyncio.gather directly)."""
+    return await asyncio.gather(
+        *(
+            analyze_repo_async(target, config, use_local=is_local)
+            for target, is_local in targets
+        )
+    )
+
+
+def _resolve_and_validate(
+    url: str | None, remote: bool, local: bool, console: Console
+) -> tuple[str, bool]:
+    """Resolve a target (URL/path/CWD) to (target, is_local), validating it.
+
+    Exits with the localized usage message when no target can be found.
+    """
+    resolved, is_local = _resolve_target(url, force_remote=remote)
+    if resolved is None:
+        console.print(f"[red]{t('cli_error')}[/red] {t('cli_no_target')}")
+        console.print(t("cli_usage_1"))
+        console.print(t("cli_usage_2"))
+        sys.exit(1)
+    if local:
+        is_local = True
+    _validate_url(resolved, is_local, console)
+    return resolved, is_local
+
+
 @cli.command(name="analyze", epilog=_ENV_VARS_HELP, cls=_EnvHelpCommand)
-@click.argument("url_or_path", required=False)
+@click.argument("urls", nargs=-1, required=False)
 @click.option("--local", is_flag=True, help="Force local analysis")
-@click.option("--remote", is_flag=True, help="Force remote API analysis even when inside a clone")
+@click.option(
+    "--remote", is_flag=True, help="Force remote API analysis even when inside a clone"
+)
 @click.option("--refresh", is_flag=True, help="Bypass cache")
 @click.option("--no-llm", is_flag=True, help="Disable LLM analysis")
 @click.option("--config", "config_path", help="Path to config file")
@@ -496,7 +542,7 @@ cli = DefaultGroup(
 )
 # pylint: disable=too-many-arguments,too-many-positional-arguments
 def analyze(
-    url_or_path: str | None,
+    urls: tuple[str, ...],
     local: bool,
     remote: bool,
     refresh: bool,
@@ -504,29 +550,35 @@ def analyze(
     config_path: str | None,
     output_format: str,
 ) -> None:
-    """Analyze a repository (default command)."""
+    """Analyze a repository, or compare several repositories (2+ URLs)."""
     console = Console()
 
-    resolved, is_local = _resolve_target(url_or_path, force_remote=remote)
-    if resolved is None:
-        console.print(f"[red]{t('cli_error')}[/red] {t('cli_no_target')}")
-        console.print(t("cli_usage_1"))
-        console.print(t("cli_usage_2"))
-        sys.exit(1)
+    # Resolve every target; with no argument, fall back to the current
+    # directory when it is a git clone.
+    if urls:
+        targets = [_resolve_and_validate(u, remote, local, console) for u in urls]
+    else:
+        targets = [_resolve_and_validate(None, remote, local, console)]
 
-    # If user forced local mode, override
-    if local:
-        is_local = True
-
-    _validate_url(resolved, is_local, console)
     config = _prepare_config(config_path, refresh, no_llm, console)
 
     try:
-        with console.status(f"[bold blue]{t('cli_analyzing')}[/bold blue]"):
-            result = analyze_repo(resolved, config, use_local=is_local)
+        if len(targets) == 1:
+            # Single repository: existing dashboard behavior.
+            target, is_local = targets[0]
+            with console.status(f"[bold blue]{t('cli_analyzing')}[/bold blue]"):
+                result = analyze_repo(target, config, use_local=is_local)
 
-        renderer = _RENDERERS.get(output_format, render_dashboard)
-        renderer(result, console)
+            renderer = _RENDERERS.get(output_format, render_dashboard)
+            renderer(result, console)
+        else:
+            # Comparison mode: analyze in parallel, assess comparability.
+            with console.status(f"[bold blue]{t('cli_analyzing_many')}[/bold blue]"):
+                results = asyncio.run(_gather_analyses(targets, config))
+            comparison = compare_results(list(results))
+
+            renderer = _COMPARISON_RENDERERS.get(output_format, render_comparison)
+            renderer(comparison, console)
 
     except Exception as exc:
         console.print(f"[red]{t('cli_error')}[/red] {exc}")
@@ -536,11 +588,11 @@ def analyze(
 
 
 @cli.command()
-@click.argument("url", required=False)
-def report(url: str | None) -> None:
+@click.argument("urls", nargs=-1, required=False)
+def report(urls: tuple[str, ...]) -> None:
     """Generate a detailed report (same as analyze)."""
     ctx = click.get_current_context()
-    ctx.invoke(analyze, url_or_path=url)
+    ctx.invoke(analyze, urls=urls)
 
 
 @cli.command()

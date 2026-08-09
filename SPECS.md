@@ -437,10 +437,13 @@ language rule.
 
 ### 8.4 Subject comparability
 
-Per pair, the subject is assessed deterministically:
+Per pair, the subject is assessed deterministically. Language-name and
+other generic topics (e.g. "python", "framework", "hacktoberfest") carry
+no subject information and are excluded:
 
-1. Both projects have GitHub topics → a shared (normalized) topic means
-   `compatible`, otherwise `incompatible`.
+1. Both projects have non-generic topics → a shared topic means
+   `compatible`. Disjoint non-generic topics are not decisive on their
+   own: the descriptions get a second opinion below.
 2. Otherwise, both have a description → at least one shared meaningful
    token (stopwords and generic tokens — language names, "tool",
    "library", "project", … — excluded) means `compatible`, otherwise

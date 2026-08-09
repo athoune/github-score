@@ -104,7 +104,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         # Comparison (multi-repo comparability)
         # ------------------------------------------------------------------
         "cmp_subject_topic": "sujets compatibles — topic partagé : {topics}",
-        "cmp_subject_topics_disjoint": "sujets différents — topics sans intersection",
         "cmp_subject_desc": "sujets compatibles — mots-clés partagés : {tokens}",
         "cmp_subject_desc_disjoint": "sujets différents — descriptions sans mot-clé commun",
         "cmp_subject_unknown": "sujets non vérifiables (pas de topics ni de description exploitable)",
@@ -383,13 +382,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         # CLI console messages
         # ------------------------------------------------------------------
         "cli_analyzing": "Analyse du dépôt...",
+        "cli_analyzing_many": "Analyse des dépôts...",
         "cli_cache_cleared": "Cache vidé",
         "cli_error": "Erreur :",
         "cli_no_target": (
             "Aucune URL fournie et le répertoire courant n'est pas un dépôt git."
         ),
-        "cli_usage_1": "Usage : gh-score [URL] [OPTIONS]",
-        "cli_usage_2": "Usage : gh-score analyze [URL] [OPTIONS]",
+        "cli_usage_1": "Usage : gh-score [URL ...] [OPTIONS]",
+        "cli_usage_2": "Usage : gh-score analyze [URL ...] [OPTIONS]",
         "cli_config_title": "Configuration actuelle",
         "cli_config_setting": "Paramètre",
         "cli_config_value": "Valeur",
@@ -468,7 +468,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         # Comparison (multi-repo comparability)
         # ------------------------------------------------------------------
         "cmp_subject_topic": "compatible subjects — shared topic: {topics}",
-        "cmp_subject_topics_disjoint": "different subjects — disjoint topics",
         "cmp_subject_desc": "compatible subjects — shared keywords: {tokens}",
         "cmp_subject_desc_disjoint": "different subjects — no shared description keyword",
         "cmp_subject_unknown": "subjects cannot be verified (no topics or usable description)",
@@ -745,13 +744,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         # CLI console messages
         # ------------------------------------------------------------------
         "cli_analyzing": "Analyzing repository...",
+        "cli_analyzing_many": "Analyzing repositories...",
         "cli_cache_cleared": "Cache cleared",
         "cli_error": "Error:",
         "cli_no_target": (
             "No URL provided and current directory is not a git repository."
         ),
-        "cli_usage_1": "Usage: gh-score [URL] [OPTIONS]",
-        "cli_usage_2": "Usage: gh-score analyze [URL] [OPTIONS]",
+        "cli_usage_1": "Usage: gh-score [URL ...] [OPTIONS]",
+        "cli_usage_2": "Usage: gh-score analyze [URL ...] [OPTIONS]",
         "cli_config_title": "Current Configuration",
         "cli_config_setting": "Setting",
         "cli_config_value": "Value",

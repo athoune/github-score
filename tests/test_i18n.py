@@ -419,5 +419,16 @@ class TestComparisonKeys:
                 "cmp_kind_mismatch",
                 "cmp_kind_unknown",
                 "cmp_warning",
+                "cmp_title",
+                "cmp_no_pairs",
+                "panel_comparability",
+                "cmp_table_project",
+                "cmp_table_stars",
+                "cmp_table_license",
+                "cmp_table_lang",
+                "cmp_table_state",
+                "cmp_table_commit",
+                "cmp_table_verdict",
+                "cmp_table_today",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"

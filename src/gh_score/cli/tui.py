@@ -1,16 +1,20 @@
 """TUI dashboard renderer using Rich.
 
-Displays the analysis results as a terminal dashboard.
+Displays the analysis results as a terminal dashboard. Also renders the
+condensed multi-repo comparison view (fits a terminal window without
+scrolling).
 """
 
 from __future__ import annotations
 
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
 from gh_score.core.analyzers.license_analyzer import license_family_label
+from gh_score.core.comparison import ComparisonResult, ComparisonVerdict
 from gh_score.core.models import (
     AnalysisResult,
     MaintenanceState,
@@ -514,4 +518,116 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
     if registries_panel:
         console.print(registries_panel)
 
+    console.print()
+
+
+# ---------------------------------------------------------------------------
+# Multi-repo comparison (condensed: fits a terminal window, no scrolling)
+# ---------------------------------------------------------------------------
+
+
+def _compact_number(count: int) -> str:
+    """Compact counts for the comparison table: 1234 → '1.2k'."""
+    if count >= 1_000_000:
+        return f"{count / 1_000_000:.1f}M"
+    if count >= 1_000:
+        return f"{count / 1_000:.1f}k"
+    return str(count)
+
+
+def _compact_days(days: int | None) -> str:
+    """Compact last-commit age: 3 → '3d', 0 → 'today'."""
+    if days is None:
+        return "—"
+    if days == 0:
+        return t("cmp_table_today")
+    return f"{days}d"
+
+
+def _pair_label(pair) -> str:
+    """Short 'owner/repo vs owner/repo' label for a pair."""
+    return (
+        f"{pair.url_a.owner}/{pair.url_a.repo} "
+        f"vs {pair.url_b.owner}/{pair.url_b.repo}"
+    )
+
+
+def _render_comparability(comparison: ComparisonResult) -> Panel:
+    """Comparability block: every pair with its verdict and reasons."""
+    content = Text()
+    any_warning = False
+
+    for pair in comparison.pairs:
+        if pair.verdict == ComparisonVerdict.OK:
+            content.append("✓ ", style="green")
+            content.append(f"{_pair_label(pair)}\n", style="bold")
+        else:
+            any_warning = True
+            content.append("⚠ ", style="yellow")
+            content.append(f"{_pair_label(pair)}\n", style="bold yellow")
+        for reason in pair.reasons:
+            content.append(f"   · {reason}\n", style="dim")
+        for note in pair.notes:
+            content.append(f"   · {note}\n", style="dim italic")
+
+    if not comparison.pairs:
+        content.append(t("cmp_no_pairs"))
+
+    return Panel(
+        content,
+        title=t("panel_comparability"),
+        border_style="yellow" if any_warning else "green",
+    )
+
+
+def render_comparison(comparison: ComparisonResult, console: Console | None = None) -> None:
+    """Render the condensed comparison view: comparability block + one
+    line per project. Everything fits in a terminal window."""
+    if console is None:
+        console = Console()
+
+    projects = ", ".join(
+        p.meta.full_name or f"{p.url.owner}/{p.url.repo}" for p in comparison.projects
+    )
+    console.print()
+    console.print(f"[bold]{t('cmp_title')}[/bold] - {projects}", style="blue")
+    console.print()
+
+    # Compact, deduplicated warnings line (missing token, LLM issues).
+    warnings = list(dict.fromkeys(w for p in comparison.projects for w in p.warnings))
+    if warnings:
+        console.print(f"⚠ {'; '.join(warnings)}", style="yellow", overflow="ellipsis")
+        console.print()
+
+    console.print(_render_comparability(comparison))
+    console.print()
+
+    table = Table(show_header=True, header_style="bold", box=box.SIMPLE)
+    table.add_column(t("cmp_table_project"), no_wrap=True)
+    table.add_column(t("cmp_table_stars"), justify="right")
+    table.add_column(t("cmp_table_license"))
+    table.add_column(t("cmp_table_lang"))
+    table.add_column(t("cmp_table_state"))
+    table.add_column(t("cmp_table_commit"), justify="right")
+    table.add_column(t("cmp_table_verdict"), justify="center")
+
+    for result in comparison.projects:
+        meta = result.meta
+        name = meta.full_name or f"{result.url.owner}/{result.url.repo}"
+        lic = result.license.spdx_id or "—"
+        lang = result.languages.primary or "—"
+        state = t(f"state_{result.maintenance.state.value}")
+        commit = _compact_days(result.maintenance.last_commit_days_ago)
+        glyph, _ = _TRAFFIC_LIGHT.get(result.recommendation.level, ("❓", "dim"))
+        table.add_row(
+            name,
+            _compact_number(meta.stars),
+            lic,
+            lang,
+            state,
+            commit,
+            glyph,
+        )
+
+    console.print(table)
     console.print()

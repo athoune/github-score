@@ -28,8 +28,10 @@ from gh_score.cli.tui import (
     _render_warnings,
     _render_website,
     _status_glyph,
+    render_comparison,
     render_dashboard,
 )
+from gh_score.core.comparison import compare_results
 from gh_score.core.models import (
     AnalysisResult,
     ContributorDetail,
@@ -477,3 +479,108 @@ class _locale:
             os.environ.pop("LANG", None)
         else:
             os.environ["LANG"] = self.old
+
+
+def _project(
+    name: str,
+    stars: int,
+    topics: list[str],
+    primary: str = "Python",
+    state: MaintenanceState = MaintenanceState.ACTIVE,
+    level: RecommendationLevel = RecommendationLevel.GREEN,
+    commit_days: int | None = 2,
+) -> AnalysisResult:
+    """Minimal AnalysisResult for the comparison renderer tests."""
+    return AnalysisResult(
+        url=RepoUrl("owner", name),
+        meta=RepositoryMeta(full_name=f"owner/{name}", stars=stars, topics=topics),
+        release_health=ReleaseHealthIndicator(),
+        license=LicenseIndicator(spdx_id="MIT"),
+        contributors=ContributorsIndicator(),
+        maintenance=MaintenanceIndicator(state=state, last_commit_days_ago=commit_days),
+        languages=LanguagesIndicator(primary=primary),
+        sustainability=SustainabilityIndicator(),
+        recommendation=Recommendation(level=level, message="msg"),
+        registries=[RegistryInfo(ecosystem="pypi", exists=True)],
+        root_files=["pyproject.toml"],
+    )
+
+
+class TestCompactNumber:
+    def test_units(self):
+        from gh_score.cli.tui import _compact_number
+
+        assert _compact_number(0) == "0"
+        assert _compact_number(999) == "999"
+        assert _compact_number(1234) == "1.2k"
+        assert _compact_number(76000) == "76.0k"
+        assert _compact_number(2_500_000) == "2.5M"
+
+    def test_days(self):
+        from gh_score.cli.tui import _compact_days
+
+        assert _compact_days(None) == "—"
+        assert _compact_days(3) == "3d"
+        assert _compact_days(0) == "today"
+
+
+class TestRenderComparison:
+    @staticmethod
+    def _render(comparison, width: int = 100) -> str:
+        buf = io.StringIO()
+        console = Console(file=buf, width=width, force_terminal=False)
+        render_comparison(comparison, console)
+        return buf.getvalue()
+
+    def test_compatible_pair(self, en_locale):
+        a = _project("fastapi", 76000, ["http"])
+        b = _project("tornado", 21000, ["http"], level=RecommendationLevel.ORANGE)
+        comparison = compare_results([a, b])
+
+        output = self._render(comparison)
+        assert "Project comparison" in output
+        assert "owner/fastapi, owner/tornado" in output
+        # Comparability panel: OK pair
+        assert "Comparability" in output
+        assert "✓" in output
+        # Table columns and values
+        assert "Stars" in output
+        assert "76.0k" in output
+        assert "21.0k" in output
+        assert "MIT" in output
+        assert "Python" in output
+        assert "active" in output
+        assert "2d" in output
+        # Verdict glyphs (green + orange)
+        assert "🟢" in output
+        assert "🟠" in output
+
+    def test_incompatible_pair_warns(self, en_locale):
+        a = _project("fastapi", 76000, ["http"])
+        b = _project("asyncpg", 9000, ["database"], primary="Python")
+        comparison = compare_results([a, b])
+
+        output = self._render(comparison)
+        assert "⚠" in output
+        assert t("cmp_subject_topics_disjoint", lang="en") in output
+
+    def test_warnings_line_deduplicated(self, en_locale):
+        a = _project("fastapi", 76000, ["http"])
+        a.warnings = ["No GitHub token set"]
+        b = _project("tornado", 21000, ["http"])
+        b.warnings = ["No GitHub token set"]
+        comparison = compare_results([a, b])
+
+        output = self._render(comparison)
+        assert output.count("No GitHub token set") == 1
+
+    def test_localized_header(self, monkeypatch):
+        a = _project("fastapi", 76000, ["http"])
+        b = _project("tornado", 21000, ["http"])
+        comparison = compare_results([a, b])
+
+        monkeypatch.setenv("LANG", "fr_FR.UTF-8")
+        monkeypatch.delenv("LC_ALL", raising=False)
+        monkeypatch.delenv("LC_MESSAGES", raising=False)
+        output = self._render(comparison)
+        assert t("cmp_title", lang="fr") in output

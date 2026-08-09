@@ -151,6 +151,7 @@ async def analyze_repo_async(
         registries=repo.registries,
         website=analyze_website(repo.website_info),
         security=analyze_security(repo),
+        root_files=repo.community.root_files,
     )
 
     # Cross-cutting recommendation (needs the full result)

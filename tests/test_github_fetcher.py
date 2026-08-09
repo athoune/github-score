@@ -336,6 +336,41 @@ class TestFetchLanguages:
         assert langs.primary == "Python"
 
 
+class TestFetchCommunityFiles:
+    @pytest.mark.asyncio
+    async def test_root_files_listing(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(side_effect=[
+            [
+                {"name": "README.md"},
+                {"name": "pyproject.toml"},
+                {"name": "Dockerfile"},
+                {"name": "LICENSE"},
+                {"name": ".github"},
+            ],
+            None,  # no FUNDING.yml
+        ])
+
+        community = await fetcher.fetch_community_files(URL)
+
+        assert community.has_readme is True
+        assert community.has_license is True
+        # Lowercased and sorted, kept for library/application classification.
+        assert community.root_files == [
+            ".github", "dockerfile", "license", "pyproject.toml", "readme.md",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_no_contents_returns_empty(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value=None)
+
+        community = await fetcher.fetch_community_files(URL)
+
+        assert community.root_files == []
+        assert community.has_readme is False
+
+
 class TestParseFundingYml:
     def test_inline_list(self):
         result = _parse_funding_yml("github: [user1, user2]\n")

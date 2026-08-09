@@ -228,6 +228,10 @@ class CommunityFiles:
     has_changelog: bool = False
     funding: dict[str, list[str]] = field(default_factory=dict)
     # e.g. {"github": ["user1"], "open_collective": ["project"]}
+    root_files: list[str] = field(default_factory=list)
+    # File/directory names at the repository root (from GET /contents in
+    # remote mode, from the local checkout in local mode). Used for
+    # library/application classification and binding detection.
 
 
 # ---------------------------------------------------------------------------
@@ -550,3 +554,4 @@ class AnalysisResult:
     warnings: list[str] = field(default_factory=list)  # human-readable, localized
     website: WebsiteIndicator = field(default_factory=WebsiteIndicator)
     security: SecurityIndicator = field(default_factory=SecurityIndicator)
+    root_files: list[str] = field(default_factory=list)  # root listing, used for comparison

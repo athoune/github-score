@@ -169,6 +169,17 @@ def fetch_local_repo(path: str) -> Repository:
                 pass
             break
 
+    # Root listing (file/directory names) for library/application
+    # classification and binding detection.
+    try:
+        community.root_files = sorted(
+            entry.name.lower()
+            for entry in repo_path.iterdir()
+            if entry.name != ".git"
+        )
+    except Exception:
+        pass
+
     repo.community = community
 
     # Read README if available

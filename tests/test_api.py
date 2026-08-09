@@ -82,7 +82,11 @@ def _make_repo_data() -> Repository:
             ),
         ],
         languages=LanguageBreakdown(languages={"Python": 8000, "HTML": 2000}),
-        community=CommunityFiles(has_readme=True, funding={"github": ["alice"]}),
+        community=CommunityFiles(
+            has_readme=True,
+            funding={"github": ["alice"]},
+            root_files=["pyproject.toml", "readme.md"],
+        ),
     )
 
 
@@ -143,6 +147,8 @@ class TestRemotePath:
         assert result.languages.primary == "Python"
         assert result.recommendation.level == RecommendationLevel.GREEN
         assert result.recommendation.message != ""
+        # Root file listing propagated to the result for comparison
+        assert result.root_files == ["pyproject.toml", "readme.md"]
 
     @pytest.mark.asyncio
     async def test_invalid_url_raises(self, tmp_path):

@@ -440,6 +440,7 @@ class GitHubFetcher:
                 for item in data
                 if isinstance(item, dict)
             }
+            community.root_files = sorted(existing)
             for filename, attr in files_to_check.items():
                 if filename in existing:
                     setattr(community, attr, True)

@@ -142,6 +142,12 @@ class TestFetchLocalRepo:
         assert result.community.has_funding is True  # type: ignore[attr-defined]
         assert result.community.funding == {"github": ["alice"]}
 
+        # Root listing: lowercased, .git excluded, sorted
+        assert result.community.root_files == [
+            ".github", "cli.py", "contributing.md", "main.py",
+            "pyproject.toml", "readme.md", "utils.py",
+        ]
+
         # README content read from disk
         assert result.readme_content == "# Demo\n"
 

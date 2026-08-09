@@ -14,7 +14,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from gh_score.config import Config
-from gh_score.core.api import analyze_repo, analyze_repo_async
+from gh_score.core.api import (
+    analyze_repo,
+    analyze_repo_async,
+    compare_repos_async,
+)
 from gh_score.core.cache import Cache
 from gh_score.core.models import (
     Commit,
@@ -513,6 +517,96 @@ class TestWarnings:
             result = await analyze_repo_async("https://github.com/owner/repo", config)
 
         assert result.warnings == ["same warning"]
+
+
+class TestComparisonLlmRefinement:
+    """compare_repos lifts deterministic 'unknown' subjects via the LLM."""
+
+    @staticmethod
+    def _repo(name: str) -> Repository:
+        repo = _make_repo_data()
+        repo.url = RepoUrl("owner", name)
+        repo.meta.description = None  # force an 'unknown' subject verdict
+        return repo
+
+    @pytest.mark.asyncio
+    async def test_lifts_unknown_subjects_when_enabled(self, tmp_path):
+        config = _make_config(tmp_path)
+        config.llm.enabled = True
+        config.llm.base_url = "http://localhost:11434/v1"
+        a = self._repo("a")
+        a.meta.topics = ["http"]
+        b = self._repo("b")
+        b.meta.topics = ["database"]
+
+        instance = MagicMock()
+        instance.fetch_all = AsyncMock(side_effect=[a, b])
+        instance.fetch_security_updates = AsyncMock(return_value=[])
+        instance.close = AsyncMock()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "gh_score.core.api.analyze_qualitative_with_llm",
+                new=AsyncMock(return_value=QualitativeSignals()),
+            ),
+            patch(
+                "gh_score.core.api.analyze_recommendation_with_llm",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "gh_score.core.api.assess_subjects_with_llm",
+                new=AsyncMock(
+                    return_value={frozenset({str(a.url), str(b.url)}): True}
+                ),
+            ) as mock_assess,
+        ):
+            mock_fetcher_cls.return_value = instance
+            comparison = await compare_repos_async(
+                ["https://github.com/owner/a", "https://github.com/owner/b"], config
+            )
+
+        mock_assess.assert_awaited_once()
+        pair = comparison.pairs[0]
+        assert pair.subject.value == "compatible"
+        assert pair.verdict.value == "ok"
+        assert comparison.warnings == []
+
+    @pytest.mark.asyncio
+    async def test_skipped_when_llm_disabled(self, tmp_path):
+        config = _make_config(tmp_path)  # llm.enabled = False
+        a = self._repo("a")
+        a.meta.topics = ["http"]
+        b = self._repo("b")
+        b.meta.topics = ["database"]
+
+        instance = MagicMock()
+        instance.fetch_all = AsyncMock(side_effect=[a, b])
+        instance.fetch_security_updates = AsyncMock(return_value=[])
+        instance.close = AsyncMock()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "gh_score.core.api.assess_subjects_with_llm",
+                new=AsyncMock(),
+            ) as mock_assess,
+        ):
+            mock_fetcher_cls.return_value = instance
+            comparison = await compare_repos_async(
+                ["https://github.com/owner/a", "https://github.com/owner/b"], config
+            )
+
+        mock_assess.assert_not_awaited()
+        assert comparison.pairs[0].subject.value == "unknown"
 
 
 class TestSyncWrapper:

@@ -25,7 +25,11 @@ from gh_score.core.analyzers import (
 )
 from gh_score.core.analyzers.mirror import detect_mirror
 from gh_score.core.cache import Cache
-from gh_score.core.comparison import ComparisonResult, compare_results
+from gh_score.core.comparison import (
+    ComparisonResult,
+    apply_subject_refinement,
+    compare_results,
+)
 from gh_score.core.fetchers.github import GitHubFetcher
 from gh_score.core.fetchers.local_git import fetch_local_repo
 from gh_score.core.fetchers.registries import fetch_registry_info
@@ -35,6 +39,7 @@ from gh_score.i18n import t
 from gh_score.llm.provider import (
     analyze_qualitative_with_llm,
     analyze_recommendation_with_llm,
+    assess_subjects_with_llm,
 )
 
 
@@ -211,7 +216,26 @@ async def compare_repos_async(
     results = await asyncio.gather(
         *(analyze_repo_async(url, config, use_local) for url in urls_or_paths)
     )
-    return compare_results(list(results))
+    comparison = compare_results(list(results))
+    await refine_comparison_subjects(comparison, config)
+    return comparison
+
+
+async def refine_comparison_subjects(
+    comparison: ComparisonResult, config: Config
+) -> None:
+    """Lift deterministic ``unknown`` subject verdicts with the optional
+    LLM (spec §8.4). Never overrides a deterministic verdict; appends any
+    LLM warning to ``comparison.warnings``. No-op when the LLM is
+    disabled."""
+    if not config.llm.enabled:
+        return
+    llm_warnings: list[str] = []
+    verdicts = await assess_subjects_with_llm(
+        comparison.projects, config.llm, llm_warnings
+    )
+    apply_subject_refinement(comparison, verdicts)
+    comparison.warnings = list(dict.fromkeys([*comparison.warnings, *llm_warnings]))
 
 
 def compare_repos(

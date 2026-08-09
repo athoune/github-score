@@ -421,6 +421,8 @@ class TestComparisonKeys:
                 "cmp_subject_unknown",
                 "cmp_language_compatible",
                 "cmp_language_incompatible",
+                "cmp_subject_llm_compatible",
+                "cmp_subject_llm_incompatible",
                 "cmp_kind_mismatch",
                 "cmp_kind_unknown",
                 "cmp_warning",

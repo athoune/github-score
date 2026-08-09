@@ -230,6 +230,112 @@ def _parse_recommendation(data: dict) -> LLMRecommendation:
     )
 
 
+# ---------------------------------------------------------------------------
+# Subject comparability (comparison mode)
+# ---------------------------------------------------------------------------
+
+
+def _build_subject_prompt() -> str:
+    """Instruction for the subject-equivalence judgment (``{projects}`` is
+    filled with the compact project digests by the caller)."""
+    return (
+        "You are comparing GitHub projects. For each pair, judge whether "
+        "the two projects address the same subject — that is, whether a "
+        "developer could pick either one to do the same job. The "
+        "programming language is irrelevant (bindings count as the same "
+        "language).\n\n"
+        "{projects}\n\n"
+        "Answer for every pair you can judge with a JSON object:\n"
+        '{"pairs": [{"a": 1, "b": 2, "same_subject": true, '
+        '"reason": "short justification"}, ...]}\n'
+        "where a and b are the project numbers listed above. If you "
+        "cannot decide for a pair, omit it. Return only valid JSON, no "
+        "markdown formatting."
+    )
+
+
+def _subject_project_digests(results: list) -> str:
+    """Compact per-project digests (number, full name, topics, description)
+    for the subject-equivalence prompt."""
+    lines = []
+    for index, result in enumerate(results, start=1):
+        meta = result.meta
+        full_name = meta.full_name or str(result.url)
+        topics = ", ".join(meta.topics) or "none"
+        description = (meta.description or "")[:200]
+        lines.append(
+            f"{index}. {full_name}\n"
+            f"   topics: {topics}\n"
+            f"   description: {description}"
+        )
+    return "\n".join(lines)
+
+
+def _as_project_index(value: object) -> int | None:
+    """Coerce the LLM's pair reference to a project index (1-based)."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _parse_subject_verdicts(data: dict, results: list) -> dict[frozenset[str], bool]:
+    """Map the LLM's per-pair answers onto ``frozenset({url_a, url_b})``
+    keys. Entries with unknown indexes, a project compared to itself, or a
+    non-boolean verdict are skipped."""
+    raw_pairs = data.get("pairs")
+    if not isinstance(raw_pairs, list):
+        return {}
+    by_index = {index: str(result.url) for index, result in enumerate(results, start=1)}
+    verdicts: dict[frozenset[str], bool] = {}
+    for entry in raw_pairs:
+        if not isinstance(entry, dict):
+            continue
+        index_a = _as_project_index(entry.get("a"))
+        index_b = _as_project_index(entry.get("b"))
+        url_a = by_index.get(index_a) if index_a is not None else None
+        url_b = by_index.get(index_b) if index_b is not None else None
+        same = entry.get("same_subject")
+        if url_a and url_b and url_a != url_b and isinstance(same, bool):
+            verdicts[frozenset({url_a, url_b})] = same
+    return verdicts
+
+
+async def assess_subjects_with_llm(
+    results: list, config: LLMConfig, warnings: list[str] | None = None
+) -> dict[frozenset[str], bool]:
+    """Judge whether each pair of projects addresses the same subject.
+
+    One call for all pairs: each project is described by its full name,
+    topics and description. Returns a mapping ``frozenset({url_a, url_b})
+    -> bool``. Empty mapping when the LLM is disabled, fewer than two
+    projects, or the call fails (a localized warning is appended). The
+    caller only lifts deterministic ``unknown`` verdicts — the LLM never
+    overrides a deterministic ``compatible`` / ``incompatible``.
+    """
+    if not config.enabled or len(results) < 2:
+        return {}
+
+    provider = LLMProvider(config)
+    try:
+        prompt = _build_subject_prompt().replace(
+            "{projects}", _subject_project_digests(results)
+        )
+        raw = await provider.extract_signals(prompt, max_tokens=1500)
+        return _parse_subject_verdicts(raw, results)
+    except LLMError:
+        _append_warning(warnings, "warn_llm_unavailable")
+        return {}
+    finally:
+        await provider.close()
+
+
 class LLMProvider:
     """Abstract LLM provider with OpenAI-compatible API."""
 

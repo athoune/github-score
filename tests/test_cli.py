@@ -2,7 +2,7 @@
 
 import io
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -31,6 +31,14 @@ from gh_score.core.models import (
     RepositoryMeta,
     SustainabilityIndicator,
 )
+
+
+def _mock_config() -> MagicMock:
+    """Config mock with the LLM disabled: a bare MagicMock would make
+    ``config.llm.enabled`` truthy and trigger a real LLM call."""
+    config = MagicMock()
+    config.llm.enabled = False
+    return config
 
 
 def _result_with_warnings(*warnings: str) -> AnalysisResult:
@@ -173,7 +181,7 @@ class TestDefaultGroupForwardsArgs:
             patch("gh_score.cli.main.analyze_repo") as mock_analyze,
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             mock_analyze.return_value = MagicMock(url="https://github.com/o/r")
             runner.invoke(cli, ["https://github.com/o/r"])
 
@@ -190,7 +198,7 @@ class TestDefaultGroupForwardsArgs:
             patch("pathlib.Path.cwd") as mock_cwd,
             patch("pathlib.Path.exists", return_value=True),
         ):
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             mock_analyze.return_value = MagicMock(url="https://github.com/o/r")
             mock_cwd.return_value = MagicMock(**{"__str__": lambda s: "/some/path"})
             runner.invoke(cli, [])
@@ -243,6 +251,14 @@ class TestComparisonCli:
     """Two or more URLs route to comparison mode (SPECS §8.1)."""
 
     @staticmethod
+    def _mock_config():
+        """Config mock with the LLM disabled (its MagicMock default would
+        be truthy and trigger a real LLM call in the comparison path)."""
+        config = MagicMock()
+        config.llm.enabled = False
+        return config
+
+    @staticmethod
     def _result(name: str, topics: list[str]) -> AnalysisResult:
         return AnalysisResult(
             url=RepoUrl("owner", name),
@@ -268,7 +284,7 @@ class TestComparisonCli:
             ) as mock_async,
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             result = runner.invoke(cli, ["https://github.com/a/fastapi", "https://github.com/b/flask"])
 
         assert result.exit_code == 0
@@ -289,7 +305,7 @@ class TestComparisonCli:
             ),
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             result = runner.invoke(cli, [
                 "https://github.com/a/fastapi", "https://github.com/b/flask",
                 "--format", "json",
@@ -313,7 +329,7 @@ class TestComparisonCli:
             ),
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             result = runner.invoke(cli, [
                 "https://github.com/a/fastapi", "https://github.com/b/flask",
                 "--format", "markdown",
@@ -330,7 +346,7 @@ class TestComparisonCli:
             patch("gh_score.cli.main.analyze_repo") as mock_analyze,
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             mock_analyze.return_value = self._result("fastapi", ["http"])
             result = runner.invoke(cli, ["https://github.com/a/fastapi"])
 
@@ -349,7 +365,7 @@ class TestComparisonCli:
             ),
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             result = runner.invoke(cli, [
                 "report", "https://github.com/a/fastapi", "https://github.com/b/flask",
             ])
@@ -357,10 +373,35 @@ class TestComparisonCli:
         assert result.exit_code == 0
         assert "Project comparison" in result.output
 
+    def test_llm_refinement_called_when_enabled(self):
+        runner = CliRunner()
+        config = MagicMock()
+        config.llm.enabled = True
+        with (
+            patch(
+                "gh_score.cli.main.analyze_repo_async",
+                side_effect=[
+                    self._result("fastapi", ["http"]),
+                    self._result("flask", ["http"]),
+                ],
+            ),
+            patch("gh_score.cli.main._prepare_config", return_value=config),
+            patch(
+                "gh_score.cli.main.refine_comparison_subjects",
+                new=AsyncMock(),
+            ) as mock_refine,
+        ):
+            result = runner.invoke(cli, [
+                "https://github.com/a/fastapi", "https://github.com/b/flask",
+            ])
+
+        assert result.exit_code == 0
+        mock_refine.assert_awaited_once()
+
     def test_invalid_url_in_comparison_exits(self):
         runner = CliRunner()
         with patch("gh_score.cli.main._prepare_config") as mock_cfg:
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             result = runner.invoke(cli, [
                 "https://github.com/a/fastapi", "https://gitlab.com/b/flask",
             ])
@@ -380,7 +421,7 @@ class TestWarningsStderr:
             patch("gh_score.cli.main.analyze_repo", return_value=analysis),
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             result = runner.invoke(cli, ["https://github.com/o/r", "--format", fmt])
 
         assert "No GitHub token set" in result.stderr
@@ -393,7 +434,7 @@ class TestWarningsStderr:
             patch("gh_score.cli.main.analyze_repo", return_value=analysis),
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
 
         assert "warning" not in result.stderr
@@ -428,7 +469,7 @@ class TestMarkdownReport:
             patch("gh_score.cli.main.analyze_repo", return_value=analysis),
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
-            mock_cfg.return_value = MagicMock()
+            mock_cfg.return_value = _mock_config()
             result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
 
         assert result.exit_code == 0

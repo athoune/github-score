@@ -21,9 +21,12 @@ from gh_score.llm.provider import (
     _extract_json_object,
     _parse_qualitative,
     _parse_recommendation,
+    _parse_subject_verdicts,
+    _subject_project_digests,
     _TEXT_MAINTENANCE_STATES,
     analyze_qualitative_with_llm,
     analyze_recommendation_with_llm,
+    assess_subjects_with_llm,
 )
 
 
@@ -359,3 +362,126 @@ class TestContradictionGuard:
 
         assert rec is not None
         assert warnings == []
+
+
+class TestSubjectVerdicts:
+    """Subject-equivalence parsing for the comparison mode."""
+
+    @staticmethod
+    def _results():
+        from gh_score.core.models import (
+            AnalysisResult,
+            ContributorsIndicator,
+            LanguagesIndicator,
+            LicenseIndicator,
+            MaintenanceIndicator,
+            ReleaseHealthIndicator,
+            RepositoryMeta,
+            SustainabilityIndicator,
+        )
+
+        return [
+            AnalysisResult(
+                url=RepoUrl("owner", "lib-a"),
+                meta=RepositoryMeta(full_name="owner/lib-a", topics=["http"]),
+                release_health=ReleaseHealthIndicator(),
+                license=LicenseIndicator(),
+                contributors=ContributorsIndicator(),
+                maintenance=MaintenanceIndicator(),
+                languages=LanguagesIndicator(primary="Python"),
+                sustainability=SustainabilityIndicator(),
+            ),
+            AnalysisResult(
+                url=RepoUrl("owner", "lib-b"),
+                meta=RepositoryMeta(full_name="owner/lib-b", topics=["http"]),
+                release_health=ReleaseHealthIndicator(),
+                license=LicenseIndicator(),
+                contributors=ContributorsIndicator(),
+                maintenance=MaintenanceIndicator(),
+                languages=LanguagesIndicator(primary="Python"),
+                sustainability=SustainabilityIndicator(),
+            ),
+        ]
+
+    def test_digest_lists_projects_with_metadata(self):
+        results = self._results()
+        digest = _subject_project_digests(results)
+        assert "1. owner/lib-a" in digest
+        assert "topics: http" in digest
+        assert "2. owner/lib-b" in digest
+
+    def test_parses_verdicts(self):
+        results = self._results()
+        verdicts = _parse_subject_verdicts(
+            {"pairs": [{"a": 1, "b": 2, "same_subject": True}]}, results
+        )
+        assert verdicts == {
+            frozenset({
+                "https://github.com/owner/lib-a",
+                "https://github.com/owner/lib-b",
+            }): True
+        }
+
+    def test_accepts_string_indexes(self):
+        results = self._results()
+        verdicts = _parse_subject_verdicts(
+            {"pairs": [{"a": "1", "b": "2", "same_subject": False}]}, results
+        )
+        assert list(verdicts.values()) == [False]
+
+    def test_skips_invalid_entries(self):
+        results = self._results()
+        verdicts = _parse_subject_verdicts(
+            {
+                "pairs": [
+                    {"a": 1, "b": 9, "same_subject": True},      # unknown index
+                    {"a": 1, "b": 1, "same_subject": True},      # self-comparison
+                    {"a": 1, "b": 2, "same_subject": "yes"},     # non-boolean
+                    {"a": 1, "b": 2},                            # missing verdict
+                    "not a dict",
+                ]
+            },
+            results,
+        )
+        assert verdicts == {}
+
+    def test_empty_pairs(self):
+        results = self._results()
+        assert _parse_subject_verdicts({}, results) == {}
+        assert _parse_subject_verdicts({"pairs": "nope"}, results) == {}
+
+    @pytest.mark.asyncio
+    async def test_skipped_when_disabled(self):
+        warnings: list[str] = []
+        verdicts = await assess_subjects_with_llm(
+            self._results(), LLMConfig(enabled=False), warnings
+        )
+        assert verdicts == {}
+        assert warnings == []
+
+    @pytest.mark.asyncio
+    async def test_failure_appends_warning(self):
+        warnings: list[str] = []
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(side_effect=LLMError("boom")),
+        ):
+            verdicts = await assess_subjects_with_llm(
+                self._results(), LLMConfig(enabled=True), warnings
+            )
+        assert verdicts == {}
+        assert len(warnings) == 1
+
+    @pytest.mark.asyncio
+    async def test_verdicts_from_provider(self):
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                return_value={"pairs": [{"a": 1, "b": 2, "same_subject": True}]}
+            ),
+        ):
+            verdicts = await assess_subjects_with_llm(
+                self._results(), LLMConfig(enabled=True)
+            )
+        assert len(verdicts) == 1
+        assert list(verdicts.values()) == [True]

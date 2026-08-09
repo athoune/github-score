@@ -294,6 +294,22 @@ def _assess_subject(a: AnalysisResult, b: AnalysisResult) -> tuple[SubjectVerdic
 # ---------------------------------------------------------------------------
 
 
+def _pair_flagged(pair: PairComparison) -> bool:
+    """True when the pair carries a comparability problem (SPECS §8.5)."""
+    return (
+        pair.subject in (SubjectVerdict.INCOMPATIBLE, SubjectVerdict.UNKNOWN)
+        or pair.kind_mismatch
+        or pair.language_compatible is False
+    )
+
+
+def _recompute_pair_verdict(pair: PairComparison) -> None:
+    """Refresh a pair's verdict after its fields changed."""
+    pair.verdict = (
+        ComparisonVerdict.WARNING if _pair_flagged(pair) else ComparisonVerdict.OK
+    )
+
+
 def assess_pair(a: AnalysisResult, b: AnalysisResult) -> PairComparison:
     """Assess the comparability of two projects (SPECS §8.5)."""
     kind_a, kind_b = classify_project(a), classify_project(b)
@@ -335,33 +351,61 @@ def assess_pair(a: AnalysisResult, b: AnalysisResult) -> PairComparison:
                     )
                 )
 
-    verdict = ComparisonVerdict.OK
-    if (
-        subject in (SubjectVerdict.INCOMPATIBLE, SubjectVerdict.UNKNOWN)
-        or kind_mismatch
-        or language_compatible is False
-    ):
-        verdict = ComparisonVerdict.WARNING
-
-    return PairComparison(
+    pair = PairComparison(
         url_a=a.url,
         url_b=b.url,
         kinds=(kind_a, kind_b),
         subject=subject,
         language_compatible=language_compatible,
         kind_mismatch=kind_mismatch,
-        verdict=verdict,
+        verdict=ComparisonVerdict.OK,
         reasons=reasons,
         notes=notes,
     )
+    _recompute_pair_verdict(pair)
+    return pair
 
 
 def compare_results(results: list[AnalysisResult]) -> ComparisonResult:
     """Assess every pair of the given analysis results."""
     pairs = [assess_pair(a, b) for a, b in itertools.combinations(results, 2)]
-    warnings = [
+    return ComparisonResult(
+        projects=list(results),
+        pairs=pairs,
+        warnings=_build_warnings(pairs),
+    )
+
+
+def _build_warnings(pairs: list[PairComparison]) -> list[str]:
+    """Localized summary of the flagged pairs."""
+    return [
         t("cmp_warning", a=str(p.url_a), b=str(p.url_b))
         for p in pairs
         if p.verdict == ComparisonVerdict.WARNING
     ]
-    return ComparisonResult(projects=list(results), pairs=pairs, warnings=warnings)
+
+
+def apply_subject_refinement(
+    comparison: ComparisonResult, verdicts: dict[frozenset[str], bool]
+) -> None:
+    """Lift deterministic ``unknown`` subject verdicts using external
+    (LLM) judgments, keyed by ``frozenset({url_a, url_b})``.
+
+    Only ``unknown`` pairs are touched — deterministic ``compatible`` /
+    ``incompatible`` verdicts always win. Pairs and warnings are updated
+    in place.
+    """
+    for pair in comparison.pairs:
+        if pair.subject != SubjectVerdict.UNKNOWN:
+            continue
+        same = verdicts.get(frozenset({str(pair.url_a), str(pair.url_b)}))
+        if same is None:
+            continue
+        if same:
+            pair.subject = SubjectVerdict.COMPATIBLE
+            pair.reasons.insert(0, t("cmp_subject_llm_compatible"))
+        else:
+            pair.subject = SubjectVerdict.INCOMPATIBLE
+            pair.reasons.insert(0, t("cmp_subject_llm_incompatible"))
+        _recompute_pair_verdict(pair)
+    comparison.warnings = _build_warnings(comparison.pairs)

@@ -111,6 +111,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_language_incompatible": (
             "bibliothèques dans des langages différents ({langs_a} vs {langs_b})"
         ),
+        "cmp_subject_llm_compatible": "l'IA juge les sujets compatibles",
+        "cmp_subject_llm_incompatible": "l'IA juge les sujets différents",
         "cmp_kind_mismatch": "un projet est une bibliothèque, l'autre une application",
         "cmp_kind_unknown": "type inconnu pour {repo} — traité comme une application",
         "cmp_warning": "{a} vs {b} : comparaison peu crédible",
@@ -475,6 +477,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_language_incompatible": (
             "libraries in different languages ({langs_a} vs {langs_b})"
         ),
+        "cmp_subject_llm_compatible": "LLM judged the subjects compatible",
+        "cmp_subject_llm_incompatible": "LLM judged the subjects different",
         "cmp_kind_mismatch": "one project is a library, the other an application",
         "cmp_kind_unknown": "unknown project kind for {repo} — treated as an application",
         "cmp_warning": "{a} vs {b}: comparison may not be credible",

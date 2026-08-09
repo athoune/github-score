@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 
 from gh_score.config import Config
-from gh_score.core.api import analyze_repo, analyze_repo_async
+from gh_score.core.api import analyze_repo, analyze_repo_async, refine_comparison_subjects
 from gh_score.core.analyzers.license_analyzer import license_family_label
 from gh_score.core.cache import Cache
 from gh_score.core.comparison import (
@@ -576,6 +576,9 @@ def analyze(
             with console.status(f"[bold blue]{t('cli_analyzing_many')}[/bold blue]"):
                 results = asyncio.run(_gather_analyses(targets, config))
             comparison = compare_results(list(results))
+            # Optional LLM: lift deterministic 'unknown' subject verdicts.
+            if config.llm.enabled:
+                asyncio.run(refine_comparison_subjects(comparison, config))
 
             renderer = _COMPARISON_RENDERERS.get(output_format, render_comparison)
             renderer(comparison, console)

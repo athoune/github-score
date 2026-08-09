@@ -8,6 +8,7 @@ from gh_score.core.comparison import (
     ComparisonVerdict,
     ProjectKind,
     SubjectVerdict,
+    apply_subject_refinement,
     assess_pair,
     classify_project,
     compare_results,
@@ -286,3 +287,70 @@ class TestCompareResults:
         a = _result(name="a", topics=["http"])
         b = _result(name="b", topics=["http"])
         assert compare_results([a, b]).warnings == []
+
+
+class TestApplySubjectRefinement:
+    """LLM subject judgments only lift deterministic 'unknown' verdicts."""
+
+    @pytest.fixture(autouse=True)
+    def _english(self, monkeypatch):
+        _pinned_en(monkeypatch)
+
+    @staticmethod
+    def _unknown_pair():
+        # Disjoint non-generic topics, no descriptions → subject unknown.
+        a = _result(name="a", topics=["http"])
+        b = _result(name="b", topics=["database"])
+        return compare_results([a, b]), a, b
+
+    def test_lifts_unknown_to_compatible(self):
+        comparison, a, b = self._unknown_pair()
+        pair = comparison.pairs[0]
+        assert pair.subject == SubjectVerdict.UNKNOWN
+        assert pair.verdict == ComparisonVerdict.WARNING
+
+        apply_subject_refinement(
+            comparison, {frozenset({str(a.url), str(b.url)}): True}
+        )
+
+        assert pair.subject == SubjectVerdict.COMPATIBLE
+        assert pair.verdict == ComparisonVerdict.OK
+        assert comparison.warnings == []
+        assert t("cmp_subject_llm_compatible", lang="en") in pair.reasons
+
+    def test_lifts_unknown_to_incompatible(self):
+        comparison, a, b = self._unknown_pair()
+        pair = comparison.pairs[0]
+
+        apply_subject_refinement(
+            comparison, {frozenset({str(a.url), str(b.url)}): False}
+        )
+
+        assert pair.subject == SubjectVerdict.INCOMPATIBLE
+        assert pair.verdict == ComparisonVerdict.WARNING
+        assert len(comparison.warnings) == 1
+
+    def test_deterministic_verdict_never_overridden(self):
+        a = _result(name="a", topics=["http"])
+        b = _result(name="b", topics=["http"])
+        comparison = compare_results([a, b])
+        pair = comparison.pairs[0]
+        assert pair.subject == SubjectVerdict.COMPATIBLE
+
+        # The LLM disagrees: it must be ignored.
+        apply_subject_refinement(
+            comparison, {frozenset({str(a.url), str(b.url)}): False}
+        )
+
+        assert pair.subject == SubjectVerdict.COMPATIBLE
+        assert pair.verdict == ComparisonVerdict.OK
+
+    def test_missing_llm_verdict_leaves_pair_untouched(self):
+        comparison, _, _ = self._unknown_pair()
+        pair = comparison.pairs[0]
+
+        apply_subject_refinement(comparison, {})
+
+        assert pair.subject == SubjectVerdict.UNKNOWN
+        assert pair.verdict == ComparisonVerdict.WARNING
+        assert len(comparison.warnings) == 1

@@ -1,7 +1,7 @@
 # TODO
 
-Remaining actions after the test-hardening session
-(suite at 87% coverage, 366 tests). Last updated: 2026-08-07.
+Remaining actions after the comparison feature
+(suite at 89% coverage, 484 tests). Last updated: 2026-08-09.
 
 ## Tests / coverage
 
@@ -78,6 +78,17 @@ item.
       contradiction (the claim vs the extracted fact), to revise its
       explanation. Disabled by default to avoid an extra LLM call on every
       run; re-evaluate if the guard's hit rate justifies it.
+- [x] (done 2026-08-09) **Multi-repo comparison** — `gh-score URL1 URL2
+      [URL3…]` analyzes every repository in parallel and renders a
+      comparison (condensed no-scroll TUI, JSON, Markdown) with a
+      per-pair comparability assessment that never blocks: project
+      classification (library/application), consumer languages with
+      binding detection (registries + `bindings/*` dirs, JS ≡ TS),
+      subject matching (non-generic topics → description keywords →
+      unknown). Optional LLM lifts only `unknown` subject verdicts.
+      Follow-ups: tune the subject thresholds (`_SUBJECT_MIN_TOKEN_LEN`,
+      generic token/topic lists) against real projects; detect bindings
+      that never publish to a registry (ctypes/JNI — see SPECS §16).
 
 ## Product / housekeeping
 

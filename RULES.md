@@ -186,6 +186,114 @@ Rules:
 - Invalid LLM output (unknown level, unparseable JSON, provider failure)
   simply hides the refined panel; the pipeline never breaks.
 
+## Comparison comparability rules
+
+`gh-score URL1 URL2 [URL3…]` compares several repositories and assesses,
+for every pair, whether the comparison is credible: the projects must
+address the same subject, and libraries must be consumable from a common
+language. Verdicts never block — a non-credible comparison is still
+produced, with the flagged pairs explained. Computed by
+`gh_score.core.comparison.assess_pair` from the `AnalysisResult` objects.
+
+### Project classification (library / application)
+
+First matching rule wins (`classify_project`):
+
+1. Published on a code registry (PyPI, npm, crates.io, RubyGems, Maven,
+   Go — Docker excluded) → `library`.
+2. `Dockerfile` / `docker-compose*` at the root and no manifest →
+   `application`.
+3. Description keywords: library words (`library`, `framework`, `sdk`,
+   `toolkit`, `binding`, `wrapper`, `client`, `package`, `api`) without
+   application words → `library`; application words (`application`,
+   `app`, `cli`, `command-line`, `tool`, `server`, `daemon`, `bot`,
+   `website`, `webapp`, `service`, `utility`) without library words →
+   `application`.
+4. A manifest exists (`pyproject.toml`, `package.json`, `Cargo.toml`,
+   `go.mod`, `*.gemspec`, `pom.xml`, …) → `library`.
+5. Otherwise → `unknown`, relaxed to `application` for the language rules
+   (a project without evidence of being a library is not constrained by
+   language).
+
+### Consumer languages (libraries only)
+
+A library is consumable from its **consumer languages**: the primary
+language (Linguist) plus the languages implied by registry publications
+(PyPI → python, npm → javascript, crates.io → rust, RubyGems → ruby,
+Maven → java, Go → go) plus explicit `bindings/<lang>` root directories.
+A Rust project published on PyPI has consumer set `{rust, python}` and
+can be compared with a Python library.
+
+Normalization: TypeScript ≡ JavaScript (`javascript`); `node` / `js` /
+`ts` binding-directory aliases map to `javascript`.
+
+Two libraries are **language-compatible** when their consumer sets
+intersect. An empty consumer set is undetermined, never incompatible.
+Applications (and unknown kinds) are exempt from the language rule.
+
+### Subject comparability
+
+Language-name and generic topics (`python`, `framework`,
+`hacktoberfest`, …) carry no subject information and are excluded:
+
+1. Both projects have non-generic topics → a shared topic means
+   `compatible`; disjoint non-generic topics defer to the description
+   rule below.
+2. Both have a description → at least one shared meaningful token
+   (stopwords, generic project words and language names excluded, min
+   length 3) means `compatible`, otherwise `incompatible`.
+3. Otherwise → `unknown` (not enough signal; the pair is flagged for
+   information).
+
+LLM (optional): when `llm.enabled`, the LLM judges subject equivalence
+from the topics and descriptions of every project. It only lifts
+`unknown` to `compatible` / `incompatible`; a deterministic verdict
+always wins (same principle as the maintenance branches: commit data
+wins over prose).
+
+### Pair verdict (decision tree)
+
+| # | Condition | Verdict |
+|---|-----------|---------|
+| 1 | Subject `incompatible` or `unknown` | warning |
+| 2 | Both libraries, disjoint consumer languages | warning |
+| 3 | One library, one application (kind mismatch) | warning |
+| 4 | Otherwise | ok |
+
+Warnings never prevent the comparison.
+
+### Thresholds (`core/comparison.py`)
+
+| Constant | Value | Used for |
+|----------|-------|----------|
+| `_SUBJECT_MIN_TOKEN_LEN` | 3 | description token matching |
+| `_GENERIC_TOPICS` | language names + `library`, `frameworks`, `hacktoberfest`, `awesome` | topic filtering |
+| `_SUBJECT_GENERIC_TOKENS` | function words + generic project words + language names | description token filtering |
+| `_LIBRARY_KEYWORDS` / `_APPLICATION_KEYWORDS` | see classification above | library/application detection |
+
+Binding detection is limited to registry publications and explicit
+`bindings/<lang>` directories: bindings that never publish to a registry
+(ctypes, JNI, …) are not detected (SPECS §16).
+
+### Message catalog (comparison)
+
+| Key | French | English |
+|-----|--------|---------|
+| `cmp_subject_topic` | sujets compatibles — topic partagé : {topics} | compatible subjects — shared topic: {topics} |
+| `cmp_subject_desc` | sujets compatibles — mots-clés partagés : {tokens} | compatible subjects — shared keywords: {tokens} |
+| `cmp_subject_desc_disjoint` | sujets différents — descriptions sans mot-clé commun | different subjects — no shared description keyword |
+| `cmp_subject_unknown` | sujets non vérifiables (pas de topics ni de description exploitable) | subjects cannot be verified (no topics or usable description) |
+| `cmp_subject_llm_compatible` | l'IA juge les sujets compatibles | LLM judged the subjects compatible |
+| `cmp_subject_llm_incompatible` | l'IA juge les sujets différents | LLM judged the subjects different |
+| `cmp_language_compatible` | langages compatibles ({langs}) | compatible languages ({langs}) |
+| `cmp_language_incompatible` | bibliothèques dans des langages différents ({langs_a} vs {langs_b}) | libraries in different languages ({langs_a} vs {langs_b}) |
+| `cmp_kind_mismatch` | un projet est une bibliothèque, l'autre une application | one project is a library, the other an application |
+| `cmp_kind_unknown` | type inconnu pour {repo} — traité comme une application | unknown project kind for {repo} — treated as an application |
+| `cmp_warning` | {a} vs {b} : comparaison peu crédible | {a} vs {b}: comparison may not be credible |
+
+The full catalog (TUI and Markdown labels included) lives in
+`src/gh_score/i18n.py`.
+
 ## Reasoning
 
 Each verdict carries a `reasoning` list: the triggering signal plus

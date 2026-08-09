@@ -304,13 +304,35 @@ async def _fetch_pypi(package_name: str, cache: Cache) -> RegistryInfo:
     return info
 
 
+def _pypi_license_name(pkg_info: dict[str, Any]) -> str | None:
+    """Extract a short license name from PyPI metadata.
+
+    PyPI's legacy ``license`` field often carries the full license text
+    (e.g. the oikb package) instead of an identifier; ``license_expression``
+    (PEP 639) and Trove ``classifiers`` are preferred when present, and the
+    free-text field is reduced to its first line (the license name).
+    """
+    expression = pkg_info.get("license_expression")
+    if expression:
+        return expression
+    for classifier in pkg_info.get("classifiers", []):
+        match = re.search(r"^License :: OSI Approved :: (.+)$", classifier)
+        if match:
+            return match.group(1).strip()
+    raw = pkg_info.get("license")
+    if not raw:
+        return None
+    first_line = raw.splitlines()[0].strip()
+    return first_line or None
+
+
 def _parse_pypi_response(data: dict[str, Any], info: RegistryInfo) -> RegistryInfo:
     """Parse PyPI API response."""
     info.exists = True
 
     pkg_info = data.get("info", {})
     info.latest_version = pkg_info.get("version")
-    info.registry_license = pkg_info.get("license")
+    info.registry_license = _pypi_license_name(pkg_info)
 
     # Upload time for latest release
     releases = data.get("releases", {})
@@ -552,7 +574,14 @@ def _parse_go_response(data: dict[str, Any], info: RegistryInfo) -> RegistryInfo
     if module:
         info.exists = True
         info.latest_version = module.get("latestVersion")
-        info.registry_license = module.get("license")
+
+        # pkg.go.dev can express the license either as a string or as an
+        # object {"type": ..., "filePath": ...}; keep only the identifier.
+        license_data = module.get("license")
+        if isinstance(license_data, dict):
+            info.registry_license = license_data.get("type")
+        elif isinstance(license_data, str):
+            info.registry_license = license_data
 
         # Version timestamp
         updated = module.get("updatedAt")
@@ -963,15 +992,25 @@ async def fetch_registry_info(
     return results
 
 
+def _normalize_license_label(label: str) -> str:
+    """Normalize a license label for comparison.
+
+    Uppercases, collapses whitespace and drops a trailing "license"/"licence"
+    word so that "MIT License" compares equal to the SPDX id "MIT".
+    """
+    normalized = " ".join(label.upper().split())
+    return normalized.removesuffix(" LICENSE").removesuffix(" LICENCE")
+
+
 def _compare_licenses(registries: list[RegistryInfo], repo: Repository) -> None:
     """Compare registry-declared licenses with GitHub-detected license."""
     github_license = repo.license.spdx_id
     if not github_license:
         return
 
+    gh_license = _normalize_license_label(github_license)
     for reg in registries:
         if reg.registry_license and reg.exists:
-            # Normalize for comparison
-            reg_license = reg.registry_license.upper().strip()
-            gh_license = github_license.upper().strip()
-            reg.license_matches_github = reg_license == gh_license
+            reg.license_matches_github = (
+                _normalize_license_label(reg.registry_license) == gh_license
+            )

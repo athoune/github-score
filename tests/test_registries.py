@@ -39,6 +39,7 @@ from gh_score.core.fetchers.registries import (
     _fetch_rubygems,
     _fetch_rubygems_dependents,
     _parse_docker_response,
+    _parse_go_response,
     _parse_maven_response,
     _parse_npm_response,
     _parse_pypi_response,
@@ -432,6 +433,66 @@ class TestParsers:
         }
         info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
         assert info.latest_date is None
+
+    def test_pypi_license_full_text_reduced_to_first_line(self):
+        """The legacy license field may carry the whole license text; only
+        the first line (the license name) is kept."""
+        data = {
+            "info": {
+                "version": "1.0.0",
+                "license": (
+                    "MIT License\n\n"
+                    "Copyright (c) 2026 Someone\n\n"
+                    "Permission is hereby granted, free of charge, ..."
+                ),
+            },
+            "releases": {},
+        }
+        info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
+        assert info.registry_license == "MIT License"
+
+    def test_pypi_license_expression_preferred(self):
+        data = {
+            "info": {
+                "version": "1.0.0",
+                "license_expression": "MIT",
+                "license": "MIT License\n\nCopyright ...",
+            },
+            "releases": {},
+        }
+        info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
+        assert info.registry_license == "MIT"
+
+    def test_pypi_license_from_classifier(self):
+        data = {
+            "info": {
+                "version": "1.0.0",
+                "classifiers": [
+                    "Programming Language :: Python :: 3",
+                    "License :: OSI Approved :: Apache Software License",
+                ],
+                "license": "",
+            },
+            "releases": {},
+        }
+        info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
+        assert info.registry_license == "Apache Software License"
+
+    def test_pypi_no_license(self):
+        data = {"info": {"version": "1.0.0"}, "releases": {}}
+        info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
+        assert info.registry_license is None
+
+    def test_go_license_dict_type_extracted(self):
+        """pkg.go.dev may express the license as {"type", "filePath"}."""
+        data = {
+            "module": {
+                "latestVersion": "v1.0.0",
+                "license": {"type": "BSD-3-Clause", "filePath": "LICENSE"},
+            },
+        }
+        info = _parse_go_response(data, RegistryInfo(ecosystem="go", package_name="x"))
+        assert info.registry_license == "BSD-3-Clause"
 
     def test_npm_deprecated_string(self):
         data = {
@@ -880,6 +941,14 @@ class TestCompareLicenses:
 
     def test_match(self):
         reg = self._make_registry("MIT")
+        repo = _make_repo()
+        repo.license = LicenseInfo(spdx_id="MIT")
+        _compare_licenses([reg], repo)
+        assert reg.license_matches_github is True
+
+    def test_match_normalizes_trailing_word(self):
+        """Registry "MIT License" must match the GitHub SPDX id "MIT"."""
+        reg = self._make_registry("MIT License")
         repo = _make_repo()
         repo.license = LicenseInfo(spdx_id="MIT")
         _compare_licenses([reg], repo)

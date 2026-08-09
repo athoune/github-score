@@ -90,7 +90,10 @@ The tool **must not** clone repositories automatically. The user can provide an 
 
 ### 6.3 Package registries
 
-Detect whether the project is published on official registries based on repository contents and naming:
+Detect whether the project is published on official registries and collect
+popularity metrics (downloads, dependents). Manifest detection works in
+**both modes**: from a local clone (filesystem) or remotely via the GitHub
+contents API (root file listing + manifest content, see §6.3.7).
 
 | Ecosystem | Registry | Detection inputs | Base API URL |
 |-----------|----------|------------------|--------------|
@@ -109,10 +112,16 @@ Detect whether the project is published on official registries based on reposito
 - **Available data**:
   - Latest version and all releases with upload dates.
   - `requires_python` (minimum Python version).
-  - License classifier.
+  - License: the legacy `license` field often carries the **full license
+    text** instead of an identifier (e.g. the `oikb` package). The tool
+    prefers `license_expression` (PEP 639), then the `License ::` Trove
+    classifier, then reduces the free text to its first line (the license
+    name). Registry/GitHub comparison normalizes a trailing
+    "license"/"licence" word, so "MIT License" matches the SPDX id "MIT".
   - `home_page`, `project_urls` (docs, changelog, source).
   - `info.author`, `info.maintainer`.
-- **Download stats**: Available via [pypistats](https://pypistats.org/) API (`https://pypistats.org/api/packages/{package}/recent`) or BigQuery. Reports downloads per day/month/year.
+- **Download stats**: Available via [pypistats](https://pypistats.org/) API (`https://pypistats.org/api/packages/{package}/recent`) or BigQuery. Reports downloads per day/month/year. The tool stores `last_month` in `downloads`.
+- **Dependents**: Not exposed by the PyPI API. Fetched from [libraries.io](https://libraries.io/api) (`dependents_count`) when a `LIBRARIES_IO_API_KEY` is configured; otherwise `None` (§6.3.8).
 - **Scope support**: No namespace/scope mechanism. Package names are global and case-insensitive.
 
 #### 6.3.2 Node.js — npm
@@ -124,7 +133,8 @@ Detect whether the project is published on official registries based on reposito
   - `repository.url`, `homepage`, `bugs.url`.
   - Deprecated flag per version.
   - `dist-tags` (latest, beta, next, etc.).
-- **Download stats**: Dedicated API at `https://api.npmjs.org/downloads/point/{period}/{package}` where period is `last-day`, `last-week`, or `last-month`. Also supports range: `https://api.npmjs.org/downloads/range/{start}:{end}/{package}`.
+- **Download stats**: Dedicated API at `https://api.npmjs.org/downloads/point/{period}/{package}` where period is `last-day`, `last-week`, or `last-month`. Also supports range: `https://api.npmjs.org/downloads/range/{start}:{end}/{package}`. The tool stores `last-month` in `recent_downloads` (`downloads` stays unset).
+- **Dependents**: Not exposed by the npm registry API (the packument has no dependents field). Fetched from libraries.io (`dependents_count`) when a `LIBRARIES_IO_API_KEY` is configured; otherwise `None` (§6.3.8).
 - **Scope support**: Scoped packages use `@scope/name` syntax (e.g., `@angular/core`). The API URL encodes the scope as `@scope%2Fname`.
 
 #### 6.3.3 Ruby — RubyGems
@@ -137,7 +147,8 @@ Detect whether the project is published on official registries based on reposito
   - `source_code_uri`, `changelog_uri`, `documentation_uri`, `homepage_uri`, `bug_tracker_uri`.
   - `authors`, `maintainers`.
   - `dependencies` (runtime and development).
-- **Download stats**: Included in the main API response. No separate endpoint needed.
+- **Download stats**: Included in the main API response. No separate endpoint needed. The tool stores the gem total in `downloads` and `version_downloads` (current version) in `recent_downloads`.
+- **Dependents**: `GET /api/v1/gems/{gem}/reverse_dependencies.json` returns the full array of gems depending on this gem (the `page` parameter is ignored; one response holds the whole list). The dependents count is the length of that array. May be capped by RubyGems for very popular gems (§6.3.8).
 - **Scope support**: No namespace mechanism. Gem names are global.
 
 #### 6.3.4 Go — pkg.go.dev
@@ -151,6 +162,7 @@ Detect whether the project is published on official registries based on reposito
   - `/v1beta/search?q={query}` — package search.
   - `/v1beta/vulns/{path}` — known vulnerabilities.
 - **Download stats**: Not directly available. Proxy.golang.org does not publish download counts. Popularity is inferred via `imported-by` count and GitHub stars.
+- **Dependents**: `GET /v1beta/imported-by/{path}` returns `importedBy.total` — the exact number of modules importing this package (§6.3.8).
 - **Scope support**: Module paths are URLs by convention (e.g., `github.com/owner/repo`). No formal namespace, but path prefix indicates hosting.
 
 #### 6.3.5 Rust — crates.io
@@ -164,7 +176,8 @@ Detect whether the project is published on official registries based on reposito
   - `repository`, `homepage`, `documentation`.
   - `categories`, `keywords`, `ategories` (featured status).
   - `versions` array with per-version download counts.
-- **Download stats**: Included in the main response (`downloads`, `recent_downloads`). Per-version stats available in the `versions` array.
+- **Download stats**: Included in the main response (`downloads`, `recent_downloads`). Per-version stats available in the `versions` array. The tool stores the totals as-is.
+- **Dependents**: `GET /api/v1/crates/{crate}/reverse_dependencies` returns the exact count in `meta.total` (§6.3.8).
 - **Scope support**: No namespace mechanism. Crate names are global, lowercase, using hyphens or underscores (which are equivalent).
 
 #### 6.3.6 Common registry metrics
@@ -172,17 +185,83 @@ Detect whether the project is published on official registries based on reposito
 For each detected registry, the tool reports:
 - Whether the package exists on the registry.
 - Latest published version and publication date.
-- Download/download count when available through public APIs.
+- Download/download count when available through public APIs (see §6.3.9 for the per-ecosystem windows).
+- Number of dependent packages (reverse dependencies) when the registry or libraries.io exposes it (§6.3.8).
 - Deprecated/archived status if the registry exposes it.
 - License declared on the registry (compared against GitHub-detected license).
 
 #### 6.3.7 Package name resolution from repository
 
-To link a GitHub repository to its registry package(s), the tool attempts:
+The package name always comes from a manifest file, never from the
+repository name (homonym risk). Manifests are read through a storage
+abstraction with two implementations:
 
-1. **Manifest detection**: Parse `pyproject.toml` (`[project].name`), `package.json` (`name`), `Cargo.toml` (`[package].name`), `go.mod` (module path), `*.gemspec` (`spec.name`).
-2. **Naming heuristics**: When no manifest is available locally, infer the package name from the repository name (lowercased, dashes normalized). This is unreliable and should be flagged as a heuristic.
-3. **Cross-reference**: Query the registry API to confirm existence. Report `exists: false` if not found.
+- **Local mode** (`LocalManifestStore`): files are listed and read from the
+  local clone filesystem.
+- **Remote mode** (`RemoteManifestStore`): the root file list comes from
+  `community.root_files` (GitHub contents API, already fetched by
+  `fetch_community_files`); manifest content is read through
+  `GitHubFetcher.fetch_file_content`. When the root listing is unavailable,
+  candidate manifests are probed from the primary language (Python →
+  `pyproject.toml` → `setup.py` → `setup.cfg`; JS/TS → `package.json`;
+  Rust → `Cargo.toml`; Go → `go.mod`; Ruby → `*.gemspec`; Java/Kotlin/Groovy
+  → `pom.xml` → `build.gradle(.kts)`).
+
+Resolution steps:
+
+1. **Ecosystem detection**: root manifests matching the known names
+   (`pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`, `*.gemspec`,
+   `pom.xml`, `Dockerfile`, …) select the ecosystems. All present ecosystems
+   are kept (multi-ecosystem repositories, e.g. a Rust library with Python
+   bindings).
+2. **Name extraction**: parse `[project].name` (pyproject.toml),
+   `name` (package.json), `[package].name` (Cargo.toml), the `module`
+   directive (go.mod), `spec.name` (`*.gemspec`), `groupId:artifactId`
+   (pom.xml).
+3. **Cross-reference**: query the registry API to confirm existence. Report
+   `exists: false` if not found. When no manifest (or no name inside it) is
+   found for an ecosystem, that ecosystem is skipped — never guessed.
+
+#### 6.3.8 Popularity: dependents (reverse dependencies)
+
+The number of packages that depend on this library is the primary
+popularity signal alongside downloads. Sources per ecosystem:
+
+| Ecosystem | Source | Endpoint | Count |
+|-----------|--------|----------|-------|
+| crates.io | official | `GET /api/v1/crates/{crate}/reverse_dependencies` | `meta.total` (exact) |
+| Go | official | `GET /v1beta/imported-by/{path}` | `importedBy.total` (exact) |
+| RubyGems | official | `GET /api/v1/gems/{gem}/reverse_dependencies.json` | `len(array)` (single response) |
+| PyPI | libraries.io | `GET /api/Pypi/{name}` | `dependents_count` |
+| npm | libraries.io | `GET /api/NPM/{name}` | `dependents_count` |
+| Maven | libraries.io | `GET /api/Maven/{group}/{artifact}` | `dependents_count` |
+| Docker | — | — | `None` |
+
+[libraries.io](https://libraries.io/api) is a third-party aggregator
+(Tidelift/Sonar) requiring a free API key (env `LIBRARIES_IO_API_KEY` or
+`[registries] libraries_io_api_key` in `config.toml`, 60 requests/minute).
+It only fills the gaps left by official registries, never replaces them.
+Without a key, `dependents` stays `None` for PyPI/npm/Maven — no warning is
+emitted: downloads remain available for those ecosystems.
+
+#### 6.3.9 Download statistics semantics
+
+`downloads` and `recent_downloads` do not cover the same window across
+ecosystems — thresholds must be read with this in mind:
+
+| Ecosystem | `downloads` | `recent_downloads` |
+|-----------|-------------|--------------------|
+| PyPI | last 30 days (pypistats `last_month`) | — |
+| npm | — (unset) | last 30 days (`api.npmjs.org` `last-month`) |
+| crates.io | total | last 90 days |
+| RubyGems | total | current-version downloads (`version_downloads`) |
+| Maven | total (`downloadCount`) | — |
+| Go | — (not published by proxy.golang.org) | — |
+| Docker | total pulls (`pull_count`) | — |
+
+Both fields are treated as adoption proxies by the recommendation (see the
+`_WIDELY_USED_*` thresholds in RULES.md); the differing windows are
+documented here to avoid false equivalence.
 
 ### 6.4 Website availability
 
@@ -779,14 +858,14 @@ language-neutral.
 
 ### Phase 4 — Ecosystem depth
 
-- Deeper package registry integration (downloads, deprecation flags).
+- Deeper package registry integration (dependents via libraries.io without
+  key for more platforms; per-version download history).
 - Dependency freshness analysis from manifest files.
 - Changelog/release notes quality heuristics.
 
 ## 16. Open questions
 
 - Should the tool support GitHub Enterprise Server URLs? If so, how is the API base URL configured?
-- Should package registry detection attempt to resolve scoped packages (`@org/name`) automatically?
 - What is the default behavior when a repository has no releases? Does that lower the maintenance state or the release health status?
 - Should contributor affiliation inference respect privacy by avoiding email-domain heuristics unless the user opts in?
 - How far should binding detection go? Registries and root-file manifests cover the common cases (PyPI/npm/crates). Bindings that never publish to a registry (ctypes, JNI, …) are not detected.

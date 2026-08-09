@@ -6,6 +6,8 @@ A Python library and CLI that evaluates the maturity, maintenance state, communi
 
 The primary output is a **dashboard in the terminal** (TUI). Structured outputs are also available: **JSON** for programmatic comparison and LLM-assisted decision making, and **Markdown** for human-readable reports in pull requests, wikis, and documentation.
 
+Several repositories can be compared in a single run (`gh-score URL1 URL2 …`). The tool checks that the comparison is credible — projects must address the same subject, and libraries must be in the same language — and warns otherwise.
+
 The tool favors **quantitative signals** extracted through code. Optional LLM inference is used only for qualitative signals that cannot be reliably derived from APIs or local files.
 
 ## 2. Goals
@@ -15,6 +17,8 @@ The tool favors **quantitative signals** extracted through code. Optional LLM in
 - Minimize human judgment by deriving as much as possible from code.
 - Make LLM usage opt-in, with a local-first default (Ollama).
 - Cache all remote calls to avoid repeated network traffic and API rate-limit issues.
+- Compare several repositories side by side, flagging comparisons that are
+  not credible (different subjects, or different languages for libraries).
 
 ## 3. Non-goals
 
@@ -27,6 +31,7 @@ The tool favors **quantitative signals** extracted through code. Optional LLM in
 - As a developer, I run `gh-score` inside a cloned repository with no arguments and see a health dashboard.
 - As an evaluator, I run `gh-score <repo-url>` to assess a project without cloning it.
 - As an architect, I export a JSON/Markdown report to compare several candidate libraries.
+- As an architect, I run `gh-score URL1 URL2` to compare candidate projects side by side, and I am warned when they do not address the same subject or, for libraries, are not written in the same language.
 - As a privacy-conscious user, I run the tool fully offline: local cache, no LLM, no token.
 
 ## 5. High-level architecture
@@ -37,10 +42,11 @@ gh-score
 │   ├── fetchers        # GitHub API, package registries, local git
 │   ├── models          # Repository, Contributor, Release, Indicator
 │   ├── analyzers       # one per indicator family
+│   ├── comparison      # multi-repo comparison, comparability assessment
 │   └── cache           # persistent HTTP + analysis cache
 ├── cli
-│   ├── commands        # main, report, config
-│   └── renderers       # TUI dashboard, JSON, Markdown
+│   ├── commands        # analyze (1 URL) / compare (2+ URLs), report, config
+│   └── renderers       # TUI dashboard, comparison TUI, JSON, Markdown
 ├── llm                 # optional provider abstraction
 └── config              # settings, credentials, provider selection
 ```
@@ -62,6 +68,7 @@ Used whenever a repository URL is provided. The following fields are fetched:
 - Contributors: GitHub’s contributor statistics endpoint (commits per contributor).
 - Languages: GitHub Linguist breakdown.
 - Remote metadata: `FUNDING.yml`, `GOVERNANCE.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`.
+- Root directory listing (`GET /contents`) — file and directory names at the repository root, used for library/application classification and binding detection.
 
 Authentication:
 - If `GITHUB_TOKEN` is present, use it.
@@ -371,16 +378,119 @@ All thresholds are heuristics, defined as constants in
 `src/gh_score/core/analyzers/recommendation.py` and documented in
 [`RULES.md`](RULES.md).
 
-## 8. LLM integration
+## 8. Multi-repository comparison
+
+Comparing several projects is only credible when they address the same
+subject and, for libraries, are written in the same language. Passing two
+or more URLs analyzes every repository (in parallel) and renders a
+comparison with a **comparability assessment**: pairs that are not
+credible are flagged, and the user is informed why. The comparison is
+never blocked — warnings are informational, the comparison is always
+produced.
+
+The comparability rules are deterministic by default. The LLM is optional
+and, when enabled, can only refine the cases where the deterministic
+rules cannot decide (see §9.3).
+
+### 8.1 Trigger
+
+- `gh-score URL1 URL2 [URL3…]` → comparison mode (2+ URLs).
+- `gh-score URL` or `gh-score` alone → single-repository analysis.
+
+### 8.2 Project classification (library / application)
+
+Each project is classified deterministically as `library`, `application`
+or `unknown`. The first matching rule wins:
+
+1. Published on a code registry (PyPI, npm, crates.io, RubyGems, Maven,
+   Go — Docker excluded) → `library`.
+2. `Dockerfile` / `docker-compose*` at the repository root and no
+   manifest → `application`.
+3. Description keywords: library words (`library`, `framework`, `sdk`,
+   `toolkit`, `binding`, `wrapper`, `client`, …) without application
+   words → `library`; application words (`application`, `app`, `cli`,
+   `tool`, `server`, `daemon`, `bot`, `website`, `service`, …) without
+   library words → `application`.
+4. A manifest exists (`pyproject.toml`, `package.json`, `Cargo.toml`,
+   `go.mod`, `*.gemspec`, `pom.xml`) → `library`.
+5. Otherwise → `unknown`.
+
+An `unknown` project is relaxed to `application` for the language rules:
+without evidence that a project is a library, its language is not a
+comparability constraint. The report notes the unknown kind.
+
+### 8.3 Consumer languages
+
+A library is consumed through its **consumer languages**: the primary
+language (Linguist) plus the languages implied by its registry
+publications (PyPI → python, npm → javascript, crates.io → rust,
+RubyGems → ruby, Maven → java, Go → go). A Rust project published on
+PyPI therefore exposes Python bindings: its consumer set is
+`{rust, python}` and it can be compared with a Python library.
+
+Normalization: JavaScript and TypeScript count as the same language
+(`javascript`); C/C++ aliases follow the language datasets.
+
+Two libraries are **language-compatible** when their consumer-language
+sets intersect. Applications (and unknown projects) are exempt from the
+language rule.
+
+### 8.4 Subject comparability
+
+Per pair, the subject is assessed deterministically:
+
+1. Both projects have GitHub topics → a shared (normalized) topic means
+   `compatible`, otherwise `incompatible`.
+2. Otherwise, both have a description → at least one shared meaningful
+   token (stopwords and generic tokens — language names, "tool",
+   "library", "project", … — excluded) means `compatible`, otherwise
+   `incompatible`.
+3. Otherwise → `unknown` (not enough signal to judge; the pair is
+   flagged for information).
+
+When the LLM is enabled, it judges subject equivalence from topics,
+descriptions and README excerpts. It only lifts a deterministic
+`unknown` to `compatible` / `incompatible`; it never overrides a
+deterministic verdict (same principle as the maintenance branches:
+commit data wins over prose).
+
+### 8.5 Pair verdict
+
+A pair is flagged as a **warning** when:
+
+- the subjects are `incompatible` (or `unknown` — informational);
+- both projects are libraries with disjoint consumer languages;
+- one project is a library and the other an application (different kinds
+  are rarely comparable).
+
+Otherwise the pair is `ok`. Warnings never prevent the comparison.
+
+### 8.6 Output
+
+The comparison reuses the three output formats:
+
+- **TUI**: a condensed view that fits in a terminal window without
+  scrolling — a comparability block listing the flagged pairs with their
+  reasons, then a table with one line per project (project, stars,
+  license, language, maintenance state, last commit, traffic-light
+  verdict).
+- **JSON**: `{"projects": [...], "pairs": [...], "warnings": [...]}`
+  where `projects` are full `AnalysisResult` objects and `pairs` carry
+  the comparability verdicts (`subject`, `language_compatible`, kinds,
+  reasons).
+- **Markdown**: a comparability section, a comparison table, then the
+  full per-project report (same content as a single analysis).
+
+## 9. LLM integration
 
 The LLM module is optional and disabled by default.
 
-### 8.1 Providers
+### 9.1 Providers
 
 - Default: **Ollama** (local, offline-capable).
 - Any provider with an OpenAI-compatible chat completions API (OpenAI, Azure OpenAI, Gemini, etc.).
 
-### 8.2 Configuration
+### 9.2 Configuration
 
 ```toml
 [llm]
@@ -391,7 +501,7 @@ api_key = ""                 # optional, for remote providers
 enabled = false              # default
 ```
 
-### 8.3 LLM responsibilities
+### 9.3 LLM responsibilities
 
 The LLM is given short text excerpts (README, GOVERNANCE, SECURITY) and
 asked to return structured JSON limited to signals with **no deterministic
@@ -402,6 +512,10 @@ implementation**:
 - Commercial support offering.
 - Self-declared maintenance state (`active` / `maintenance` / `abandoned` /
   `unknown`).
+- Subject comparability (comparison mode only): given topics,
+  descriptions and README excerpts of several projects, judge whether
+  each pair addresses the same subject. Only lifts a deterministic
+  `unknown`; never overrides `compatible` / `incompatible`.
 
 Sponsors/backers and the governance model are deliberately **not** asked of
 the LLM: they already have deterministic regex implementations
@@ -413,7 +527,7 @@ report, as a dedicated `QualitativeIndicator` (5th indicator family).
 Commit data always wins over prose: the text-declared abandonment branch
 only fires when the maintenance state is unknown.
 
-### 8.4 Refined recommendation (phase 2)
+### 9.4 Refined recommendation (phase 2)
 
 When the LLM is enabled, a second, complementary verdict is produced from
 a compact digest of **every indicator family** (metadata, maintenance,
@@ -436,26 +550,30 @@ Rules:
 - Invalid output (unknown level, unparseable JSON, provider failure)
   hides the refined panel without breaking the pipeline.
 
-## 9. CLI design
+## 10. CLI design
 
-### 9.1 Commands
+### 10.1 Commands
 
 ```
 gh-score [URL] [OPTIONS]
+gh-score URL1 URL2 [URL3…] [OPTIONS]   # comparison mode (2+ URLs, see §8)
 gh-score report [URL] [OPTIONS]
 gh-score config
 ```
 
-### 9.2 Modes
+### 10.2 Modes
 
 - No arguments: inspect the current directory if it is a git clone with a GitHub remote.
 - `URL`: analyze the repository remotely.
+- `URL1 URL2 [URL3…]`: comparison mode — every URL is analyzed (in
+  parallel, sharing the cache), then a comparison with a comparability
+  assessment is rendered (see §8).
 - `--local PATH`: analyze an existing local clone without using the GitHub API for git data.
 - `--remote`: force remote API analysis even when inside a clone.
 - `--no-llm`: disable LLM analysis even if configured.
 - `--format tui|json|markdown`: default is `tui`. All three formats are supported.
 
-### 9.3 Output
+### 10.3 Output
 
 Three output formats are available via `--format`:
 
@@ -514,16 +632,35 @@ Human-readable report via `--format markdown`. Emits a structured Markdown docum
 
 The Markdown output includes section headings per indicator family, key metrics as bullet points, and license/registry status. The **Recommendation** section (traffic-light verdict) is emitted first.
 
-## 10. Library API
+#### Comparison output
+
+With two or more URLs, the renderers switch to comparison mode (§8):
+
+- **TUI**: condensed, fits a terminal window without scrolling — a
+  comparability block listing the flagged pairs with their reasons, then
+  a table with one line per project (project, stars, license, language,
+  maintenance state, last commit, traffic-light verdict).
+- **JSON**: `{"projects": [...], "pairs": [...], "warnings": [...]}`
+  where `projects` are full `AnalysisResult` objects.
+- **Markdown**: comparability section, comparison table, then the full
+  per-project report.
+
+## 11. Library API
 
 The library is designed for programmatic use.
 
 ```python
-from gh_score import analyze_repo
+from gh_score import analyze_repo, compare_repos
 
 result = analyze_repo("https://github.com/owner/repo")
 print(result.release_health.latest_version)
 print(result.contributors.bus_factor)
+
+comparison = compare_repos([
+    "https://github.com/owner/lib-a",
+    "https://github.com/other/lib-b",
+])
+print(comparison.pairs[0].verdict)  # comparability warning, if any
 ```
 
 Core abstractions:
@@ -533,8 +670,10 @@ Core abstractions:
 - `Fetcher` protocol: implemented for GitHub API, local git, and package registries.
 - `Analyzer` protocol: each indicator family is an analyzer operating on `Repository`.
 - `Cache`: persistent key-value store keyed by URL + fetcher version.
+- `ComparisonResult`: aggregate of `AnalysisResult` objects plus per-pair
+  comparability assessments (`PairComparison`).
 
-## 11. Caching
+## 12. Caching
 
 All network calls are cached locally.
 
@@ -544,7 +683,7 @@ All network calls are cached locally.
 - The cache respects `Cache-Control` headers when provided.
 - A `--refresh` flag forces cache invalidation.
 
-## 12. Configuration
+## 13. Configuration
 
 Configuration is read from:
 
@@ -574,12 +713,12 @@ colors = true
 thresholds = { stale_days = 180, maintenance_commits_per_month = 2 }
 ```
 
-### 12.1 Internationalization
+### 13.1 Internationalization
 
 All user-facing strings are localized: recommendation verdicts and
-reasoning, indicator interpretations, TUI dashboard labels, Markdown
-report headings and CLI console messages. The language is derived from
-the environment using standard locale precedence:
+reasoning, indicator interpretations, comparison messages, TUI dashboard
+labels, Markdown report headings and CLI console messages. The language
+is derived from the environment using standard locale precedence:
 
 1. `LC_ALL`
 2. `LC_MESSAGES`
@@ -592,23 +731,23 @@ Unset or unknown locales fall back to English.
 The lightweight translation layer (`gh_score.i18n`) is dependency-free:
 messages live in a plain catalog dict keyed by stable identifiers, with
 one entry per language. Key groups: `rec_*` (recommendation), `int_*`
-(analyzer interpretations), `state_*`/`status_*` (enum display labels),
-`tui_*`, `md_*` and `cli_*`. The catalog and the decision tree are
-documented in [`RULES.md`](RULES.md). Adding a language means adding a
-catalog dict plus a test.
+(analyzer interpretations), `cmp_*` (comparison), `state_*`/`status_*`
+(enum display labels), `tui_*`, `md_*` and `cli_*`. The catalog and the
+decision tree are documented in [`RULES.md`](RULES.md). Adding a language
+means adding a catalog dict plus a test.
 
 Technical strings (exception messages, click help, enum values in JSON)
 intentionally stay in English: they are machine-oriented and
 language-neutral.
 
-## 13. Security and privacy
+## 14. Security and privacy
 
 - The tool reads only public repository data and local files.
 - The GitHub token is never logged.
 - LLM prompts do not include proprietary user data unless explicitly passed.
 - Local clones are never modified; the tool opens them read-only.
 
-## 14. Roadmap
+## 15. Roadmap
 
 ### Phase 1 — Dashboard foundation
 
@@ -621,8 +760,13 @@ language-neutral.
 
 ### Phase 2 — Batch and comparison
 
-- Batch analysis of multiple repositories.
-- Comparison view.
+- Comparison view (done 2026-08-09): `gh-score URL1 URL2 …` analyzes
+  several repositories in parallel, assesses pair comparability (subject;
+  language for libraries, with binding detection) and warns when the
+  comparison is not credible.
+- Batch analysis of multiple repositories: the comparison mode already
+  analyzes every URL; a standalone batch export without the comparability
+  assessment can be added later.
 
 ### Phase 3 — Scoring model
 
@@ -636,9 +780,10 @@ language-neutral.
 - Dependency freshness analysis from manifest files.
 - Changelog/release notes quality heuristics.
 
-## 15. Open questions
+## 16. Open questions
 
 - Should the tool support GitHub Enterprise Server URLs? If so, how is the API base URL configured?
 - Should package registry detection attempt to resolve scoped packages (`@org/name`) automatically?
 - What is the default behavior when a repository has no releases? Does that lower the maintenance state or the release health status?
 - Should contributor affiliation inference respect privacy by avoiding email-domain heuristics unless the user opts in?
+- How far should binding detection go? Registries and root-file manifests cover the common cases (PyPI/npm/crates). Bindings that never publish to a registry (ctypes, JNI, …) are not detected.

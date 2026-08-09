@@ -176,6 +176,8 @@ def _build_report_digest(result) -> dict[str, Any]:
                 "exists": reg.exists,
                 "latest_version": reg.latest_version,
                 "downloads": reg.downloads,
+                "recent_downloads": reg.recent_downloads,
+                "dependents": reg.dependents,
                 "deprecated": reg.deprecated,
             }
             for reg in result.registries

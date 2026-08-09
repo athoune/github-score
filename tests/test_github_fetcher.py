@@ -371,6 +371,46 @@ class TestFetchCommunityFiles:
         assert community.has_readme is False
 
 
+class TestFetchFileContent:
+    """fetch_file_content powers remote registry detection (SPECS §6.3.7)."""
+
+    @pytest.mark.asyncio
+    async def test_decodes_base64(self, tmp_path):
+        import base64
+
+        fetcher = _make_fetcher(tmp_path)
+        mock_get = AsyncMock(return_value={
+            "content": base64.b64encode(b'[project]\nname = "pyproj"').decode(),
+            "encoding": "base64",
+        })
+        fetcher._get = mock_get  # type: ignore[method-assign]
+
+        content = await fetcher.fetch_file_content(URL, "pyproject.toml")
+        assert content == '[project]\nname = "pyproj"'
+        mock_get.assert_awaited_once()
+        called_with = mock_get.await_args
+        assert called_with is not None
+        # The path is part of the contents URL.
+        assert "/contents/pyproject.toml" in called_with.args[0]
+
+    @pytest.mark.asyncio
+    async def test_missing_file_returns_none(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value=None)
+
+        assert await fetcher.fetch_file_content(URL, "nope.toml") is None
+
+    @pytest.mark.asyncio
+    async def test_bad_encoding_returns_none(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value={
+            "content": "not base64!",
+            "encoding": "utf-8",
+        })
+
+        assert await fetcher.fetch_file_content(URL, "package.json") is None
+
+
 class TestParseFundingYml:
     def test_inline_list(self):
         result = _parse_funding_yml("github: [user1, user2]\n")

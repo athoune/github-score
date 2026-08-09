@@ -17,6 +17,7 @@ _ENV_OVERRIDES = (
     "GH_SCORE_LLM_MODEL",
     "GH_SCORE_LLM_BASE_URL",
     "GH_SCORE_LLM_API_KEY",
+    "LIBRARIES_IO_API_KEY",
 )
 
 
@@ -27,6 +28,7 @@ class TestConfig:
         assert config.cache.ttl_hours == 24
         assert config.llm.enabled is False
         assert config.llm.provider == "ollama"
+        assert config.registries.libraries_io_api_key == ""
 
     def test_load_from_toml(self, monkeypatch):
         # Hermetic: GitHub Actions always sets GITHUB_TOKEN, and local shells
@@ -46,6 +48,9 @@ ttl_hours = 48
 enabled = true
 provider = "openai"
 model = "gpt-4"
+
+[registries]
+libraries_io_api_key = "lio_secret"
 """)
 
             config = Config.load(str(config_path))
@@ -54,6 +59,22 @@ model = "gpt-4"
             assert config.llm.enabled is True
             assert config.llm.provider == "openai"
             assert config.llm.model == "gpt-4"
+            assert config.registries.libraries_io_api_key == "lio_secret"
+
+    def test_registries_env_override(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.toml"
+            config_path.write_text(
+                "[registries]\nlibraries_io_api_key = \"file_key\"\n"
+            )
+
+            os.environ["LIBRARIES_IO_API_KEY"] = "env_key"
+            try:
+                config = Config.load(str(config_path))
+                # Env should override file
+                assert config.registries.libraries_io_api_key == "env_key"
+            finally:
+                del os.environ["LIBRARIES_IO_API_KEY"]
 
     def test_env_override(self):
         with tempfile.TemporaryDirectory() as tmpdir:

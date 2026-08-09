@@ -60,8 +60,8 @@ The rules are evaluated **in order**; the first matching branch wins.
      demo" heuristic does not apply.
 
 6. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
-   - Widely used (≥ 5k stars, ≥ 1k forks, or ≥ 1M registry downloads)
-     → 🟠 "Large project, but now abandoned"
+   - Widely used (≥ 5k stars, ≥ 1k forks, ≥ 1M registry downloads, or
+     ≥ 1k dependents) → 🟠 "Large project, but now abandoned"
    - Otherwise → 🔴 "Abandoned project — no commit for N months"
 
 7. **Active development** (`MaintenanceState.ACTIVE`)
@@ -107,7 +107,8 @@ heuristics to be tuned with real-world examples.
 |----------|-------|----------|
 | `_WIDELY_USED_STARS` | 5 000 | "widely used" mitigation |
 | `_WIDELY_USED_FORKS` | 1 000 | "widely used" mitigation |
-| `_WIDELY_USED_DOWNLOADS` | 1 000 000 | registry downloads mitigation |
+| `_WIDELY_USED_DOWNLOADS` | 1 000 000 | registry downloads mitigation (total or recent window, see below) |
+| `_WIDELY_USED_DEPENDENTS` | 1 000 | registry dependents mitigation (reverse dependencies) |
 | `_LARGE_COMMUNITY_AUTHORS` | 100 | green "large community" |
 | `_LARGE_COMMUNITY_STARS` | 10 000 | green "large community" |
 | `_BOT_DOMINATED_RATIO` | 0.8 | bot-dominated warning |
@@ -116,6 +117,15 @@ heuristics to be tuned with real-world examples.
 | `_EPHEMERAL_AGE_DAYS` | 180 | ephemeral project detection |
 | `_EPHEMERAL_MAX_AUTHORS` | 3 | ephemeral project detection |
 | `_EPHEMERAL_MAX_STARS` | 200 | ephemeral project detection |
+
+**Registry popularity semantics:** `_is_widely_used` treats both
+`downloads` and `recent_downloads` as adoption proxies (the windows differ
+per ecosystem — npm monthly, crates.io 90 days, RubyGems current-version
+downloads, see SPECS §6.3.9), plus `dependents`: the number of packages
+depending on this one, from the official registries (crates.io, RubyGems,
+pkg.go.dev) or from libraries.io for PyPI/npm/Maven when
+`LIBRARIES_IO_API_KEY` is configured (see SPECS §6.3.8). Without a key,
+`dependents` stays unknown for those ecosystems and only downloads count.
 
 ### Website probe (`fetchers/website.py`)
 
@@ -297,9 +307,9 @@ The full catalog (TUI and Markdown labels included) lives in
 ## Reasoning
 
 Each verdict carries a `reasoning` list: the triggering signal plus
-objective facts (stars, author count, owner type) and, when the LLM is
-enabled, qualitative facts (roadmap, commercial support, security policy,
-declared maintenance state). Example:
+objective facts (stars, author count, owner type, registry dependents when
+known) and, when the LLM is enabled, qualitative facts (roadmap, commercial
+support, security policy, declared maintenance state). Example:
 
 ```
 🟢 Active project with a large community
@@ -307,6 +317,7 @@ declared maintenance state). Example:
   • 15,000 stars
   • 150 authors
   • owner: organization
+  • 1,200 packages depend on this library
   • roadmap announced
   • commercial support available
 ```
@@ -349,6 +360,7 @@ declared maintenance state). Example:
 | `reason_mirror` | ce dépôt est un miroir — le développement a lieu ailleurs | this repository is a mirror — development happens elsewhere |
 | `reason_mirror_upstream` | ce dépôt est un miroir de {upstream} | this repository is a mirror of {upstream} |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
+| `fact_dependents` | {count} paquets dépendent de cette bibliothèque | {count} packages depend on this library |
 | `owner_type_user` | utilisateur | user |
 | `owner_type_organization` | organisation | organization |
 | `fact_roadmap` | feuille de route annoncée | roadmap announced |

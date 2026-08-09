@@ -139,7 +139,15 @@ class TestRemotePath:
 
         # Registries fetched in remote mode with local_path=None
         mock_registries.assert_awaited_once()
-        assert mock_registries.await_args.args[1] is None
+        called_with = mock_registries.await_args
+        assert called_with is not None
+        assert called_with.args[1] is None
+        reg_kwargs = called_with.kwargs
+        assert reg_kwargs is not None
+        # Remote mode passes a manifest reader so registry detection works
+        # without a local clone (SPECS §6.3.7), plus the libraries.io key.
+        assert callable(reg_kwargs.get("remote_reader"))
+        assert reg_kwargs.get("libraries_io_key") == ""
 
         # All analyzers ran and produced a result
         assert result.url == RepoUrl("owner", "repo")

@@ -132,6 +132,36 @@ class TestAbandoned:
         rec = _recommend(result)
         assert rec.level == RecommendationLevel.ORANGE
 
+    def test_abandoned_with_high_dependents_is_orange(self):
+        result = _make_result(
+            state=MaintenanceState.ABANDONED,
+            last_commit_days_ago=400,
+            registries=[RegistryInfo(ecosystem="crates.io", dependents=5_000)],
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+        assert rec.message == "Grand projet, mais maintenant abandonné"
+
+    def test_abandoned_with_recent_downloads_is_orange(self):
+        """npm only carries monthly downloads in recent_downloads; it must
+        still count as widely used (SPECS §6.3.9)."""
+        result = _make_result(
+            state=MaintenanceState.ABANDONED,
+            last_commit_days_ago=400,
+            registries=[RegistryInfo(ecosystem="npm", recent_downloads=2_000_000)],
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+
+    def test_abandoned_with_low_dependents_stays_red(self):
+        result = _make_result(
+            state=MaintenanceState.ABANDONED,
+            last_commit_days_ago=400,
+            registries=[RegistryInfo(ecosystem="crates.io", dependents=100)],
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.RED
+
 
 class TestActive:
     def test_active_plain(self):
@@ -164,6 +194,31 @@ class TestActive:
         rec = _recommend(result)
         assert rec.level == RecommendationLevel.GREEN
         assert "grande communauté" in rec.message
+
+    def test_fact_dependents_in_reasoning(self):
+        """The dependents count surfaces in the reasoning as an objective fact."""
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            latest_version="v1.0.0",
+            registries=[
+                RegistryInfo(ecosystem="crates.io", dependents=1_234),
+                RegistryInfo(ecosystem="pypi", dependents=56),
+            ],
+        )
+        rec = _recommend(result)
+        # The max across registries is reported.
+        assert "1234 paquets dépendent de cette bibliothèque" in rec.reasoning
+
+    def test_no_fact_dependents_when_unknown(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            latest_version="v1.0.0",
+            registries=[RegistryInfo(ecosystem="pypi", downloads=10)],
+        )
+        rec = _recommend(result)
+        assert not any("dépendent" in line for line in rec.reasoning)
 
     def test_active_bot_dominated(self):
         result = _make_result(

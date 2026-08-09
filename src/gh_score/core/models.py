@@ -246,8 +246,9 @@ class RegistryInfo:
     exists: bool = False
     latest_version: str | None = None
     latest_date: datetime | None = None
-    downloads: int | None = None  # approximate total downloads
-    recent_downloads: int | None = None  # recent downloads (last 90 days or similar)
+    downloads: int | None = None  # approximate total downloads (per-ecosystem window, see SPECS §6.3.9)
+    recent_downloads: int | None = None  # recent downloads (last 30/90 days or similar)
+    dependents: int | None = None  # number of packages depending on this one (reverse dependencies)
     deprecated: bool = False  # whether the package is marked deprecated
     registry_license: str | None = None  # license declared on the registry (SPDX)
     license_matches_github: bool | None = None  # comparison with GitHub-detected license

@@ -82,16 +82,17 @@ async def analyze_repo_async(
     path = Path(url_or_path)
     is_local = use_local or (path.exists() and (path / ".git").exists())
 
-    if is_local:
-        # Local analysis
-        repo = fetch_local_repo(str(path))
+    fetcher: GitHubFetcher | None = None
+    try:
+        if is_local:
+            # Local analysis
+            repo = fetch_local_repo(str(path))
 
-        # Fetch additional data from GitHub API if we have a URL
-        if repo.url:
-            if not _token_available(config):
-                warnings.append(t("warn_no_token"))
-            fetcher = GitHubFetcher(config, cache)
-            try:
+            # Fetch additional data from GitHub API if we have a URL
+            if repo.url:
+                if not _token_available(config):
+                    warnings.append(t("warn_no_token"))
+                fetcher = GitHubFetcher(config, cache)
                 # Enrich with API data
                 api_repo = await fetcher.fetch_all(repo.url)
                 # Merge: prefer local data for commits/contributors, API for metadata
@@ -103,18 +104,37 @@ async def analyze_repo_async(
                 repo.issues = api_repo.issues
                 repo.security_updates = await fetcher.fetch_security_updates(repo.url)
                 # Keep local commits and contributors (more complete)
-            finally:
-                await fetcher.close()
-    else:
-        # Remote analysis
-        repo_url = RepoUrl.parse(url_or_path)
-        if not _token_available(config):
-            warnings.append(t("warn_no_token"))
-        fetcher = GitHubFetcher(config, cache)
-        try:
+            local_path = str(path)
+        else:
+            # Remote analysis
+            repo_url = RepoUrl.parse(url_or_path)
+            if not _token_available(config):
+                warnings.append(t("warn_no_token"))
+            fetcher = GitHubFetcher(config, cache)
             repo = await fetcher.fetch_all(repo_url)
             repo.security_updates = await fetcher.fetch_security_updates(repo_url)
-        finally:
+            local_path = None
+
+        # Fetch registry information. Remote mode reuses the still-open
+        # fetcher to read manifests through the GitHub contents API, so
+        # registry detection works without a local clone.
+        remote_reader = None
+        if not is_local and fetcher is not None:
+            live_fetcher = fetcher  # non-None reference for the closure
+
+            async def _read_manifest(name: str) -> str | None:
+                return await live_fetcher.fetch_file_content(repo.url, name)
+
+            remote_reader = _read_manifest
+        repo.registries = await fetch_registry_info(
+            repo,
+            local_path,
+            cache,
+            remote_reader=remote_reader,
+            libraries_io_key=config.registries.libraries_io_api_key,
+        )
+    finally:
+        if fetcher is not None:
             await fetcher.close()
 
     # Mirror-only repositories: flag them so the report points at the
@@ -122,10 +142,6 @@ async def analyze_repo_async(
     repo.meta.is_mirror, repo.meta.mirror_upstream = detect_mirror(
         repo.meta.mirror_url, repo.meta.description, repo.readme_content
     )
-
-    # Fetch registry information
-    local_path = str(path) if is_local else None
-    repo.registries = await fetch_registry_info(repo, local_path, cache)
 
     # Probe the project homepage (skip when none is declared)
     if repo.meta.homepage:

@@ -390,6 +390,22 @@ class TestReadmeLanguageKeys:
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
 
 
+class TestRegistryPopularityKeys:
+    """Registry popularity keys (dependents, downloads) exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "fact_dependents",
+                "tui_dependents",
+                "md_section_registries",
+                "cli_cfg_libraries_io",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
 class TestMirrorKeys:
     """Mirror keys exist in both catalogs."""
 

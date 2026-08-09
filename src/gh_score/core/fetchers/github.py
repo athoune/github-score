@@ -461,6 +461,25 @@ class GitHubFetcher:
 
         return community
 
+    async def fetch_file_content(self, url: RepoUrl, path: str) -> str | None:
+        """Fetch a file's decoded text content from the repository.
+
+        Used to read package manifests (pyproject.toml, package.json, …) in
+        remote mode so registry detection does not require a local clone.
+        Returns ``None`` when the file does not exist or cannot be decoded.
+        """
+        data = await self._get(f"{url.api_url}/contents/{path}")
+        if not data or not isinstance(data, dict):
+            return None
+        content = data.get("content", "")
+        encoding = data.get("encoding", "")
+        if content and encoding == "base64":
+            try:
+                return base64.b64decode(content).decode("utf-8")
+            except Exception:
+                return None
+        return None
+
     async def fetch_readme(self, url: RepoUrl) -> str | None:
         """Fetch README content."""
         data = await self._get(f"{url.api_url}/readme")

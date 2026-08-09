@@ -30,6 +30,7 @@ from gh_score.i18n import current_language, t
 _WIDELY_USED_STARS = 5_000
 _WIDELY_USED_FORKS = 1_000
 _WIDELY_USED_DOWNLOADS = 1_000_000
+_WIDELY_USED_DEPENDENTS = 1_000
 _LARGE_COMMUNITY_AUTHORS = 100
 _LARGE_COMMUNITY_STARS = 10_000
 _BOT_DOMINATED_RATIO = 0.8
@@ -45,10 +46,17 @@ def _is_widely_used(result: AnalysisResult) -> bool:
     meta = result.meta
     if meta.stars >= _WIDELY_USED_STARS or meta.forks >= _WIDELY_USED_FORKS:
         return True
-    return any(
-        (reg.downloads or 0) >= _WIDELY_USED_DOWNLOADS
-        for reg in result.registries
-    )
+    for reg in result.registries:
+        if (reg.downloads or 0) >= _WIDELY_USED_DOWNLOADS:
+            return True
+        # npm only carries monthly downloads in recent_downloads; crates.io
+        # and RubyGems report 90-day / current-version windows — all treated
+        # as adoption proxies (SPECS §6.3.9).
+        if (reg.recent_downloads or 0) >= _WIDELY_USED_DOWNLOADS:
+            return True
+        if (reg.dependents or 0) >= _WIDELY_USED_DEPENDENTS:
+            return True
+    return False
 
 
 def _has_large_community(result: AnalysisResult) -> bool:
@@ -150,6 +158,9 @@ def _build(
         reasoning.append(
             t("fact_owner", lang=lang, type=t(f"owner_type_{result.meta.owner_type}", lang=lang))
         )
+    dependents = max((reg.dependents or 0) for reg in result.registries) if result.registries else 0
+    if dependents:
+        reasoning.append(t("fact_dependents", lang=lang, count=dependents))
     if result.qualitative.available:
         if result.qualitative.roadmap:
             reasoning.append(t("fact_roadmap", lang=lang))

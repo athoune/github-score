@@ -47,11 +47,24 @@ class DashboardConfig:
 
 
 @dataclass
+class RegistriesConfig:
+    """Package registry settings.
+
+    ``libraries_io_api_key`` unlocks dependents counts for ecosystems whose
+    official registry exposes none (PyPI, npm, Maven) via the third-party
+    libraries.io aggregator (free account, 60 requests/minute). Without a
+    key, ``dependents`` stays ``None`` for those ecosystems.
+    """
+    libraries_io_api_key: str = ""
+
+
+@dataclass
 class Config:
     github: GitHubConfig = field(default_factory=GitHubConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
     dashboard: DashboardConfig = field(default_factory=DashboardConfig)
+    registries: RegistriesConfig = field(default_factory=RegistriesConfig)
 
     @classmethod
     def load(cls, config_path: str | None = None) -> Config:
@@ -106,6 +119,10 @@ class Config:
                 self.dashboard.colors = bool(dash["colors"])
             if "thresholds" in dash:
                 self.dashboard.thresholds.update(dash["thresholds"])
+        if "registries" in data:
+            regs = data["registries"]
+            if "libraries_io_api_key" in regs:
+                self.registries.libraries_io_api_key = regs["libraries_io_api_key"]
 
     def _apply_env(self) -> None:
         if token := os.environ.get("GITHUB_TOKEN"):
@@ -124,3 +141,5 @@ class Config:
             self.llm.base_url = val
         if val := os.environ.get("GH_SCORE_LLM_API_KEY"):
             self.llm.api_key = val
+        if val := os.environ.get("LIBRARIES_IO_API_KEY"):
+            self.registries.libraries_io_api_key = val

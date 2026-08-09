@@ -26,6 +26,7 @@ from gh_score.core.models import (
     MaintenanceState,
     Recommendation,
     RecommendationLevel,
+    RegistryInfo,
     ReleaseHealthIndicator,
     RepoUrl,
     RepositoryMeta,
@@ -238,6 +239,7 @@ class TestDefaultGroupForwardsArgs:
                     enabled=False, provider="ollama",
                     model="m", base_url="http://x",
                 ),
+                registries=MagicMock(libraries_io_api_key=""),
             )
             result = runner.invoke(cli, ["config"])
 
@@ -474,6 +476,38 @@ class TestMarkdownReport:
 
         assert result.exit_code == 0
         assert "## Website" in result.output
+
+    def test_registries_section_present(self):
+        """The markdown report gained a Package Registries section showing
+        popularity (downloads, dependents)."""
+        runner = CliRunner()
+        analysis = _result_with_warnings()
+        analysis.registries = [
+            RegistryInfo(
+                ecosystem="pypi",
+                package_name="mypkg",
+                exists=True,
+                latest_version="1.0",
+                downloads=2_500_000,
+                dependents=321,
+                registry_license="MIT",
+            ),
+            RegistryInfo(ecosystem="npm", package_name="other", exists=False),
+        ]
+
+        with (
+            patch("gh_score.cli.main.analyze_repo", return_value=analysis),
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = _mock_config()
+            result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
+
+        assert result.exit_code == 0
+        assert "## Package Registries" in result.output
+        assert "**pypi**: mypkg @ 1.0" in result.output
+        assert "downloads: 2,500,000" in result.output
+        assert "dependents: 321" in result.output
+        assert "**npm**: other (not found)" in result.output
 
 
 class TestComparisonRenderers:

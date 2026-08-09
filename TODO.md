@@ -1,16 +1,16 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 89% coverage, 484 tests). Last updated: 2026-08-09.
+(suite at 89% coverage, 530 tests). Last updated: 2026-08-09.
 
 ## Tests / coverage
 
-- [ ] `cli/main.py` (79%) — direct tests for the Markdown renderers
+- [ ] `cli/main.py` (84%) — direct tests for the Markdown renderers
       (`_md_*`), `_render_json` and the CLI commands (`analyze`, `report`,
       `config`).
-- [ ] `fetchers/github.py` (68%) — cover `_get` (rate-limit warning,
+- [ ] `fetchers/github.py` (80%) — cover `_get` (rate-limit warning,
       cache write), `fetch_community_files` (base64 FUNDING.yml),
-      `fetch_readme`, `fetch_all` (asyncio.gather).
+      `fetch_all` (asyncio.gather).
 - [ ] `fetchers/website.py` (93%) — cover the remaining error branches:
       `_classify_request_error` OTHER fallback and the cache round-trip
       error/typo paths.
@@ -28,6 +28,13 @@ Remaining actions after the comparison feature
 
 ## Code smells (spotted while writing tests)
 
+- [x] (done 2026-08-09) PyPI `info.license` full-text spill — the legacy
+      field sometimes carries the whole license text (e.g. the `oikb`
+      package); `_parse_pypi_response` now prefers `license_expression`
+      (PEP 639), then `License ::` Trove classifiers, then the first line
+      of the free text. `_compare_licenses` normalizes a trailing
+      "license"/"licence" word ("MIT License" == SPDX "MIT") and the Go
+      `module.license` object shape (`{"type", "filePath"}`) is guarded.
 - [x] (done 2026-08-07) `local_git.py` dead `_extract_package_name` call — removed the
       discarded call plus the duplicate `_detect_ecosystem` /
       `_extract_package_name` helpers; registry lookup now lives solely in
@@ -89,6 +96,20 @@ item.
       Follow-ups: tune the subject thresholds (`_SUBJECT_MIN_TOKEN_LEN`,
       generic token/topic lists) against real projects; detect bindings
       that never publish to a registry (ctypes/JNI — see SPECS §16).
+- [x] (done 2026-08-09) **Registry popularity (dependents + downloads)** —
+      number of packages depending on the library (reverse dependencies)
+      from the official registries (crates.io `meta.total`, RubyGems array
+      length, pkg.go.dev `importedBy.total` — the Go counter was dead code
+      and misparsed the response; now wired and fixed) and from libraries.io
+      for PyPI/npm/Maven when `LIBRARIES_IO_API_KEY` is set. Downloads
+      semantics documented per ecosystem (SPECS §6.3.9); npm monthly
+      downloads now count toward "widely used"; `fact_dependents` reasoning
+      line; registry detection works in remote mode (`root_files` + manifest
+      content via the GitHub contents API) with a language-based fallback;
+      the Markdown report gained a Package Registries section.
+      Follow-ups: RubyGems dependents may be capped for very popular gems
+      (approximate floor); libraries.io needs a free API key (60 req/min);
+      the `*.gemspec` language fallback still needs a root listing.
 
 ## Product / housekeeping
 

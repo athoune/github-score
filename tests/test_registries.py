@@ -5,12 +5,16 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from gh_score.core.cache import Cache
 from gh_score.core.fetchers.registries import (
+    LocalManifestStore,
+    RemoteManifestStore,
+    _collect_ecosystems,
     _compare_licenses,
     _detect_ecosystems,
     _extract_crate_name,
@@ -20,16 +24,20 @@ from gh_score.core.fetchers.registries import (
     _extract_maven_coordinates,
     _extract_npm_package_name,
     _extract_package_name,
-    _extract_python_package_name,
+    _extract_pyproject_name,
+    _extract_setup_cfg_name,
     _fetch_crates,
+    _fetch_crates_dependents,
     _fetch_docker,
     _fetch_go,
     _fetch_go_imported_by,
+    _fetch_libraries_io_dependents,
     _fetch_maven,
     _fetch_npm_downloads,
     _fetch_pypi,
     _fetch_pypi_downloads,
     _fetch_rubygems,
+    _fetch_rubygems_dependents,
     _parse_docker_response,
     _parse_maven_response,
     _parse_npm_response,
@@ -40,7 +48,7 @@ from gh_score.core.fetchers.registries import (
 from gh_score.core.models import LicenseInfo, RegistryInfo, RepoUrl, Repository
 
 
-def _mock_http_response(status_code: int, payload: dict) -> MagicMock:
+def _mock_http_response(status_code: int, payload: Any) -> MagicMock:
     """Build a fake httpx response with the given status and JSON body."""
     resp = MagicMock()
     resp.status_code = status_code
@@ -61,70 +69,218 @@ def _mock_async_client(*responses: MagicMock) -> AsyncMock:
     return instance
 
 
+def _make_repo(owner: str = "acme", repo: str = "widgets") -> Repository:
+    """Build a minimal Repository for tests."""
+    return Repository(url=RepoUrl(owner=owner, repo=repo))
+
+
+# ---------------------------------------------------------------------------
+# Manifest stores
+# ---------------------------------------------------------------------------
+
+class TestManifestStores:
+    def test_local_store_lists_root_files(self, tmp_path):
+        (tmp_path / "package.json").write_text('{"name": "x"}')
+        (tmp_path / "README.md").write_text("# readme")
+        (tmp_path / "src").mkdir()
+        store = LocalManifestStore(tmp_path)
+        assert store.files() == ["README.md", "package.json"]
+
+    @pytest.mark.asyncio
+    async def test_local_store_reads_content(self, tmp_path):
+        (tmp_path / "go.mod").write_text("module example.com/foo\n")
+        store = LocalManifestStore(tmp_path)
+        assert await store.read("go.mod") == "module example.com/foo\n"
+        assert await store.read("missing.toml") is None
+
+    def test_remote_store_lists_root_files(self):
+        async def reader(name: str) -> str | None:
+            return None
+
+        store = RemoteManifestStore(["package.json", "mygem.gemspec"], reader=reader)
+        assert store.files() == ["package.json", "mygem.gemspec"]
+
+    @pytest.mark.asyncio
+    async def test_remote_store_reads_through_reader(self):
+        async def reader(name: str):
+            return '{"name": "x"}' if name == "package.json" else None
+
+        store = RemoteManifestStore(["package.json"], reader=reader)
+        assert await store.read("package.json") == '{"name": "x"}'
+        assert await store.read("pyproject.toml") is None
+
+    @pytest.mark.asyncio
+    async def test_remote_store_swallows_reader_errors(self):
+        async def reader(name: str):
+            raise RuntimeError("boom")
+
+        store = RemoteManifestStore(["package.json"], reader=reader)
+        assert await store.read("package.json") is None
+
+
 # ---------------------------------------------------------------------------
 # Ecosystem detection
 # ---------------------------------------------------------------------------
 
 class TestDetectEcosystems:
-    """Tests for _detect_ecosystems."""
+    """_detect_ecosystems works on a root file list (local or remote)."""
 
-    def test_npm_project(self, tmp_path):
-        (tmp_path / "package.json").write_text("{}")
-        assert _detect_ecosystems(tmp_path) == ["npm"]
+    def test_npm_project(self):
+        assert _detect_ecosystems(["package.json"]) == ["npm"]
 
-    def test_python_project(self, tmp_path):
-        (tmp_path / "pyproject.toml").write_text('[project]\nname = "foo"')
-        assert _detect_ecosystems(tmp_path) == ["pypi"]
+    def test_python_project(self):
+        assert _detect_ecosystems(["pyproject.toml"]) == ["pypi"]
 
-    def test_rust_project(self, tmp_path):
-        (tmp_path / "Cargo.toml").write_text('[package]\nname = "foo"')
-        assert _detect_ecosystems(tmp_path) == ["crates.io"]
+    def test_rust_project(self):
+        assert _detect_ecosystems(["Cargo.toml"]) == ["crates.io"]
 
-    def test_go_project(self, tmp_path):
-        (tmp_path / "go.mod").write_text("module example.com/foo")
-        assert _detect_ecosystems(tmp_path) == ["go"]
+    def test_go_project(self):
+        assert _detect_ecosystems(["go.mod"]) == ["go"]
 
-    def test_no_manifests(self, tmp_path):
-        assert _detect_ecosystems(tmp_path) == []
+    def test_case_insensitive_dockerfile(self):
+        # Remote root files are lowercased by fetch_community_files.
+        assert _detect_ecosystems(["dockerfile"]) == ["docker"]
 
-    def test_none_path(self):
+    def test_gemspec_glob(self):
+        assert _detect_ecosystems(["mygem.gemspec"]) == ["rubygems"]
+
+    def test_no_manifests(self):
+        assert _detect_ecosystems(["README.md"]) == []
+
+    def test_empty_list(self):
+        assert _detect_ecosystems([]) == []
+
+    def test_none(self):
         assert _detect_ecosystems(None) == []
-
-    def test_nonexistent_path(self):
-        assert _detect_ecosystems(Path("/nonexistent")) == []
 
 
 # ---------------------------------------------------------------------------
-# Package name extraction from config files
+# Package name extraction from manifest content
 # ---------------------------------------------------------------------------
 
 class TestExtractPackageName:
     """Package names must come from config files, NOT from the repo name."""
 
-    def test_npm_from_package_json(self, tmp_path):
-        (tmp_path / "package.json").write_text(json.dumps({"name": "@scope/my-lib"}))
-        assert _extract_npm_package_name(tmp_path) == "@scope/my-lib"
+    def test_npm_from_package_json(self):
+        assert _extract_npm_package_name(json.dumps({"name": "@scope/my-lib"})) == "@scope/my-lib"
 
-    def test_npm_missing(self, tmp_path):
-        assert _extract_npm_package_name(tmp_path) is None
+    def test_npm_missing(self):
+        assert _extract_npm_package_name("{}") is None
 
-    def test_python_from_pyproject(self, tmp_path):
-        (tmp_path / "pyproject.toml").write_text('[project]\nname = "my-project"')
-        assert _extract_python_package_name(tmp_path) == "my-project"
+    def test_npm_invalid_json(self):
+        assert _extract_npm_package_name("not json") is None
 
-    def test_python_no_name(self, tmp_path):
-        (tmp_path / "pyproject.toml").write_text('[project]\nversion = "1.0"')
-        assert _extract_python_package_name(tmp_path) is None
+    def test_python_from_pyproject(self):
+        assert _extract_pyproject_name('[project]\nname = "my-project"') == "my-project"
+
+    def test_pyproject_no_name(self):
+        assert _extract_pyproject_name('[project]\nversion = "1.0"') is None
+
+    def test_python_from_setup_cfg(self):
+        assert _extract_setup_cfg_name("[metadata]\nname = mypkg") == "mypkg"
+
+    def test_setup_cfg_no_name(self):
+        assert _extract_setup_cfg_name("[metadata]\nversion = 1.0") is None
+
+    def test_crate_from_cargo_toml(self):
+        assert _extract_crate_name('[package]\nname = "mycrate"') == "mycrate"
+
+    def test_go_module_path(self):
+        assert _extract_go_module_path("module github.com/acme/widgets\n") == "github.com/acme/widgets"
+
+    def test_gem_from_gemspec(self):
+        assert _extract_gem_name('spec.name = "mygem"') == "mygem"
+
+    def test_maven_coordinates(self):
+        content = (
+            "<project><groupId>com.acme</groupId>"
+            "<artifactId>widgets</artifactId></project>"
+        )
+        assert _extract_maven_coordinates(content) == "com.acme:widgets"
+
+    def test_docker_image_from_compose(self):
+        content = "services:\n  web:\n    image: nginx:latest\n"
+        assert _extract_docker_image_name(content) == "nginx:latest"
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_routes(self, tmp_path):
+        (tmp_path / "package.json").write_text('{"name": "x"}')
+        store = LocalManifestStore(tmp_path)
+        assert await _extract_package_name(store, "npm") == "x"
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_unknown_ecosystem(self, tmp_path):
+        store = LocalManifestStore(tmp_path)
+        assert await _extract_package_name(store, "unknown-eco") is None
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_pyproject_before_setup_cfg(self, tmp_path):
+        # pyproject.toml wins over setup.cfg even when both exist.
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "modern"')
+        (tmp_path / "setup.cfg").write_text("[metadata]\nname = legacy")
+        store = LocalManifestStore(tmp_path)
+        assert await _extract_package_name(store, "pypi") == "modern"
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_missing_manifest(self, tmp_path):
+        (tmp_path / "README.md").write_text("x")
+        store = LocalManifestStore(tmp_path)
+        assert await _extract_package_name(store, "npm") is None
+
+
+# ---------------------------------------------------------------------------
+# Language fallback (remote listing unavailable)
+# ---------------------------------------------------------------------------
+
+class TestLanguageFallback:
+    @pytest.mark.asyncio
+    async def test_probes_candidates_from_primary_language(self):
+        repo = _make_repo()
+        repo.languages.languages = {"Python": 100}
+
+        async def reader(name: str):
+            return '[project]\nname = "pyproj"' if name == "pyproject.toml" else None
+
+        store = RemoteManifestStore([], reader=reader)
+        assert await _collect_ecosystems(store, repo) == ["pypi"]
+
+    @pytest.mark.asyncio
+    async def test_no_probe_when_listing_found(self):
+        repo = _make_repo()
+        repo.languages.languages = {"Python": 100}
+
+        async def reader(name: str):
+            return "{}"  # a listing exists: language is ignored
+
+        store = RemoteManifestStore(["package.json"], reader=reader)
+        assert await _collect_ecosystems(store, repo) == ["npm"]
+
+    @pytest.mark.asyncio
+    async def test_no_probe_for_unknown_language(self):
+        repo = _make_repo()
+        repo.languages.languages = {"COBOL": 100}
+
+        async def reader(name: str):
+            return "x"
+
+        store = RemoteManifestStore([], reader=reader)
+        assert await _collect_ecosystems(store, repo) == []
+
+    @pytest.mark.asyncio
+    async def test_no_probe_when_manifest_absent(self):
+        repo = _make_repo()
+        repo.languages.languages = {"Go": 100}
+
+        async def reader(name: str):
+            return None
+
+        store = RemoteManifestStore([], reader=reader)
+        assert await _collect_ecosystems(store, repo) == []
 
 
 # ---------------------------------------------------------------------------
 # Registry info fetching — no inference from repo name
 # ---------------------------------------------------------------------------
-
-def _make_repo(owner: str = "acme", repo: str = "widgets") -> Repository:
-    """Build a minimal Repository for tests."""
-    return Repository(url=RepoUrl(owner=owner, repo=repo))
-
 
 class TestFetchRegistryInfo:
     """fetch_registry_info must only use names from config files, never infer
@@ -170,6 +326,34 @@ class TestFetchRegistryInfo:
         assert result[0].ecosystem == "npm"
         assert result[0].package_name == "left-pad"
         assert result[0].is_heuristic is False
+
+    @pytest.mark.asyncio
+    async def test_remote_mode_uses_reader(self):
+        """Remote mode: manifests are read through the reader, the root
+        listing comes from community.root_files."""
+        repo = _make_repo()
+        repo.community.root_files = ["package.json"]
+        cache = Cache(str(Path("/tmp/gh-score-test-cache-remote")))
+
+        async def reader(name: str):
+            return json.dumps({"name": "left-pad"})
+
+        mock_response = _mock_http_response(200, {
+            "name": "left-pad",
+            "dist-tags": {"latest": "1.3.0"},
+            "time": {},
+            "versions": {},
+        })
+
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            mock_cls.return_value = _mock_async_client(mock_response, mock_response)
+            result = await fetch_registry_info(
+                repo, local_path=None, cache=cache, remote_reader=reader
+            )
+
+        assert len(result) == 1
+        assert result[0].ecosystem == "npm"
+        assert result[0].package_name == "left-pad"
 
     @pytest.mark.asyncio
     async def test_no_heuristic_inference(self, tmp_path):
@@ -226,48 +410,6 @@ class TestFetchRegistryInfo:
         )
 
         assert result == []
-
-
-# ---------------------------------------------------------------------------
-# Remaining package name extractors
-# ---------------------------------------------------------------------------
-
-class TestMoreExtractors:
-    def test_crate_from_cargo_toml(self, tmp_path):
-        (tmp_path / "Cargo.toml").write_text('[package]\nname = "mycrate"')
-        assert _extract_crate_name(tmp_path) == "mycrate"
-
-    def test_go_module_path(self, tmp_path):
-        (tmp_path / "go.mod").write_text("module github.com/acme/widgets\n")
-        assert _extract_go_module_path(tmp_path) == "github.com/acme/widgets"
-
-    def test_gem_from_gemspec(self, tmp_path):
-        (tmp_path / "mygem.gemspec").write_text('spec.name = "mygem"')
-        assert _extract_gem_name(tmp_path) == "mygem"
-
-    def test_maven_coordinates(self, tmp_path):
-        (tmp_path / "pom.xml").write_text(
-            "<project><groupId>com.acme</groupId>"
-            "<artifactId>widgets</artifactId></project>"
-        )
-        assert _extract_maven_coordinates(tmp_path) == "com.acme:widgets"
-
-    def test_docker_image_from_compose(self, tmp_path):
-        (tmp_path / "docker-compose.yml").write_text(
-            "services:\n  web:\n    image: nginx:latest\n"
-        )
-        assert _extract_docker_image_name(tmp_path) == "nginx:latest"
-
-    def test_python_from_setup_cfg(self, tmp_path):
-        (tmp_path / "setup.cfg").write_text("[metadata]\nname = mypkg\n")
-        assert _extract_python_package_name(tmp_path) == "mypkg"
-
-    def test_dispatcher_routes(self, tmp_path):
-        (tmp_path / "package.json").write_text('{"name": "x"}')
-        assert _extract_package_name(tmp_path, "npm") == "x"
-
-    def test_dispatcher_unknown_ecosystem(self, tmp_path):
-        assert _extract_package_name(tmp_path, "unknown-eco") is None
 
 
 # ---------------------------------------------------------------------------
@@ -414,6 +556,19 @@ class TestFetchers:
         assert info.registry_license == "MIT"
 
     @pytest.mark.asyncio
+    async def test_crates_dependents_meta_total(self, tmp_path):
+        cache = Cache(str(tmp_path))
+        resp = _mock_http_response(200, {"dependencies": [], "meta": {"total": 30758}})
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            instance = _mock_async_client(resp)
+            mock_cls.return_value = instance
+            count = await _fetch_crates_dependents("serde", cache)
+
+        assert count == 30758
+        url = instance.get.await_args.args[0]
+        assert "reverse_dependencies" in url
+
+    @pytest.mark.asyncio
     async def test_go_success(self, tmp_path):
         cache = Cache(str(tmp_path))
         resp = _mock_http_response(200, {
@@ -432,7 +587,21 @@ class TestFetchers:
         assert info.registry_license == "BSD-3-Clause"
 
     @pytest.mark.asyncio
-    async def test_go_imported_by_count(self, tmp_path):
+    async def test_go_imported_by_total(self, tmp_path):
+        """The pkg.go.dev response nests items and carries the exact total."""
+        cache = Cache(str(tmp_path))
+        resp = _mock_http_response(200, {
+            "modulePath": "github.com/gorilla/mux",
+            "importedBy": {"items": ["a"], "total": 99459},
+        })
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            mock_cls.return_value = _mock_async_client(resp)
+            count = await _fetch_go_imported_by("github.com/gorilla/mux", cache)
+        assert count == 99459
+
+    @pytest.mark.asyncio
+    async def test_go_imported_by_flat_list_fallback(self, tmp_path):
+        """Legacy flat-array shape is still accepted."""
         cache = Cache(str(tmp_path))
         resp = _mock_http_response(200, {"importedBy": [{"path": "a"}, {"path": "b"}]})
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
@@ -459,6 +628,24 @@ class TestFetchers:
         assert info.latest_version == "7.0.0"
         assert info.downloads == 5000
         assert info.recent_downloads == 100
+
+    @pytest.mark.asyncio
+    async def test_rubygems_dependents_array_length(self, tmp_path):
+        cache = Cache(str(tmp_path))
+        resp = _mock_http_response(200, ["gem-a", "gem-b", "gem-c"])
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            mock_cls.return_value = _mock_async_client(resp)
+            count = await _fetch_rubygems_dependents("rake", cache)
+        assert count == 3
+
+    @pytest.mark.asyncio
+    async def test_rubygems_dependents_non_list(self, tmp_path):
+        cache = Cache(str(tmp_path))
+        resp = _mock_http_response(200, {"error": "boom"})
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            mock_cls.return_value = _mock_async_client(resp)
+            count = await _fetch_rubygems_dependents("rake", cache)
+        assert count is None
 
     @pytest.mark.asyncio
     async def test_maven_success(self, tmp_path):
@@ -516,6 +703,78 @@ class TestFetchers:
 
 
 # ---------------------------------------------------------------------------
+# libraries.io dependents
+# ---------------------------------------------------------------------------
+
+class TestLibrariesIODependents:
+    @pytest.mark.asyncio
+    async def test_requires_key(self, tmp_path):
+        cache = Cache(str(tmp_path))
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            count = await _fetch_libraries_io_dependents("pypi", "foo", "", cache)
+        assert count is None
+        mock_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_unknown_platform(self, tmp_path):
+        cache = Cache(str(tmp_path))
+        count = await _fetch_libraries_io_dependents("docker", "foo", "key", cache)
+        assert count is None
+
+    @pytest.mark.asyncio
+    async def test_pypi_dependents_count(self, tmp_path):
+        cache = Cache(str(tmp_path))
+        resp = _mock_http_response(200, {"dependents_count": 7, "rank": 3})
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            instance = _mock_async_client(resp)
+            mock_cls.return_value = instance
+            count = await _fetch_libraries_io_dependents("pypi", "requests", "key", cache)
+
+        assert count == 7
+        url = instance.get.await_args.args[0]
+        assert "/api/Pypi/requests" in url
+        kwargs = instance.get.await_args.kwargs
+        assert kwargs["params"]["api_key"] == "key"
+
+    @pytest.mark.asyncio
+    async def test_scoped_npm_keeps_slash(self, tmp_path):
+        cache = Cache(str(tmp_path))
+        resp = _mock_http_response(200, {"dependents_count": 3})
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            instance = _mock_async_client(resp)
+            mock_cls.return_value = instance
+            count = await _fetch_libraries_io_dependents("npm", "@babel/core", "key", cache)
+
+        assert count == 3
+        url = instance.get.await_args.args[0]
+        assert "/api/NPM/@babel/core" in url
+
+    @pytest.mark.asyncio
+    async def test_maven_colon_encoded(self, tmp_path):
+        cache = Cache(str(tmp_path))
+        resp = _mock_http_response(200, {"dependents_count": 12})
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            instance = _mock_async_client(resp)
+            mock_cls.return_value = instance
+            count = await _fetch_libraries_io_dependents(
+                "maven", "com.acme:widgets", "key", cache
+            )
+
+        assert count == 12
+        url = instance.get.await_args.args[0]
+        assert "com.acme%3Awidgets" in url
+
+    @pytest.mark.asyncio
+    async def test_missing_field_returns_none(self, tmp_path):
+        cache = Cache(str(tmp_path))
+        resp = _mock_http_response(200, {"name": "foo"})
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            mock_cls.return_value = _mock_async_client(resp)
+            count = await _fetch_libraries_io_dependents("pypi", "foo", "key", cache)
+        assert count is None
+
+
+# ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
 
@@ -549,6 +808,68 @@ class TestOrchestration:
         assert by_eco["pypi"].downloads == 20
         assert by_eco["npm"].latest_version == "1.0.0"
         assert by_eco["npm"].recent_downloads == 10
+
+    @pytest.mark.asyncio
+    async def test_dependents_wired_for_go(self, tmp_path):
+        """Go dependents (imported-by) are fetched and attached."""
+        (tmp_path / "go.mod").write_text("module example.com/mod\n")
+        repo = _make_repo()
+        cache = Cache(str(tmp_path))
+
+        module_resp = _mock_http_response(200, {
+            "module": {"latestVersion": "v1.0.0", "license": "MIT"},
+        })
+        imported_resp = _mock_http_response(200, {
+            "importedBy": {"items": ["a"], "total": 99},
+        })
+
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            mock_cls.return_value = _mock_async_client(module_resp, imported_resp)
+            result = await fetch_registry_info(repo, local_path=str(tmp_path), cache=cache)
+
+        assert len(result) == 1
+        assert result[0].ecosystem == "go"
+        assert result[0].dependents == 99
+
+    @pytest.mark.asyncio
+    async def test_libraries_io_wired_for_pypi(self, tmp_path):
+        """PyPI dependents come from libraries.io when a key is set."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "pylib"')
+        repo = _make_repo()
+        cache = Cache(str(tmp_path))
+
+        pypi_resp = _mock_http_response(200, {"info": {"version": "2.0.0"}, "releases": {}})
+        pypi_dl = _mock_http_response(200, {"data": {"last_month": 20}})
+        libio_resp = _mock_http_response(200, {"dependents_count": 5})
+
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            mock_cls.return_value = _mock_async_client(pypi_resp, pypi_dl, libio_resp)
+            result = await fetch_registry_info(
+                repo,
+                local_path=str(tmp_path),
+                cache=cache,
+                libraries_io_key="secret",
+            )
+
+        assert len(result) == 1
+        assert result[0].dependents == 5
+
+    @pytest.mark.asyncio
+    async def test_libraries_io_skipped_without_key(self, tmp_path):
+        """No key: PyPI dependents stays None, no extra HTTP call."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "pylib"')
+        repo = _make_repo()
+        cache = Cache(str(tmp_path))
+
+        pypi_resp = _mock_http_response(200, {"info": {"version": "2.0.0"}, "releases": {}})
+        pypi_dl = _mock_http_response(200, {"data": {"last_month": 20}})
+
+        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
+            mock_cls.return_value = _mock_async_client(pypi_resp, pypi_dl)
+            result = await fetch_registry_info(repo, local_path=str(tmp_path), cache=cache)
+
+        assert len(result) == 1
+        assert result[0].dependents is None
 
 
 class TestCompareLicenses:

@@ -145,6 +145,7 @@ def result() -> AnalysisResult:
                 exists=True,
                 latest_version="1.0",
                 downloads=2_500_000,
+                dependents=123,
                 registry_license="MIT",
                 license_matches_github=True,
             ),
@@ -298,6 +299,7 @@ class TestWebsitePanel:
         text = _panel_text(panel)
         assert "✓ mypkg @ 1.0" in text
         assert "downloads: 2,500,000" in text
+        assert "dependents: 123" in text
         assert "license: MIT" in text
         assert "GitHub license: matches" in text
         assert "✗ other (not found)" in text

@@ -134,6 +134,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_stars": "{stars:,} étoiles",
         "fact_authors": "{authors} auteurs",
         "fact_owner": "propriétaire : {type}",
+        "fact_dependents": "{count} paquets dépendent de cette bibliothèque",
         "fact_roadmap": "feuille de route annoncée",
         "fact_commercial": "support commercial disponible",
         "fact_security": "politique de sécurité documentée",
@@ -308,6 +309,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_no_backing": "aucun soutien détecté",
         "tui_downloads": "téléchargements : {count:,}",
         "tui_recent": "récents : {count:,}",
+        "tui_dependents": "dépendants : {count:,}",
         "tui_registry_license": "licence : {license}",
         "tui_gh_license_match": "licence GitHub : identique",
         "tui_gh_license_diff": "licence GitHub : différente",
@@ -349,6 +351,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_maintenance": "## Maintenance",
         "md_section_languages": "## Langages",
         "md_section_sustainability": "## Durabilité",
+        "md_section_registries": "## Registres de paquets",
         "md_section_qualitative": "## Signaux qualitatifs",
         "md_section_llm_recommendation": "## Recommandation affinée (LLM)",
         "md_section_website": "## Site web",
@@ -404,6 +407,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cli_cfg_llm_provider": "Fournisseur LLM",
         "cli_cfg_llm_model": "Modèle LLM",
         "cli_cfg_llm_base_url": "URL de base LLM",
+        "cli_cfg_libraries_io": "Clé API libraries.io",
     },
     "en": {
         # ------------------------------------------------------------------
@@ -500,6 +504,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_stars": "{stars:,} stars",
         "fact_authors": "{authors} authors",
         "fact_owner": "owner: {type}",
+        "fact_dependents": "{count} packages depend on this library",
         "fact_roadmap": "roadmap announced",
         "fact_commercial": "commercial support available",
         "fact_security": "security policy documented",
@@ -674,6 +679,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_no_backing": "no backing detected",
         "tui_downloads": "downloads: {count:,}",
         "tui_recent": "recent: {count:,}",
+        "tui_dependents": "dependents: {count:,}",
         "tui_registry_license": "license: {license}",
         "tui_gh_license_match": "GitHub license: matches",
         "tui_gh_license_diff": "GitHub license: differs",
@@ -713,6 +719,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_section_maintenance": "## Maintenance",
         "md_section_languages": "## Languages",
         "md_section_sustainability": "## Sustainability",
+        "md_section_registries": "## Package Registries",
         "md_section_qualitative": "## Qualitative Signals",
         "md_section_llm_recommendation": "## Refined recommendation (LLM)",
         "md_section_website": "## Website",
@@ -768,6 +775,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cli_cfg_llm_provider": "LLM Provider",
         "cli_cfg_llm_model": "LLM Model",
         "cli_cfg_llm_base_url": "LLM Base URL",
+        "cli_cfg_libraries_io": "libraries.io API Key",
     },
 }
 

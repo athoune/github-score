@@ -53,6 +53,21 @@ Set a `GITHUB_TOKEN` to raise API rate limits. LLM settings can also live
 in a `config.toml` (see `gh-score config`). Everything stays optional:
 the tool works fully offline with local clones and no token.
 
+To enrich the report with **dependents counts** (how many packages depend
+on this library) for PyPI, npm and Maven — the only ecosystems whose
+official registries expose no reverse-dependency count — set a free
+[libraries.io](https://libraries.io/api) API key (60 requests/minute):
+
+```bash
+export LIBRARIES_IO_API_KEY="..."
+# or in config.toml:
+# [registries]
+# libraries_io_api_key = "..."
+```
+
+crates.io, RubyGems and Go (pkg.go.dev) always provide their own dependents
+count; downloads are always fetched where the registry exposes them.
+
 ## Library
 
 ```python

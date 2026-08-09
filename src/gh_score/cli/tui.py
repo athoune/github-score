@@ -395,6 +395,8 @@ def _render_registries(result: AnalysisResult) -> Panel | None:
                 content.append(f"  {t('tui_downloads', count=reg.downloads)}\n", style="dim")
             if reg.recent_downloads is not None:
                 content.append(f"  {t('tui_recent', count=reg.recent_downloads)}\n", style="dim")
+            if reg.dependents is not None:
+                content.append(f"  {t('tui_dependents', count=reg.dependents)}\n", style="dim")
 
             # License info
             if reg.registry_license:

@@ -176,6 +176,7 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
     _md_maintenance(result, console)
     _md_languages(result, console)
     _md_sustainability(result, console)
+    _md_registries(result, console)
     _md_website(result, console)
     _md_security(result, console)
     _md_qualitative(result, console)
@@ -254,6 +255,32 @@ def _md_sustainability(result: AnalysisResult, console: Console) -> None:
     if sust.corporate_backing:
         console.print(f"- {t('md_corporate', company=sust.corporate_backing)}")
     console.print(f"- {t('md_status', status=t(f'status_{sust.status.value}'))}\n")
+
+
+def _md_registries(result: AnalysisResult, console: Console) -> None:
+    """Render the package registries section as Markdown."""
+    if not result.registries:
+        return
+    console.print(f"{t('md_section_registries')}\n")
+    for reg in result.registries:
+        if reg.exists:
+            line = f"- **{reg.ecosystem}**: {reg.package_name}"
+            if reg.latest_version:
+                line += f" @ {reg.latest_version}"
+            console.print(line)
+            if reg.downloads is not None:
+                console.print(f"  - {t('tui_downloads', count=reg.downloads)}")
+            if reg.recent_downloads is not None:
+                console.print(f"  - {t('tui_recent', count=reg.recent_downloads)}")
+            if reg.dependents is not None:
+                console.print(f"  - {t('tui_dependents', count=reg.dependents)}")
+            if reg.registry_license:
+                console.print(f"  - {t('tui_registry_license', license=reg.registry_license)}")
+            if reg.deprecated:
+                console.print(f"  - {t('tui_deprecated')}")
+        else:
+            console.print(f"- **{reg.ecosystem}**: {reg.package_name} {t('tui_not_found')}")
+    console.print()
 
 
 def _md_website(result: AnalysisResult, console: Console) -> None:
@@ -418,6 +445,7 @@ _ENV_VARS_HELP = textwrap.dedent(
       GH_SCORE_LLM_BASE_URL        OpenAI-compatible base URL (e.g. https://api.openai.com/v1)
       GH_SCORE_LLM_MODEL           LLM model name
       GH_SCORE_LLM_API_KEY         LLM API key (empty for local servers such as Ollama)
+      LIBRARIES_IO_API_KEY         libraries.io API key (dependents for PyPI/npm/Maven)
     """
 )
 
@@ -618,6 +646,11 @@ def config() -> None:
     table.add_row(t("cli_cfg_llm_provider"), cfg.llm.provider)
     table.add_row(t("cli_cfg_llm_model"), cfg.llm.model)
     table.add_row(t("cli_cfg_llm_base_url"), cfg.llm.base_url)
+    libraries_io = cfg.registries.libraries_io_api_key
+    table.add_row(
+        t("cli_cfg_libraries_io"),
+        (t("cli_cfg_set") + " " + libraries_io[-4:]) if libraries_io else t("cli_cfg_not_set"),
+    )
 
     console.print(table)
 

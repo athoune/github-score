@@ -100,6 +100,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_mirror_upstream": "ce dépôt est un miroir de {upstream}",
         "reason_text_active": "le texte du projet déclare un développement actif",
 
+        # ------------------------------------------------------------------
+        # Comparison (multi-repo comparability)
+        # ------------------------------------------------------------------
+        "cmp_subject_topic": "sujets compatibles — topic partagé : {topics}",
+        "cmp_subject_topics_disjoint": "sujets différents — topics sans intersection",
+        "cmp_subject_desc": "sujets compatibles — mots-clés partagés : {tokens}",
+        "cmp_subject_desc_disjoint": "sujets différents — descriptions sans mot-clé commun",
+        "cmp_subject_unknown": "sujets non vérifiables (pas de topics ni de description exploitable)",
+        "cmp_language_compatible": "langages compatibles ({langs})",
+        "cmp_language_incompatible": (
+            "bibliothèques dans des langages différents ({langs_a} vs {langs_b})"
+        ),
+        "cmp_kind_mismatch": "un projet est une bibliothèque, l'autre une application",
+        "cmp_kind_unknown": "type inconnu pour {repo} — traité comme une application",
+        "cmp_warning": "{a} vs {b} : comparaison peu crédible",
+
         # Objective facts appended to the reasoning
         "fact_stars": "{stars:,} étoiles",
         "fact_authors": "{authors} auteurs",
@@ -434,6 +450,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_mirror": "this repository is a mirror — development happens elsewhere",
         "reason_mirror_upstream": "this repository is a mirror of {upstream}",
         "reason_text_active": "the project text declares active development",
+
+        # ------------------------------------------------------------------
+        # Comparison (multi-repo comparability)
+        # ------------------------------------------------------------------
+        "cmp_subject_topic": "compatible subjects — shared topic: {topics}",
+        "cmp_subject_topics_disjoint": "different subjects — disjoint topics",
+        "cmp_subject_desc": "compatible subjects — shared keywords: {tokens}",
+        "cmp_subject_desc_disjoint": "different subjects — no shared description keyword",
+        "cmp_subject_unknown": "subjects cannot be verified (no topics or usable description)",
+        "cmp_language_compatible": "compatible languages ({langs})",
+        "cmp_language_incompatible": (
+            "libraries in different languages ({langs_a} vs {langs_b})"
+        ),
+        "cmp_kind_mismatch": "one project is a library, the other an application",
+        "cmp_kind_unknown": "unknown project kind for {repo} — treated as an application",
+        "cmp_warning": "{a} vs {b}: comparison may not be credible",
 
         # Objective facts appended to the reasoning
         "fact_stars": "{stars:,} stars",

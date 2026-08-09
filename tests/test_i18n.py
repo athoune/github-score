@@ -399,3 +399,25 @@ class TestMirrorKeys:
                 "tui_mirror_upstream",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
+class TestComparisonKeys:
+    """Comparison (multi-repo) keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "cmp_subject_topic",
+                "cmp_subject_topics_disjoint",
+                "cmp_subject_desc",
+                "cmp_subject_desc_disjoint",
+                "cmp_subject_unknown",
+                "cmp_language_compatible",
+                "cmp_language_incompatible",
+                "cmp_kind_mismatch",
+                "cmp_kind_unknown",
+                "cmp_warning",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"

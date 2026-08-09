@@ -25,6 +25,7 @@ from gh_score.core.analyzers import (
 )
 from gh_score.core.analyzers.mirror import detect_mirror
 from gh_score.core.cache import Cache
+from gh_score.core.comparison import ComparisonResult, compare_results
 from gh_score.core.fetchers.github import GitHubFetcher
 from gh_score.core.fetchers.local_git import fetch_local_repo
 from gh_score.core.fetchers.registries import fetch_registry_info
@@ -187,3 +188,37 @@ def analyze_repo(
         AnalysisResult with all indicator families
     """
     return asyncio.run(analyze_repo_async(url_or_path, config, use_local))
+
+
+async def compare_repos_async(
+    urls_or_paths: list[str],
+    config: Config | None = None,
+    use_local: bool = False,
+) -> ComparisonResult:
+    """Analyze several repositories and assess their comparability.
+
+    Args:
+        urls_or_paths: GitHub URLs or local paths
+        config: Configuration (loads defaults if None)
+        use_local: Force local analysis for every target
+
+    Returns:
+        ComparisonResult with per-pair comparability assessments
+    """
+    if config is None:
+        config = Config.load()
+
+    results = await asyncio.gather(
+        *(analyze_repo_async(url, config, use_local) for url in urls_or_paths)
+    )
+    return compare_results(list(results))
+
+
+def compare_repos(
+    urls_or_paths: list[str],
+    config: Config | None = None,
+    use_local: bool = False,
+) -> ComparisonResult:
+    """Analyze several repositories and assess their comparability (sync
+    wrapper for :func:`compare_repos_async`)."""
+    return asyncio.run(compare_repos_async(urls_or_paths, config, use_local))

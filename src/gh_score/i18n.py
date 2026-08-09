@@ -126,6 +126,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_table_commit": "Commit",
         "cmp_table_verdict": "Verdict",
         "cmp_table_today": "aujourd'hui",
+        "md_section_comparability": "## Comparabilité",
+        "md_section_comparison_table": "## Comparaison",
 
         # Objective facts appended to the reasoning
         "fact_stars": "{stars:,} étoiles",
@@ -488,6 +490,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_table_commit": "Commit",
         "cmp_table_verdict": "Verdict",
         "cmp_table_today": "today",
+        "md_section_comparability": "## Comparability",
+        "md_section_comparison_table": "## Comparison",
 
         # Objective facts appended to the reasoning
         "fact_stars": "{stars:,} stars",

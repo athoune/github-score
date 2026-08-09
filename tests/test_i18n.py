@@ -430,5 +430,7 @@ class TestComparisonKeys:
                 "cmp_table_commit",
                 "cmp_table_verdict",
                 "cmp_table_today",
+                "md_section_comparability",
+                "md_section_comparison_table",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"

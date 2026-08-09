@@ -1,19 +1,32 @@
 """Tests for CLI helpers extracted from main.py."""
 
+import io
+import json
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 from rich.console import Console
 
-from gh_score.cli.main import _prepare_config, _resolve_target, _validate_url, cli
+from gh_score.cli.main import (
+    _prepare_config,
+    _render_comparison_json,
+    _render_comparison_markdown,
+    _resolve_target,
+    _validate_url,
+    cli,
+)
+from gh_score.core.comparison import ComparisonResult, compare_results
 from gh_score.core.models import (
     AnalysisResult,
     ContributorsIndicator,
     LanguagesIndicator,
     LicenseIndicator,
     MaintenanceIndicator,
+    MaintenanceState,
     Recommendation,
+    RecommendationLevel,
     ReleaseHealthIndicator,
     RepoUrl,
     RepositoryMeta,
@@ -292,3 +305,85 @@ class TestMarkdownReport:
 
         assert result.exit_code == 0
         assert "## Website" in result.output
+
+
+class TestComparisonRenderers:
+    """JSON / Markdown comparison renderers (wired by the CLI wiring
+    commit; tested directly here)."""
+
+    @staticmethod
+    def _comparison() -> ComparisonResult:
+        now = datetime.now(timezone.utc)
+        a = AnalysisResult(
+            url=RepoUrl("owner", "fastapi"),
+            meta=RepositoryMeta(full_name="owner/fastapi", stars=76000, topics=["http"]),
+            release_health=ReleaseHealthIndicator(),
+            license=LicenseIndicator(spdx_id="MIT"),
+            contributors=ContributorsIndicator(),
+            maintenance=MaintenanceIndicator(
+                state=MaintenanceState.ACTIVE, last_commit_days_ago=2
+            ),
+            languages=LanguagesIndicator(primary="Python"),
+            sustainability=SustainabilityIndicator(),
+            recommendation=Recommendation(level=RecommendationLevel.GREEN),
+        )
+        b = AnalysisResult(
+            url=RepoUrl("owner", "asyncpg"),
+            meta=RepositoryMeta(full_name="owner/asyncpg", stars=9000, topics=["database"]),
+            release_health=ReleaseHealthIndicator(),
+            license=LicenseIndicator(spdx_id="MIT"),
+            contributors=ContributorsIndicator(),
+            maintenance=MaintenanceIndicator(
+                state=MaintenanceState.ACTIVE, last_commit_days_ago=0
+            ),
+            languages=LanguagesIndicator(primary="Python"),
+            sustainability=SustainabilityIndicator(),
+            recommendation=Recommendation(level=RecommendationLevel.ORANGE),
+        )
+        a.warnings = ["No GitHub token set"]
+        return compare_results([a, b])
+
+    @pytest.mark.parametrize("fmt", ["markdown", "json"])
+    def test_warnings_on_stderr(self, fmt, capsys):
+        buf = io.StringIO()
+        console = Console(file=buf)
+        if fmt == "markdown":
+            _render_comparison_markdown(self._comparison(), console)
+        else:
+            _render_comparison_json(self._comparison(), console)
+        captured = capsys.readouterr()
+        assert "No GitHub token set" in captured.err
+
+    def test_markdown_has_comparability_and_table(self):
+        buf = io.StringIO()
+        console = Console(file=buf)
+        _render_comparison_markdown(self._comparison(), console)
+        output = buf.getvalue()
+        assert "# GitHub Health Comparison" in output
+        assert "## Comparability" in output
+        assert "## Comparison" in output
+        # Flagged pair with its reason
+        assert "owner/fastapi vs owner/asyncpg" in output
+        assert "different subjects" in output
+        # Table with per-project rows and verdict glyphs
+        assert "| owner/fastapi | 76,000 |" in output
+        assert "| owner/asyncpg | 9,000 |" in output
+        assert "🟠" in output
+        # Full per-project reports are embedded
+        assert "GitHub Health Report: " in output
+
+    def test_json_structure(self):
+        buf = io.StringIO()
+        console = Console(file=buf)
+        _render_comparison_json(self._comparison(), console)
+        payload = json.loads(buf.getvalue())
+        assert len(payload["projects"]) == 2
+        assert len(payload["pairs"]) == 1
+        pair = payload["pairs"][0]
+        assert pair["url_a"] == "https://github.com/owner/fastapi"
+        assert pair["subject"] == "incompatible"
+        assert pair["language_compatible"] is None
+        assert pair["verdict"] == "warning"
+        assert len(payload["warnings"]) == 1
+        # Projects keep the single-analysis JSON shape
+        assert payload["projects"][0]["meta"]["stars"] == 76000

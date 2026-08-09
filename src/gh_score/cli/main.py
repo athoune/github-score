@@ -16,6 +16,7 @@ from gh_score.config import Config
 from gh_score.core.api import analyze_repo
 from gh_score.core.analyzers.license_analyzer import license_family_label
 from gh_score.core.cache import Cache
+from gh_score.core.comparison import ComparisonResult, ComparisonVerdict
 from gh_score.core.models import AnalysisResult, RecommendationLevel, RepoUrl
 from gh_score.i18n import t
 from gh_score.cli.tui import render_dashboard
@@ -286,6 +287,96 @@ def _md_qualitative(result: AnalysisResult, console: Console) -> None:
     if q.security_policy:
         console.print(f"- {t('md_security', text=q.security_policy)}")
     console.print(f"- {t('md_status', status=t(f'status_{q.status.value}'))}\n")
+
+
+# ---------------------------------------------------------------------------
+# Comparison rendering (JSON / Markdown)
+# ---------------------------------------------------------------------------
+
+
+def _warn_comparison_stderr(comparison: ComparisonResult) -> None:
+    """Emit comparison + per-project warnings on stderr, deduplicated."""
+    warnings: list[str] = list(comparison.warnings)
+    for result in comparison.projects:
+        warnings.extend(result.warnings)
+    for warning in dict.fromkeys(warnings):
+        print(f"warning: {warning}", file=sys.stderr)
+
+
+def _md_commit_cell(days: int | None) -> str:
+    """Compact last-commit cell for the comparison table."""
+    if days is None:
+        return "—"
+    if days == 0:
+        return t("cmp_table_today")
+    return f"{days}d"
+
+
+def _pair_md_label(pair) -> str:
+    """'owner/repo vs owner/repo' Markdown label for a pair."""
+    return (
+        f"{pair.url_a.owner}/{pair.url_a.repo} vs {pair.url_b.owner}/{pair.url_b.repo}"
+    )
+
+
+def _render_comparison_markdown(comparison: ComparisonResult, console: Console) -> None:
+    """Render the comparison as Markdown: comparability section, comparison
+    table, then the full per-project reports."""
+    _warn_comparison_stderr(comparison)
+    console.print("# GitHub Health Comparison\n")
+
+    console.print(f"{t('md_section_comparability')}\n")
+    for pair in comparison.pairs:
+        glyph = "✅" if pair.verdict == ComparisonVerdict.OK else "⚠️"
+        console.print(f"- {glyph} **{_pair_md_label(pair)}**")
+        for reason in pair.reasons:
+            console.print(f"  - {reason}")
+        for note in pair.notes:
+            console.print(f"  - _{note}_")
+    console.print()
+
+    console.print(f"{t('md_section_comparison_table')}\n")
+    console.print("| Project | Stars | License | Lang | State | Last commit | Verdict |")
+    console.print("|---|---|---|---|---|---|---|")
+    for result in comparison.projects:
+        meta = result.meta
+        name = meta.full_name or f"{result.url.owner}/{result.url.repo}"
+        stars = f"{meta.stars:,}"
+        lic = result.license.spdx_id or "—"
+        lang = result.languages.primary or "—"
+        state = t(f"state_{result.maintenance.state.value}")
+        commit = _md_commit_cell(result.maintenance.last_commit_days_ago)
+        glyph = _MD_GLYPHS.get(result.recommendation.level, "❓")
+        console.print(f"| {name} | {stars} | {lic} | {lang} | {state} | {commit} | {glyph} |")
+    console.print()
+
+    # Full per-project reports (same content as a single analysis).
+    for result in comparison.projects:
+        _render_markdown(result, console)
+
+
+def _render_comparison_json(comparison: ComparisonResult, console: Console) -> None:
+    """Render the comparison as JSON: full projects, pair verdicts, warnings."""
+    _warn_comparison_stderr(comparison)
+    payload = {
+        "projects": [asdict(result) for result in comparison.projects],
+        "pairs": [
+            {
+                "url_a": str(pair.url_a),
+                "url_b": str(pair.url_b),
+                "kinds": [kind.value for kind in pair.kinds],
+                "subject": pair.subject.value,
+                "language_compatible": pair.language_compatible,
+                "kind_mismatch": pair.kind_mismatch,
+                "verdict": pair.verdict.value,
+                "reasons": pair.reasons,
+                "notes": pair.notes,
+            }
+            for pair in comparison.pairs
+        ],
+        "warnings": comparison.warnings,
+    }
+    console.print_json(json.dumps(payload, default=str))
 
 
 _RENDERERS = {

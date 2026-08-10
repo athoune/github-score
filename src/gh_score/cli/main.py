@@ -158,6 +158,14 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
             console.print(t("tui_mirror"))
         console.print()
 
+    if result.meta.fork:
+        parent = result.meta.parent_full_name or result.meta.source_full_name or "?"
+        if result.meta.is_soft_fork:
+            console.print(t("tui_fork_soft", parent=parent))
+        else:
+            console.print(t("tui_fork_hard", parent=parent))
+        console.print()
+
     console.print(
         f"{t('md_header_stars', count=result.meta.stars)} | "
         f"{t('md_header_forks', count=result.meta.forks)}"

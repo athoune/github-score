@@ -98,6 +98,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_security_overdue": "une mise à jour de sécurité est en attente depuis {days} jours",
         "reason_mirror": "ce dépôt est un miroir — le développement a lieu ailleurs",
         "reason_mirror_upstream": "ce dépôt est un miroir de {upstream}",
+        "rec_fork_soft": "Fork aligné sur l'amont — le développement a lieu sur {parent}",
+        "reason_fork_soft": "ce dépôt est un fork à usage de PR — {behind} commits de retard sur {parent}, sans développement propre",
         "reason_text_active": "le texte du projet déclare un développement actif",
 
         # ------------------------------------------------------------------
@@ -135,6 +137,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_authors": "{authors} auteurs",
         "fact_owner": "propriétaire : {type}",
         "fact_dependents": "{count} paquets dépendent de cette bibliothèque",
+        "fact_fork_hard": "fork divergent de {parent} ({ahead} commits propres)",
         "fact_roadmap": "feuille de route annoncée",
         "fact_commercial": "support commercial disponible",
         "fact_security": "politique de sécurité documentée",
@@ -279,6 +282,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "panel_security": "Sécurité",
         "tui_mirror": "⚠ Dépôt miroir — le développement a lieu ailleurs",
         "tui_mirror_upstream": "⚠ Miroir de {upstream}",
+        "tui_fork_soft": "⚠ Fork aligné sur l'amont : {parent}",
+        "tui_fork_hard": "⚠ Fork divergent de : {parent}",
         "panel_llm_recommendation": "Recommandation affinée (LLM)",
         "tui_latest": "dernière : {version}",
         "tui_age": "âge : {days} jours",
@@ -468,6 +473,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_security_overdue": "a security update has been pending for {days} days",
         "reason_mirror": "this repository is a mirror — development happens elsewhere",
         "reason_mirror_upstream": "this repository is a mirror of {upstream}",
+        "rec_fork_soft": "Fork in sync with upstream — development happens on {parent}",
+        "reason_fork_soft": "this repository is a fork used for pull requests — {behind} commits behind {parent}, no own development",
         "reason_text_active": "the project text declares active development",
 
         # ------------------------------------------------------------------
@@ -505,6 +512,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_authors": "{authors} authors",
         "fact_owner": "owner: {type}",
         "fact_dependents": "{count} packages depend on this library",
+        "fact_fork_hard": "hard fork of {parent} ({ahead} own commits)",
         "fact_roadmap": "roadmap announced",
         "fact_commercial": "commercial support available",
         "fact_security": "security policy documented",
@@ -649,6 +657,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "panel_security": "Security",
         "tui_mirror": "⚠ Mirror repository — development happens elsewhere",
         "tui_mirror_upstream": "⚠ Mirror of {upstream}",
+        "tui_fork_soft": "⚠ Fork in sync with upstream: {parent}",
+        "tui_fork_hard": "⚠ Hard fork of: {parent}",
         "panel_llm_recommendation": "Refined recommendation (LLM)",
         "tui_latest": "latest: {version}",
         "tui_age": "age: {days} days",

@@ -766,3 +766,85 @@ class TestMirrorRecommendation:
         result.meta.is_mirror = True
         rec = _recommend(result)
         assert rec.level == RecommendationLevel.RED
+
+
+class TestForkRecommendation:
+    """A soft fork (PR vehicle) is judged on its parent, not on itself."""
+
+    def test_soft_fork_is_orange_pointing_at_parent(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+        )
+        result.meta.fork = True
+        result.meta.parent_full_name = "livekit/sip"
+        result.meta.is_soft_fork = True
+        result.meta.fork_behind = 35
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "livekit/sip" in rec.message
+        assert any("35" in line for line in rec.reasoning)
+
+    def test_soft_fork_falls_back_to_source(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            latest_version="v1.0.0",
+        )
+        result.meta.fork = True
+        result.meta.parent_full_name = None
+        result.meta.source_full_name = "livekit/sip"
+        result.meta.is_soft_fork = True
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "livekit/sip" in rec.message
+
+    def test_soft_fork_without_parent_is_unchanged(self):
+        """A fork with no resolvable parent keeps the normal verdict."""
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+        )
+        result.meta.fork = True
+        result.meta.is_soft_fork = True
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+
+    def test_hard_fork_keeps_normal_verdict_with_fact(self):
+        """A deliberately diverged fork is its own project."""
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=200,
+            total_authors=5,
+            latest_version="v1.0.0",
+        )
+        result.meta.fork = True
+        result.meta.parent_full_name = "livekit/sip"
+        result.meta.is_soft_fork = False
+        result.meta.fork_ahead = 250
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+        assert any("fork divergent" in line for line in rec.reasoning)
+
+    def test_unknown_fork_is_unchanged(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            latest_version="v1.0.0",
+        )
+        result.meta.fork = True
+        result.meta.parent_full_name = "livekit/sip"
+        result.meta.is_soft_fork = None
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+
+    def test_not_a_fork_is_unchanged(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            latest_version="v1.0.0",
+        )
+        result.meta.fork = False
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN

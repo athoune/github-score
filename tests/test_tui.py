@@ -439,6 +439,20 @@ class TestRenderDashboard:
         ):
             assert title in output, f"missing panel title: {title}"
 
+    def test_fork_badge(self, result, en_locale):
+        result.meta.fork = True
+        result.meta.parent_full_name = "livekit/sip"
+        result.meta.is_soft_fork = True
+        output = self._render(result, "en_US.UTF-8")
+        assert "Fork in sync with upstream: livekit/sip" in output
+
+    def test_hard_fork_badge(self, result, en_locale):
+        result.meta.fork = True
+        result.meta.parent_full_name = "livekit/sip"
+        result.meta.is_soft_fork = False
+        output = self._render(result, "en_US.UTF-8")
+        assert "Hard fork of: livekit/sip" in output
+
     def test_recommendation_prominent(self, result, en_locale):
         output = self._render(result, "en_US.UTF-8")
         # The verdict is displayed at the top

@@ -472,3 +472,27 @@ class TestMirrorDetection:
     def test_plain_repo(self):
         is_mirror, _ = detect_mirror(None, "A fast web framework", None)
         assert is_mirror is False
+
+
+class TestForkClassification:
+    """classify_fork: PR-vehicle (soft) vs deliberately diverged (hard)."""
+
+    def test_synced_fork_is_soft(self):
+        from gh_score.core.analyzers.fork import classify_fork
+
+        assert classify_fork(0) is True
+
+    def test_small_divergence_is_soft(self):
+        from gh_score.core.analyzers.fork import classify_fork
+
+        assert classify_fork(5) is True
+
+    def test_large_divergence_is_hard(self):
+        from gh_score.core.analyzers.fork import classify_fork
+
+        assert classify_fork(500) is False
+
+    def test_unknown_is_none(self):
+        from gh_score.core.analyzers.fork import classify_fork
+
+        assert classify_fork(None) is None

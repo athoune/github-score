@@ -138,6 +138,9 @@ def _build_report_digest(result) -> dict[str, Any]:
         "owner_type": meta.owner_type or "unknown",
         "stars": meta.stars,
         "forks": meta.forks,
+        "fork": meta.fork,
+        "parent": meta.parent_full_name,
+        "soft_fork": meta.is_soft_fork,
         "description": (meta.description or "")[:200],
         "maintenance": {
             "state": maint.state.value,

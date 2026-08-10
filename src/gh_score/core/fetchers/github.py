@@ -214,6 +214,8 @@ class GitHubFetcher:
         owner = data.get("owner", {}) or {}
         raw_type = owner.get("type", "")
         owner_type = {"User": "user", "Organization": "organization"}.get(raw_type, "")
+        parent = data.get("parent") or {}
+        source = data.get("source") or {}
 
         return RepositoryMeta(
             name=data.get("name", ""),
@@ -236,7 +238,34 @@ class GitHubFetcher:
             homepage=data.get("homepage"),
             size_kb=data.get("size", 0),
             mirror_url=data.get("mirror_url"),
+            fork=data.get("fork", False),
+            parent_full_name=parent.get("full_name"),
+            source_full_name=source.get("full_name"),
         )
+
+    async def fetch_fork_divergence(
+        self, url: RepoUrl, parent_full_name: str, fork_default_branch: str
+    ) -> tuple[int | None, int | None]:
+        """Fetch the fork's ahead/behind commit counts vs its parent.
+
+        Uses the GitHub compare API with cross-repository refs
+        (``parent_owner:parent_branch...fork_default_branch``). Returns
+        ``(ahead_by, behind_by)`` or ``(None, None)`` when the parent's
+        default branch or the comparison cannot be resolved.
+        """
+        parent = await self._get(f"https://api.github.com/repos/{parent_full_name}")
+        if not isinstance(parent, dict):
+            return None, None
+        parent_branch = parent.get("default_branch")
+        if not parent_branch or not fork_default_branch:
+            return None, None
+        parent_owner = parent_full_name.split("/", 1)[0]
+        compare = await self._get(
+            f"{url.api_url}/compare/{parent_owner}:{parent_branch}...{fork_default_branch}"
+        )
+        if not isinstance(compare, dict):
+            return None, None
+        return compare.get("ahead_by"), compare.get("behind_by")
 
     async def fetch_license(self, url: RepoUrl) -> LicenseInfo:
         """Fetch license information."""

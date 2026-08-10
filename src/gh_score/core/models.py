@@ -210,6 +210,12 @@ class RepositoryMeta:
     mirror_url: str | None = None       # GitHub mirroring feature URL (raw API)
     is_mirror: bool = False             # computed: mirror_url OR text heuristic
     mirror_upstream: str | None = None  # upstream URL when known
+    fork: bool = False                  # GitHub API "fork" flag (raw API)
+    parent_full_name: str | None = None  # "owner/repo" of the direct parent
+    source_full_name: str | None = None  # "owner/repo" of the original source
+    fork_ahead: int | None = None        # commits ahead of the parent's default branch
+    fork_behind: int | None = None       # commits behind the parent's default branch
+    is_soft_fork: bool | None = None     # computed: PR-vehicle (synced) vs hard fork (diverged)
 
 
 # ---------------------------------------------------------------------------

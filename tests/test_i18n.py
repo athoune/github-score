@@ -423,6 +423,23 @@ class TestMirrorKeys:
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
 
 
+class TestForkKeys:
+    """Fork detection keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "rec_fork_soft",
+                "reason_fork_soft",
+                "fact_fork_hard",
+                "tui_fork_soft",
+                "tui_fork_hard",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
 class TestComparisonKeys:
     """Comparison (multi-repo) keys exist in both catalogs."""
 

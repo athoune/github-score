@@ -210,6 +210,24 @@ class TestFetchMeta:
         assert meta.owner_type == ""
 
     @pytest.mark.asyncio
+    async def test_fork_fields_parsed(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value={
+            "name": "sip",
+            "full_name": "suitenumerique/livekit-sip",
+            "owner": {"login": "suitenumerique", "type": "Organization"},
+            "fork": True,
+            "parent": {"full_name": "livekit/sip"},
+            "source": {"full_name": "livekit/sip"},
+        })
+
+        meta = await fetcher.fetch_meta(URL)
+
+        assert meta.fork is True
+        assert meta.parent_full_name == "livekit/sip"
+        assert meta.source_full_name == "livekit/sip"
+
+    @pytest.mark.asyncio
     async def test_missing_data_returns_empty(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
         fetcher._get = AsyncMock(return_value=None)
@@ -218,6 +236,63 @@ class TestFetchMeta:
 
         assert meta.name == ""
         assert meta.stars == 0
+        assert meta.fork is False
+        assert meta.parent_full_name is None
+
+
+class TestFetchForkDivergence:
+    """fetch_fork_divergence measures ahead/behind via the compare API."""
+
+    @pytest.mark.asyncio
+    async def test_ahead_behind(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(side_effect=[
+            {"default_branch": "main"},          # parent meta
+            {"ahead_by": 0, "behind_by": 35},    # compare
+        ])
+
+        ahead, behind = await fetcher.fetch_fork_divergence(
+            URL, "livekit/sip", "main"
+        )
+
+        assert ahead == 0
+        assert behind == 35
+        # Cross-repo compare ref: parent_owner:parent_branch...fork_branch
+        compare_url = fetcher._get.call_args_list[1].args[0]
+        assert "compare/livekit:main...main" in compare_url
+
+    @pytest.mark.asyncio
+    async def test_parent_unreachable(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value=None)
+
+        ahead, behind = await fetcher.fetch_fork_divergence(URL, "livekit/sip", "main")
+
+        assert ahead is None
+        assert behind is None
+
+    @pytest.mark.asyncio
+    async def test_missing_parent_branch(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value={})
+
+        ahead, behind = await fetcher.fetch_fork_divergence(URL, "livekit/sip", "main")
+
+        assert ahead is None
+        assert behind is None
+
+    @pytest.mark.asyncio
+    async def test_compare_unreachable(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(side_effect=[
+            {"default_branch": "main"},
+            None,
+        ])
+
+        ahead, behind = await fetcher.fetch_fork_divergence(URL, "livekit/sip", "main")
+
+        assert ahead is None
+        assert behind is None
 
 
 class TestFetchLicense:

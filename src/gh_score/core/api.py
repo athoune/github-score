@@ -23,6 +23,7 @@ from gh_score.core.analyzers import (
     analyze_sustainability,
     analyze_website,
 )
+from gh_score.core.analyzers.fork import classify_fork
 from gh_score.core.analyzers.mirror import detect_mirror
 from gh_score.core.cache import Cache
 from gh_score.core.comparison import (
@@ -133,6 +134,19 @@ async def analyze_repo_async(
             remote_reader=remote_reader,
             libraries_io_key=config.registries.libraries_io_api_key,
         )
+
+        # Fork divergence: measure how far the fork's default branch is from
+        # its parent so a PR-vehicle fork (soft) is not judged as an
+        # independent project. Requires the still-open fetcher.
+        if fetcher is not None and repo.meta.fork and repo.meta.parent_full_name:
+            repo.meta.fork_ahead, repo.meta.fork_behind = (
+                await fetcher.fetch_fork_divergence(
+                    repo.url,
+                    repo.meta.parent_full_name,
+                    repo.meta.default_branch,
+                )
+            )
+        repo.meta.is_soft_fork = classify_fork(repo.meta.fork_ahead)
     finally:
         if fetcher is not None:
             await fetcher.close()

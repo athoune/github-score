@@ -161,6 +161,16 @@ def _build(
     dependents = max((reg.dependents or 0) for reg in result.registries) if result.registries else 0
     if dependents:
         reasoning.append(t("fact_dependents", lang=lang, count=dependents))
+    if result.meta.fork and result.meta.is_soft_fork is False:
+        parent = result.meta.parent_full_name or result.meta.source_full_name or "?"
+        reasoning.append(
+            t(
+                "fact_fork_hard",
+                lang=lang,
+                parent=parent,
+                ahead=result.meta.fork_ahead or 0,
+            )
+        )
     if result.qualitative.available:
         if result.qualitative.roadmap:
             reasoning.append(t("fact_roadmap", lang=lang))
@@ -202,6 +212,7 @@ def analyze_recommendation(
         _rec_red_flags,
         _rec_security,
         _rec_mirror,
+        _rec_fork,
         _rec_website,
         _rec_ephemeral,
         _rec_abandoned,
@@ -267,6 +278,34 @@ def _rec_security(result: AnalysisResult, lang: str) -> Recommendation | None:
             ),
         )
     return None
+
+
+def _rec_fork(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """PR-vehicle forks: development happens upstream.
+
+    A soft fork's maintenance/contributor signals reflect the parent, so the
+    verdict is unreliable — downgrade to orange and point at the parent,
+    exactly like a mirror-only repository. Hard forks are real projects and
+    keep the normal verdict (the fork relationship is an informational fact).
+    """
+    meta = result.meta
+    if not meta.fork or meta.is_soft_fork is not True:
+        return None
+    parent = meta.parent_full_name or meta.source_full_name
+    if not parent:
+        return None
+    return _build(
+        RecommendationLevel.ORANGE,
+        t("rec_fork_soft", lang=lang, parent=parent),
+        result,
+        lang,
+        t(
+            "reason_fork_soft",
+            lang=lang,
+            parent=parent,
+            behind=meta.fork_behind or 0,
+        ),
+    )
 
 
 def _rec_website(result: AnalysisResult, lang: str) -> Recommendation | None:

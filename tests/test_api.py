@@ -108,6 +108,7 @@ def _mock_fetcher(mock_cls, repo: Repository) -> MagicMock:
     instance = MagicMock()
     instance.fetch_all = AsyncMock(return_value=repo)
     instance.fetch_security_updates = AsyncMock(return_value=[])
+    instance.fetch_fork_divergence = AsyncMock(return_value=(0, 0))
     instance.close = AsyncMock()
     mock_cls.return_value = instance
     return instance
@@ -167,6 +168,50 @@ class TestRemotePath:
         config = _make_config(tmp_path)
         with pytest.raises(ValueError, match="Not a valid GitHub repository URL"):
             await analyze_repo_async("https://gitlab.com/owner/repo", config)
+
+    @pytest.mark.asyncio
+    async def test_fork_divergence_fetched_and_classified(self, tmp_path):
+        """A fork's ahead/behind counts are measured and classified."""
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()
+        repo.meta.fork = True
+        repo.meta.parent_full_name = "livekit/sip"
+        repo.meta.default_branch = "main"
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            instance = _mock_fetcher(mock_fetcher_cls, repo)
+            instance.fetch_fork_divergence = AsyncMock(return_value=(2, 10))
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        instance.fetch_fork_divergence.assert_awaited_once_with(
+            repo.url, "livekit/sip", "main"
+        )
+        assert result.meta.fork_ahead == 2
+        assert result.meta.fork_behind == 10
+        assert result.meta.is_soft_fork is True
+
+    @pytest.mark.asyncio
+    async def test_non_fork_skips_divergence(self, tmp_path):
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()  # fork defaults to False
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            instance = _mock_fetcher(mock_fetcher_cls, repo)
+            await analyze_repo_async("https://github.com/owner/repo", config)
+
+        instance.fetch_fork_divergence.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_config_defaults_to_load(self, tmp_path):

@@ -445,6 +445,12 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
             )
         else:
             console.print(f"[yellow]{t('tui_mirror')}[/yellow]")
+    if result.meta.fork:
+        parent = result.meta.parent_full_name or result.meta.source_full_name or "?"
+        if result.meta.is_soft_fork:
+            console.print(f"[yellow]{t('tui_fork_soft', parent=parent)}[/yellow]")
+        else:
+            console.print(f"[yellow]{t('tui_fork_hard', parent=parent)}[/yellow]")
     console.print()
 
     # Summary table

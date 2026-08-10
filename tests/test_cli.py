@@ -509,6 +509,24 @@ class TestMarkdownReport:
         assert "dependents: 321" in result.output
         assert "**npm**: other (not found)" in result.output
 
+    def test_fork_badge_present(self):
+        """The markdown report flags forks pointing at their parent."""
+        runner = CliRunner()
+        analysis = _result_with_warnings()
+        analysis.meta.fork = True
+        analysis.meta.parent_full_name = "livekit/sip"
+        analysis.meta.is_soft_fork = True
+
+        with (
+            patch("gh_score.cli.main.analyze_repo", return_value=analysis),
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = _mock_config()
+            result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
+
+        assert result.exit_code == 0
+        assert "Fork in sync with upstream: livekit/sip" in result.output
+
 
 class TestComparisonRenderers:
     """JSON / Markdown comparison renderers (wired by the CLI wiring

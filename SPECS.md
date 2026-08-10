@@ -318,6 +318,33 @@ A repository is flagged as a mirror when no development happens in it:
   original", "official repo link below", …) — the fallback heuristic for
   manually-pushed mirrors, which never populate `mirror_url`.
 
+### 6.8 Fork divergence
+
+A forked repository is not necessarily an independent project. The tool
+captures the GitHub API `fork` flag plus the `parent` / `source`
+`full_name` fields and measures how far the fork's default branch is from
+its parent's default branch (GitHub compare API with cross-repository
+refs: `parent_owner:parent_branch...fork_branch`), yielding `ahead_by`
+(the fork's own commits) and `behind_by` (staleness).
+
+Classification (`classify_fork`, threshold `_SOFT_FORK_MAX_AHEAD = 10` in
+`analyzers/fork.py`):
+
+- **soft fork** (`ahead_by ≤ 10`): the default branch tracks the parent —
+  the fork is a vehicle for pull requests, or a stale clone. Its
+  maintenance/contributor signals reflect the parent, so the verdict
+  downgrades to orange and points at the parent (like a mirror).
+- **hard fork** (`ahead_by > 10`): the default branch deliberately
+  diverged — the fork IS the project. The normal verdict stands, with the
+  fork relationship surfaced as a `fact_fork_hard` reasoning line and a
+  badge in the report.
+- **unknown** (divergence could not be measured): the normal verdict
+  stands.
+
+The divergence is only measured when a GitHub fetcher is available (remote
+analysis, or local analysis enriched from a URL); a pure local clone
+without a remote URL never has fork data.
+
 ## 7. Indicator families
 
 The dashboard is organized into the following families. Each family exposes several concrete indicators. No global score is computed in the first version.

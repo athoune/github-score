@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 89% coverage, 530 tests). Last updated: 2026-08-09.
+(suite at 89% coverage, 551 tests). Last updated: 2026-08-10.
 
 ## Tests / coverage
 
@@ -59,11 +59,18 @@ item.
       that are pure mirrors (all commits imported from an upstream, no
       original development): GitHub `mirror_url` field or a text heuristic
       on description/README; the verdict points at the upstream.
-- [ ] **Fork divergence analysis** — when the repository is a fork,
-      measure how far behind the upstream it is and classify it:
-      *soft fork* (kept alive to contribute pull requests) vs *hard fork*
-      (deliberately diverged). Sources: API `parent` / `source` fields,
-      plus fork intent mentioned in the description or README.
+- [x] (done 2026-08-10) **Fork divergence analysis** — when the repository
+      is a fork, measure how far its default branch is from the parent's
+      default branch and classify it: *soft fork* (at most
+      `_SOFT_FORK_MAX_AHEAD` own commits — a vehicle for pull requests,
+      judged on the parent like a mirror) vs *hard fork* (deliberately
+      diverged — analyzed normally, with a `fact_fork_hard` reasoning line
+      and a badge). Sources: API `fork` / `parent` / `source` fields plus
+      the compare API (`parent_owner:parent_branch...fork_branch`).
+      Follow-up: the pure-local mode (no remote URL) never has fork data;
+      text-intent heuristics from the description/README were not needed
+      for the reported cases and can be added later if false negatives
+      show up.
 - [x] (done 2026-08-07) **README language detection** — determine whether
       the README is written in English (dependency-free heuristic on the
       dominant script + English stopword density; informational only,

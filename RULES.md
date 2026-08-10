@@ -45,43 +45,55 @@ The rules are evaluated **in order**; the first matching branch wins.
    URL when known. The maintenance/contributor signals reflect the
    upstream, so the verdict points the user there instead.
 
-4. **Homepage down** (only when the repository declares a homepage; repos
+4. **Soft fork** (a repository whose default branch tracks its parent:
+   the GitHub `fork` flag is set and the fork is at most
+   `_SOFT_FORK_MAX_AHEAD` commits ahead of the parent's default branch,
+   measured via the compare API — see SPECS §6.8)
+   → 🟠 "Fork in sync with upstream — development happens on {parent}".
+   The fork is a vehicle for pull requests: its maintenance/contributor
+   signals reflect the parent, so the verdict points there instead.
+   Hard forks (deliberately diverged, many own commits) are real projects
+   and keep the normal verdict, with the fork relationship surfaced as a
+   `fact_fork_hard` reasoning line. A fork whose divergence is unknown
+   keeps the normal verdict.
+
+5. **Homepage down** (only when the repository declares a homepage; repos
    without one skip both website steps)
    - DNS resolution failure, HTTP error (4xx/5xx), or redirect loop
      → 🔴 "Project homepage is down"
    - Timeout, or page behind a bot-protection check ("I'm not a robot")
      → 🟠 "Project homepage unreachable or bot-protected"
 
-5. **Ephemeral project** (created < 6 months, ≤ 200 stars, ≤ 3 authors)
+6. **Ephemeral project** (created < 6 months, ≤ 200 stars, ≤ 3 authors)
    → 🟠 "Ephemeral project accompanying an article"
    - **Exception:** organization-owned repositories are never judged
      ephemeral (`owner_type == "organization"`) — an organization does
      not create a repo merely to accompany an article, so the "weekend
      demo" heuristic does not apply.
 
-6. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
+7. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
    - Widely used (≥ 5k stars, ≥ 1k forks, ≥ 1M registry downloads, or
      ≥ 1k dependents) → 🟠 "Large project, but now abandoned"
    - Otherwise → 🔴 "Abandoned project — no commit for N months"
 
-7. **Active development** (`MaintenanceState.ACTIVE`)
+8. **Active development** (`MaintenanceState.ACTIVE`)
    - ≥ 80% of commits from bots → 🟠 "Project maintained only by dependency-update bots"
    - No stable release (none, pre-release, or 0.x) → 🟠 "Active development but not yet stabilized"
    - Declining activity (3-month commits < 25% of 12-month commits) → 🟠 "Well-maintained project but in decline"
    - Large community (≥ 100 human authors or ≥ 10k stars), **or LLM-enabled with roadmap AND commercial support** → 🟢 "Active project with a large community"
    - Otherwise → 🟢 "Active project"
 
-8. **Maintenance mode** (infrequent commits, issues still closed)
+9. **Maintenance mode** (infrequent commits, issues still closed)
    - Last release more than 6 months ago → 🟠 "Well-maintained but no new features for N months"
    - Otherwise → 🟠 "Project in maintenance mode"
 
-9. **LLM-reported discontinuation** (only when the LLM is enabled AND the
-   maintenance state is unknown — commit data wins over prose)
-   - Widely used → 🟠 "Large project, but now abandoned"
-   - Otherwise → 🔴 "Project texts announce its discontinuation"
+10. **LLM-reported discontinuation** (only when the LLM is enabled AND the
+    maintenance state is unknown — commit data wins over prose)
+    - Widely used → 🟠 "Large project, but now abandoned"
+    - Otherwise → 🔴 "Project texts announce its discontinuation"
 
-10. **Unknown maintenance state**
-   - Widely used → 🟠 "Widely used project despite low maintenance"
+11. **Unknown maintenance state**
+    - Widely used → 🟠 "Widely used project despite low maintenance"
    - LLM enabled, text declares active development AND (roadmap or
      commercial support) → 🟢 "Active project"
    - Otherwise → 🟠 "Insufficient data for a reliable recommendation"
@@ -117,6 +129,7 @@ heuristics to be tuned with real-world examples.
 | `_EPHEMERAL_AGE_DAYS` | 180 | ephemeral project detection |
 | `_EPHEMERAL_MAX_AUTHORS` | 3 | ephemeral project detection |
 | `_EPHEMERAL_MAX_STARS` | 200 | ephemeral project detection |
+| `_SOFT_FORK_MAX_AHEAD` | 10 | fork kept in sync with upstream (PR vehicle) |
 
 **Registry popularity semantics:** `_is_widely_used` treats both
 `downloads` and `recent_downloads` as adoption proxies (the windows differ
@@ -308,8 +321,9 @@ The full catalog (TUI and Markdown labels included) lives in
 
 Each verdict carries a `reasoning` list: the triggering signal plus
 objective facts (stars, author count, owner type, registry dependents when
-known) and, when the LLM is enabled, qualitative facts (roadmap, commercial
-support, security policy, declared maintenance state). Example:
+known, hard-fork relationship) and, when the LLM is enabled, qualitative
+facts (roadmap, commercial support, security policy, declared maintenance
+state). Example:
 
 ```
 🟢 Active project with a large community
@@ -359,6 +373,9 @@ support, security policy, declared maintenance state). Example:
 | `rec_mirror` | Dépôt miroir d'un projet amont | Repository is a mirror of an upstream project |
 | `reason_mirror` | ce dépôt est un miroir — le développement a lieu ailleurs | this repository is a mirror — development happens elsewhere |
 | `reason_mirror_upstream` | ce dépôt est un miroir de {upstream} | this repository is a mirror of {upstream} |
+| `rec_fork_soft` | Fork aligné sur l'amont — le développement a lieu sur {parent} | Fork in sync with upstream — development happens on {parent} |
+| `reason_fork_soft` | ce dépôt est un fork à usage de PR — {behind} commits de retard sur {parent}, sans développement propre | this repository is a fork used for pull requests — {behind} commits behind {parent}, no own development |
+| `fact_fork_hard` | fork divergent de {parent} ({ahead} commits propres) | hard fork of {parent} ({ahead} own commits) |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
 | `fact_dependents` | {count} paquets dépendent de cette bibliothèque | {count} packages depend on this library |
 | `owner_type_user` | utilisateur | user |

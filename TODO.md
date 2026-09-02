@@ -97,6 +97,11 @@ item.
       recommendation prompt forbids denying the extracted qualitative
       signals, and a deterministic windowed heuristic surfaces a warning
       when the recommendation still claims a present fact is absent.
+      Extended (2026-08-13) to **unsupported negatives**: claiming the
+      absence of a fact the analysis could not verify (e.g. "no roadmap"
+      when the README never mentions one) now warns
+      (`warn_llm_unsupported_negative`), and the prompt tells the model
+      to phrase such claims as "no X announced in the project texts".
 - [ ] **LLM contradiction repair loop (optional, off by default)** — when
       the contradiction guard fires, re-ask the LLM once, quoting the
       contradiction (the claim vs the extracted fact), to revise its

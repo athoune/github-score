@@ -356,6 +356,7 @@ class TestContradictionGuardKeys:
         for lang in ("fr", "en"):
             for key in (
                 "warn_llm_contradiction",
+                "warn_llm_unsupported_negative",
                 "fact_funding",
                 "fact_corporate",
                 "fact_foundation",

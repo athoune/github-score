@@ -702,6 +702,20 @@ Rules:
 - Invalid output (unknown level, unparseable JSON, provider failure)
   hides the refined panel without breaking the pipeline.
 
+**Contradiction / unsupported-negative guard**: the recommendation must
+not misuse the extracted facts. A deterministic, model-agnostic heuristic
+(a negation word within ~30 chars of a fact keyword, or keyword followed
+by absent/missing/lacking) appends a hedged warning in two cases:
+
+- the recommendation **denies** a fact the analysis found
+  (`warn_llm_contradiction`);
+- the recommendation **claims the absence** of a fact the analysis could
+  not verify (`warn_llm_unsupported_negative`) — absence of evidence is
+  not evidence of absence; the README not mentioning a roadmap does not
+  prove there is none. The prompt tells the model to phrase negatives as
+  "no X announced in the project texts"; the guard is the backstop,
+  independent of the model's instruction-following ability.
+
 ## 10. CLI design
 
 ### 10.1 Commands

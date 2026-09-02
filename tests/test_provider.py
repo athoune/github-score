@@ -225,6 +225,8 @@ class TestRecommendationPromptHardening:
         prompt = _build_recommendation_prompt()
         assert "never claim that a provided signal is absent" in prompt
         assert "do not deny it" in prompt
+        assert "never state an absolute absence" in prompt.lower()
+        assert "no X announced in the project texts" in prompt
 
 
 class TestDeniesFact:
@@ -336,9 +338,9 @@ class TestContradictionGuard:
         assert warnings == []
 
     @pytest.mark.asyncio
-    async def test_absent_fact_not_checked(self):
-        # No commercial support was extracted, so denying it is not a
-        # contradiction — the guard must stay silent.
+    async def test_absent_fact_unsupported_negative_warns(self):
+        # No commercial support was extracted: claiming it is absent is an
+        # unsupported negative (absence of evidence ≠ evidence of absence).
         warnings: list[str] = []
         result = self._result()
         from gh_score.core.models import QualitativeIndicator
@@ -361,7 +363,64 @@ class TestContradictionGuard:
             )
 
         assert rec is not None
+        assert len(warnings) == 1
+        assert "commercial" in warnings[0].lower()
+
+    @pytest.mark.asyncio
+    async def test_no_negative_claim_stays_silent(self):
+        # Saying nothing about a fact never triggers the guard.
+        warnings: list[str] = []
+        result = self._result()
+        from gh_score.core.models import QualitativeIndicator
+
+        result.qualitative = QualitativeIndicator(available=False)
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                return_value={
+                    "level": "orange",
+                    "message": "Active development but young",
+                    "explanation": "The project is active but has few contributors.",
+                    "confidence": 0.5,
+                }
+            ),
+        ):
+            rec = await analyze_recommendation_with_llm(
+                result, LLMConfig(enabled=True), warnings
+            )
+
+        assert rec is not None
         assert warnings == []
+
+    @pytest.mark.asyncio
+    async def test_unsupported_negative_on_undetected_funding(self):
+        # No funding detected (deterministic): an absolute "no funding"
+        # claim is unsupported, the tool only knows "not detected".
+        warnings: list[str] = []
+        result = self._result()
+        from gh_score.core.models import SustainabilityIndicator
+
+        result.sustainability = SustainabilityIndicator(has_funding=False)
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                return_value={
+                    "level": "red",
+                    "message": "No funding, risky",
+                    "explanation": "The project has no funding whatsoever.",
+                    "confidence": 0.6,
+                }
+            ),
+        ):
+            rec = await analyze_recommendation_with_llm(
+                result, LLMConfig(enabled=True), warnings
+            )
+
+        assert rec is not None
+        assert len(warnings) == 1
+        assert "funding" in warnings[0].lower()
 
 
 class TestSubjectVerdicts:

@@ -353,6 +353,10 @@ MESSAGES: dict[str, dict[str, str]] = {
             "La recommandation affinée (LLM) semble contredire les signaux "
             "extraits (nie : {facts})"
         ),
+        "warn_llm_unsupported_negative": (
+            "La recommandation affinée (LLM) affirme l'absence de signaux que "
+            "l'analyse n'a pas pu vérifier (affirme absent : {facts})"
+        ),
         "warn_api_unreachable": (
             "API GitHub injoignable — analyse dégradée "
             "(métadonnées indisponibles) pour {url}"
@@ -736,9 +740,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "warn_llm_no_api_key": (
             "Remote LLM configured without an API key (GH_SCORE_LLM_API_KEY)"
         ),
-        "warn_llm_contradiction": (
-            "The refined recommendation (LLM) seems to contradict the "
+"warn_llm_contradiction": (
+            "The refined LLM recommendation seems to contradict the "
             "extracted signals (denies: {facts})"
+        ),
+        "warn_llm_unsupported_negative": (
+            "The refined LLM recommendation claims the absence of signals "
+            "the analysis could not verify (claims absent: {facts})"
         ),
         "warn_api_unreachable": (
             "GitHub API unreachable — degraded analysis "

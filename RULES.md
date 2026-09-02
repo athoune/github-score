@@ -211,6 +211,23 @@ Rules:
 - Invalid LLM output (unknown level, unparseable JSON, provider failure)
   simply hides the refined panel; the pipeline never breaks.
 
+**Contradiction / unsupported-negative guard** (deterministic, model-agnostic):
+the recommendation must not misuse the extracted facts. A windowed
+heuristic (negation word within ~30 chars of a fact keyword, or keyword
+followed by absent/missing/lacking) detects two cases and appends a
+hedged warning:
+
+- the recommendation **denies** a fact the analysis actually found
+  (`warn_llm_contradiction`, e.g. "no commercial support" while the
+  project's texts mention one);
+- the recommendation **claims the absence** of a fact the analysis could
+  not verify (`warn_llm_unsupported_negative`). Absence of evidence is
+  not evidence of absence: "no roadmap" when the README simply never
+  mentions one is an overclaim, typical of small models. The prompt also
+  instructs the model to phrase negatives as "no X announced in the
+  project texts" — the guard catches what the prompt fails to prevent,
+  whatever model the user runs.
+
 ## Comparison comparability rules
 
 `gh-score URL1 URL2 [URL3…]` compares several repositories and assesses,

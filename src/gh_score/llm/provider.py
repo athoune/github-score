@@ -208,6 +208,12 @@ def _build_recommendation_prompt() -> str:
         "not say there is no commercial support or no roadmap when the "
         "digest lists one). If you disagree with a signal, say so and "
         "explain why, but do not deny it.\n\n"
+        "An absent or null qualitative field means the signal was NOT "
+        "found in the project's texts — it does not prove the project "
+        "lacks it. Never state an absolute absence (\"no roadmap\", \"no "
+        "funding\", \"no commercial support\"); if you must mention it, "
+        "phrase it as \"no X announced in the project texts\" or stay "
+        "silent about it.\n\n"
         "Return a JSON object with:\n"
         '- level: one of "green", "orange", "red"\n'
         "- message: a short verdict sentence (max 15 words)\n"
@@ -559,11 +565,21 @@ def _denies_fact(
 
 
 def _check_contradictions(result, rec: LLMRecommendation, warnings) -> None:
-    """Append a warning when the recommendation denies a present fact.
+    """Append a warning when the recommendation misuses a fact.
 
-    Only facts actually found by the analysis are checked, so the guard
-    never fires on absent signals. The warning is hedged ("seems to
-    contradict"): the detection is a heuristic, not a verdict.
+    Two cases are detected with the same windowed heuristic:
+    - the recommendation *denies* a fact the analysis actually found
+      (e.g. "no commercial support" while the project's texts mention
+      one) → ``warn_llm_contradiction``;
+    - the recommendation *claims the absence* of a fact the analysis
+      could not verify (e.g. "no roadmap" when the README simply never
+      mentions one) — absence of evidence is not evidence of absence,
+      and small models routinely confuse the two →
+      ``warn_llm_unsupported_negative``.
+
+    Both warnings are hedged ("seems to / claims"): the detection is a
+    heuristic, not a verdict. The guard never fires when the
+    recommendation says nothing about a fact.
     """
     if not rec.message and not rec.explanation:
         return
@@ -581,14 +597,22 @@ def _check_contradictions(result, rec: LLMRecommendation, warnings) -> None:
         "foundation": bool(result.sustainability.foundation),
     }
 
-    denied = [
-        key
-        for key, (_, keywords, negations) in _FACT_CHECKS.items()
-        if present.get(key) and _denies_fact(text, keywords, negations)
-    ]
+    denied: list[str] = []
+    unsupported: list[str] = []
+    for key, (_, keywords, negations) in _FACT_CHECKS.items():
+        if not _denies_fact(text, keywords, negations):
+            continue
+        if present.get(key):
+            denied.append(key)
+        else:
+            unsupported.append(key)
+
     if denied:
         labels = ", ".join(t(_FACT_CHECKS[key][0]) for key in denied)
         _append_warning(warnings, "warn_llm_contradiction", facts=labels)
+    if unsupported:
+        labels = ", ".join(t(_FACT_CHECKS[key][0]) for key in unsupported)
+        _append_warning(warnings, "warn_llm_unsupported_negative", facts=labels)
 
 
 def _append_warning(warnings: list[str] | None, key: str, **kwargs: Any) -> None:

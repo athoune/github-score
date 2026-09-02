@@ -32,6 +32,28 @@ gh-score --format markdown  https://github.com/owner/repo   # Markdown report
 gh-score --format json      https://github.com/owner/repo   # structured JSON
 ```
 
+### Compare projects
+
+Pass two or more URLs to compare them side by side — e.g. to pick
+between similar libraries:
+
+```bash
+gh-score https://github.com/fastapi/fastapi https://github.com/pallets/flask https://github.com/django/django
+gh-score --format markdown https://github.com/BurntSushi/ripgrep https://github.com/sharkdp/fd
+```
+
+The comparison checks that it is **credible**: each pair is assessed for
+subject comparability (shared topics / description keywords), language
+compatibility for libraries, and library-vs-application mismatches.
+Non-credible pairs are flagged with the reason — warnings never block
+the comparison.
+
+The output is a **decision table**: one line per project (stars,
+license, language, maintenance state, last commit, bus factor,
+downloads, latest release, traffic-light verdict), ranked by verdict,
+then downloads, then bus factor. Each pair also shows an informational
+similarity score (0.0–1.0) saying how close the expressed subjects are.
+
 ### Optional LLM analysis
 
 The LLM is opt-in and never required. It extracts qualitative facts that

@@ -295,6 +295,78 @@ class TestFetchForkDivergence:
         assert behind is None
 
 
+class TestFetchForkPrs:
+    """fetch_fork_prs finds PRs opened from a fork via the search API."""
+
+    @pytest.mark.asyncio
+    async def test_parses_search_items(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value={
+            "total_count": 1,
+            "items": [{
+                "number": 784,
+                "state": "open",
+                "title": "fix: bind SIP media sockets",
+                "html_url": "https://github.com/livekit/sip/pull/784",
+            }],
+        })
+
+        prs = await fetcher.fetch_fork_prs("livekit/sip", "AlexanderMatveev")
+
+        assert len(prs) == 1
+        assert prs[0].number == 784
+        assert prs[0].state == "open"
+        assert prs[0].title == "fix: bind SIP media sockets"
+        # The search query targets the parent repo and the fork owner.
+        query = fetcher._get.call_args.kwargs["params"]["q"]
+        assert "repo:livekit/sip" in query
+        assert "author:AlexanderMatveev" in query
+        # Space separators: httpx encodes them as %20, which the search API
+        # accepts — a "+" would be sent as %2B and treated as a literal.
+        assert "+" not in query
+
+    @pytest.mark.asyncio
+    async def test_merged_detected(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value={
+            "items": [{
+                "number": 1,
+                "state": "closed",
+                "title": "old fix",
+                "html_url": "https://github.com/p/r/pull/1",
+                "pull_request": {"merged_at": "2024-01-01T00:00:00Z"},
+            }],
+        })
+
+        prs = await fetcher.fetch_fork_prs("owner/parent", "forker")
+
+        assert prs[0].state == "merged"
+
+    @pytest.mark.asyncio
+    async def test_closed_not_merged(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value={
+            "items": [{
+                "number": 2,
+                "state": "closed",
+                "title": "rejected",
+                "html_url": "https://github.com/p/r/pull/2",
+                "pull_request": {"merged_at": None},
+            }],
+        })
+
+        prs = await fetcher.fetch_fork_prs("owner/parent", "forker")
+
+        assert prs[0].state == "closed"
+
+    @pytest.mark.asyncio
+    async def test_search_failure_returns_empty(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher._get = AsyncMock(return_value=None)
+
+        assert await fetcher.fetch_fork_prs("owner/parent", "forker") == []
+
+
 class TestFetchLicense:
     @pytest.mark.asyncio
     async def test_mit_license(self, tmp_path):

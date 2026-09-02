@@ -341,9 +341,17 @@ Classification (`classify_fork`, threshold `_SOFT_FORK_MAX_AHEAD = 10` in
 - **unknown** (divergence could not be measured): the normal verdict
   stands.
 
-The divergence is only measured when a GitHub fetcher is available (remote
-analysis, or local analysis enriched from a URL); a pure local clone
-without a remote URL never has fork data.
+**Pull requests opened from the fork**: the tool looks up the PRs a fork
+has opened against its parent via the GitHub search API
+(`repo:{parent} is:pr author:{fork_owner}`) — the search covers every
+branch of the fork, unlike the pulls endpoint's `head` filter which
+requires an exact `owner:branch` pair. Merged PRs (`state: closed` with
+`pull_request.merged_at`) are reported as "merged". The PRs are listed in
+the report badge (TUI and Markdown) and in the soft-fork verdict reasoning.
+
+The divergence and PR lookups only run when a GitHub fetcher is available
+(remote analysis, or local analysis enriched from a URL); a pure local
+clone without a remote URL never has fork data.
 
 ## 7. Indicator families
 

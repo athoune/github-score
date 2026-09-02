@@ -434,8 +434,10 @@ class TestForkKeys:
                 "rec_fork_soft",
                 "reason_fork_soft",
                 "fact_fork_hard",
+                "fact_fork_pr",
                 "tui_fork_soft",
                 "tui_fork_hard",
+                "tui_fork_prs",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
 

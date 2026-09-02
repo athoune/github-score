@@ -451,6 +451,11 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
             console.print(f"[yellow]{t('tui_fork_soft', parent=parent)}[/yellow]")
         else:
             console.print(f"[yellow]{t('tui_fork_hard', parent=parent)}[/yellow]")
+        if result.meta.fork_prs:
+            prs = ", ".join(
+                f"#{pr.number} ({pr.state}) {pr.title}" for pr in result.meta.fork_prs
+            )
+            console.print(f"[dim]{t('tui_fork_prs', prs=prs)}[/dim]")
     console.print()
 
     # Summary table

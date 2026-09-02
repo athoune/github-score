@@ -21,6 +21,7 @@ from gh_score.core.models import (
     CommunityFiles,
     Contributor,
     ContributorStats,
+    ForkPullRequest,
     Issue,
     LanguageBreakdown,
     LicenseFamily,
@@ -266,6 +267,45 @@ class GitHubFetcher:
         if not isinstance(compare, dict):
             return None, None
         return compare.get("ahead_by"), compare.get("behind_by")
+
+    async def fetch_fork_prs(
+        self, parent_full_name: str, fork_owner: str
+    ) -> list[ForkPullRequest]:
+        """Find pull requests opened from this fork against its parent.
+
+        Uses the GitHub search API (``repo:{parent} is:pr author:{owner}``),
+        which covers every branch of the fork — the pulls endpoint's ``head``
+        filter requires an exact ``owner:branch`` pair and misses feature
+        branches. Merged PRs (state "closed" with ``pull_request.merged_at``)
+        are reported as "merged". The query uses spaces: httpx encodes them
+        as ``%20``, which the search API accepts — a ``+`` separator would
+        be sent as ``%2B`` and treated as a literal plus.
+        """
+        query = f"repo:{parent_full_name} is:pr author:{fork_owner}"
+        data = await self._get(
+            "https://api.github.com/search/issues",
+            params={"q": query, "per_page": "10"},
+        )
+        if not isinstance(data, dict):
+            return []
+        prs: list[ForkPullRequest] = []
+        for item in data.get("items", []):
+            if not isinstance(item, dict):
+                continue
+            state = item.get("state", "")
+            if state == "closed":
+                pull = item.get("pull_request") or {}
+                if pull.get("merged_at"):
+                    state = "merged"
+            prs.append(
+                ForkPullRequest(
+                    number=item.get("number", 0),
+                    state=state,
+                    title=item.get("title", ""),
+                    html_url=item.get("html_url", ""),
+                )
+            )
+        return prs
 
     async def fetch_license(self, url: RepoUrl) -> LicenseInfo:
         """Fetch license information."""

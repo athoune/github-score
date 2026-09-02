@@ -20,6 +20,7 @@ from gh_score.core.comparison import ComparisonResult, compare_results
 from gh_score.core.models import (
     AnalysisResult,
     ContributorsIndicator,
+    ForkPullRequest,
     LanguagesIndicator,
     LicenseIndicator,
     MaintenanceIndicator,
@@ -526,6 +527,30 @@ class TestMarkdownReport:
 
         assert result.exit_code == 0
         assert "Fork in sync with upstream: livekit/sip" in result.output
+
+    def test_fork_prs_in_markdown(self):
+        """The markdown report lists PRs opened from the fork."""
+        runner = CliRunner()
+        analysis = _result_with_warnings()
+        analysis.meta.fork = True
+        analysis.meta.parent_full_name = "livekit/sip"
+        analysis.meta.is_soft_fork = True
+        analysis.meta.fork_prs = [
+            ForkPullRequest(
+                784, "open", "fix: bind SIP media sockets",
+                "https://github.com/livekit/sip/pull/784",
+            )
+        ]
+
+        with (
+            patch("gh_score.cli.main.analyze_repo", return_value=analysis),
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+        ):
+            mock_cfg.return_value = _mock_config()
+            result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
+
+        assert result.exit_code == 0
+        assert "PRs from this fork: #784 (open) fix: bind SIP media sockets" in result.output
 
 
 class TestComparisonRenderers:

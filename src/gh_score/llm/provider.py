@@ -141,6 +141,7 @@ def _build_report_digest(result) -> dict[str, Any]:
         "fork": meta.fork,
         "parent": meta.parent_full_name,
         "soft_fork": meta.is_soft_fork,
+        "fork_prs_open": sum(1 for pr in meta.fork_prs if pr.state == "open"),
         "description": (meta.description or "")[:200],
         "maintenance": {
             "state": maint.state.value,

@@ -51,11 +51,13 @@ The rules are evaluated **in order**; the first matching branch wins.
    measured via the compare API — see SPECS §6.8)
    → 🟠 "Fork in sync with upstream — development happens on {parent}".
    The fork is a vehicle for pull requests: its maintenance/contributor
-   signals reflect the parent, so the verdict points there instead.
-   Hard forks (deliberately diverged, many own commits) are real projects
-   and keep the normal verdict, with the fork relationship surfaced as a
-   `fact_fork_hard` reasoning line. A fork whose divergence is unknown
-   keeps the normal verdict.
+   signals reflect the parent, so the verdict points there instead. The
+   pull requests opened from the fork against the parent (GitHub search,
+   `author:{fork_owner}`) are listed in the reasoning and in the report
+   badge. Hard forks (deliberately diverged, many own commits) are real
+   projects and keep the normal verdict, with the fork relationship
+   surfaced as a `fact_fork_hard` reasoning line. A fork whose divergence
+   is unknown keeps the normal verdict.
 
 5. **Homepage down** (only when the repository declares a homepage; repos
    without one skip both website steps)
@@ -376,6 +378,7 @@ state). Example:
 | `rec_fork_soft` | Fork aligné sur l'amont — le développement a lieu sur {parent} | Fork in sync with upstream — development happens on {parent} |
 | `reason_fork_soft` | ce dépôt est un fork à usage de PR — {behind} commits de retard sur {parent}, sans développement propre | this repository is a fork used for pull requests — {behind} commits behind {parent}, no own development |
 | `fact_fork_hard` | fork divergent de {parent} ({ahead} commits propres) | hard fork of {parent} ({ahead} own commits) |
+| `fact_fork_pr` | #{number} ({state}) : {title} | #{number} ({state}): {title} |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
 | `fact_dependents` | {count} paquets dépendent de cette bibliothèque | {count} packages depend on this library |
 | `owner_type_user` | utilisateur | user |

@@ -216,6 +216,7 @@ class RepositoryMeta:
     fork_ahead: int | None = None        # commits ahead of the parent's default branch
     fork_behind: int | None = None       # commits behind the parent's default branch
     is_soft_fork: bool | None = None     # computed: PR-vehicle (synced) vs hard fork (diverged)
+    fork_prs: list[ForkPullRequest] = field(default_factory=list)  # PRs opened from this fork against its parent
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +239,19 @@ class CommunityFiles:
     # File/directory names at the repository root (from GET /contents in
     # remote mode, from the local checkout in local mode). Used for
     # library/application classification and binding detection.
+
+
+# ---------------------------------------------------------------------------
+# Pull requests opened from a fork
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ForkPullRequest:
+    """A pull request opened from a fork against its parent repository."""
+    number: int
+    state: str  # "open" | "closed" | "merged"
+    title: str
+    html_url: str
 
 
 # ---------------------------------------------------------------------------

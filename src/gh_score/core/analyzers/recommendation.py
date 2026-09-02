@@ -294,17 +294,32 @@ def _rec_fork(result: AnalysisResult, lang: str) -> Recommendation | None:
     parent = meta.parent_full_name or meta.source_full_name
     if not parent:
         return None
-    return _build(
-        RecommendationLevel.ORANGE,
-        t("rec_fork_soft", lang=lang, parent=parent),
-        result,
-        lang,
+    reasons = [
         t(
             "reason_fork_soft",
             lang=lang,
             parent=parent,
             behind=meta.fork_behind or 0,
-        ),
+        )
+    ]
+    # The pull requests opened from this fork are the point of the fork;
+    # surface them in the reasoning.
+    reasons.extend(
+        t(
+            "fact_fork_pr",
+            lang=lang,
+            number=pr.number,
+            state=pr.state,
+            title=pr.title,
+        )
+        for pr in meta.fork_prs
+    )
+    return _build(
+        RecommendationLevel.ORANGE,
+        t("rec_fork_soft", lang=lang, parent=parent),
+        result,
+        lang,
+        *reasons,
     )
 
 

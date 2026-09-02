@@ -10,6 +10,7 @@ from gh_score.core.models import (
     LanguagesIndicator,
     MaintenanceIndicator,
     MaintenanceState,
+    ForkPullRequest,
     QualitativeIndicator,
     Recommendation,
     RecommendationLevel,
@@ -848,3 +849,32 @@ class TestForkRecommendation:
         result.meta.fork = False
         rec = _recommend(result)
         assert rec.level == RecommendationLevel.GREEN
+
+    def test_soft_fork_reasoning_mentions_prs(self):
+        """The PRs opened from the fork are surfaced in the reasoning."""
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            latest_version="v1.0.0",
+        )
+        result.meta.fork = True
+        result.meta.parent_full_name = "livekit/sip"
+        result.meta.is_soft_fork = True
+        result.meta.fork_prs = [
+            ForkPullRequest(
+                784, "open", "fix: bind SIP media sockets",
+                "https://github.com/livekit/sip/pull/784",
+            )
+        ]
+        rec = _recommend(result)
+        assert "#784 (open) : fix: bind SIP media sockets" in rec.reasoning
+
+    def test_soft_fork_without_prs_has_no_pr_line(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            latest_version="v1.0.0",
+        )
+        result.meta.fork = True
+        result.meta.parent_full_name = "livekit/sip"
+        result.meta.is_soft_fork = True
+        rec = _recommend(result)
+        assert not any(line.startswith("#") for line in rec.reasoning)

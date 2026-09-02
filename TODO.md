@@ -68,10 +68,18 @@ item.
       diverged — analyzed normally, with a `fact_fork_hard` reasoning line
       and a badge). Sources: API `fork` / `parent` / `source` fields plus
       the compare API (`parent_owner:parent_branch...fork_branch`).
-      Follow-up: the pure-local mode (no remote URL) never has fork data;
+      Follow-ups: the pure-local mode (no remote URL) never has fork data;
       text-intent heuristics from the description/README were not needed
       for the reported cases and can be added later if false negatives
       show up.
+- [x] (done 2026-08-10) **Pull requests opened from a fork** — for any
+      fork, look up the PRs it opened against its parent (GitHub search
+      `repo:{parent} is:pr author:{fork_owner}`, which covers every branch
+      of the fork; merged PRs detected via `pull_request.merged_at`) and
+      surface them in the report badge (TUI/Markdown) and in the soft-fork
+      verdict reasoning. Caveat: search-by-author misses PRs authored by a
+      different account using the fork (rare); search indexing lags newly
+      opened PRs.
 - [x] (done 2026-08-07) **README language detection** — determine whether
       the README is written in English (dependency-free heuristic on the
       dominant script + English stopword density; informational only,

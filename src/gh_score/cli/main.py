@@ -164,6 +164,11 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
             console.print(t("tui_fork_soft", parent=parent))
         else:
             console.print(t("tui_fork_hard", parent=parent))
+        if result.meta.fork_prs:
+            prs = ", ".join(
+                f"#{pr.number} ({pr.state}) {pr.title}" for pr in result.meta.fork_prs
+            )
+            console.print(t("tui_fork_prs", prs=prs))
         console.print()
 
     console.print(

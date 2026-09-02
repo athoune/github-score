@@ -25,6 +25,7 @@ from gh_score.core.models import (
     CommunityFiles,
     Contributor,
     ContributorStats,
+    ForkPullRequest,
     Issue,
     LanguageBreakdown,
     LicenseFamily,
@@ -109,6 +110,7 @@ def _mock_fetcher(mock_cls, repo: Repository) -> MagicMock:
     instance.fetch_all = AsyncMock(return_value=repo)
     instance.fetch_security_updates = AsyncMock(return_value=[])
     instance.fetch_fork_divergence = AsyncMock(return_value=(0, 0))
+    instance.fetch_fork_prs = AsyncMock(return_value=[])
     instance.close = AsyncMock()
     mock_cls.return_value = instance
     return instance
@@ -212,6 +214,31 @@ class TestRemotePath:
             await analyze_repo_async("https://github.com/owner/repo", config)
 
         instance.fetch_fork_divergence.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_fork_prs_fetched_from_parent(self, tmp_path):
+        """PRs opened from the fork are looked up against the parent."""
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()
+        repo.meta.fork = True
+        repo.meta.parent_full_name = "livekit/sip"
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            instance = _mock_fetcher(mock_fetcher_cls, repo)
+            instance.fetch_fork_prs = AsyncMock(return_value=[
+                ForkPullRequest(784, "open", "fix: bind SIP media sockets",
+                                "https://github.com/livekit/sip/pull/784"),
+            ])
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        instance.fetch_fork_prs.assert_awaited_once_with("livekit/sip", "owner")
+        assert result.meta.fork_prs[0].number == 784
 
     @pytest.mark.asyncio
     async def test_config_defaults_to_load(self, tmp_path):

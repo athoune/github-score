@@ -43,6 +43,7 @@ from gh_score.core.models import (
     LLMRecommendation,
     MaintenanceIndicator,
     MaintenanceState,
+    ForkPullRequest,
     QualitativeIndicator,
     Recommendation,
     RecommendationLevel,
@@ -452,6 +453,19 @@ class TestRenderDashboard:
         result.meta.is_soft_fork = False
         output = self._render(result, "en_US.UTF-8")
         assert "Hard fork of: livekit/sip" in output
+
+    def test_fork_prs_badge(self, result, en_locale):
+        result.meta.fork = True
+        result.meta.parent_full_name = "livekit/sip"
+        result.meta.is_soft_fork = True
+        result.meta.fork_prs = [
+            ForkPullRequest(
+                784, "open", "fix: bind SIP media sockets",
+                "https://github.com/livekit/sip/pull/784",
+            )
+        ]
+        output = self._render(result, "en_US.UTF-8")
+        assert "PRs from this fork: #784 (open) fix: bind SIP media sockets" in output
 
     def test_recommendation_prominent(self, result, en_locale):
         output = self._render(result, "en_US.UTF-8")

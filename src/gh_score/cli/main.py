@@ -595,11 +595,9 @@ class DefaultGroup(_EpilogMixin, click.Group):
 
 
 def _default_analyze() -> None:
-    """Group callback: invoked on every ``gh-score`` call. Loads the
-    local ``.env`` (so GH_SCORE_LLM_* etc. from the project's .env are
-    picked up without sourcing it), then dispatches to the subcommand or
-    the default ``analyze``."""
-    _load_dotenv()
+    """Group callback: invoked on every ``gh-score`` call. Dispatches to
+    the subcommand or the default ``analyze``. Environment files are
+    loaded only on explicit request (``--env``), never tacitly."""
     ctx = click.get_current_context()
     if ctx.invoked_subcommand is not None:
         return  # a real subcommand will handle it
@@ -658,6 +656,11 @@ def _resolve_and_validate(
 @click.option("--no-llm", is_flag=True, help="Disable LLM analysis")
 @click.option("--config", "config_path", help="Path to config file")
 @click.option(
+    "--env",
+    "env_path",
+    help="Load KEY=VALUE pairs from this .env file (explicit opt-in)",
+)
+@click.option(
     "--format",
     "output_format",
     type=click.Choice(["tui", "json", "markdown"]),
@@ -671,10 +674,16 @@ def analyze(
     refresh: bool,
     no_llm: bool,
     config_path: str | None,
+    env_path: str | None,
     output_format: str,
 ) -> None:
     """Analyze a repository, or compare several repositories (2+ URLs)."""
     console = Console()
+
+    # .env is loaded only on explicit request: the working directory may
+    # contain an unrelated .env, so we never load one tacitly.
+    if env_path:
+        _load_dotenv(env_path)
 
     # Resolve every target; with no argument, fall back to the current
     # directory when it is a git clone.

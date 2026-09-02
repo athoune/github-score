@@ -191,6 +191,22 @@ class TestDefaultGroupForwardsArgs:
         url_arg = mock_analyze.call_args[0][0]
         assert url_arg == "https://github.com/o/r"
 
+    def test_env_file_loaded_only_on_explicit_flag(self, tmp_path):
+        """--env loads the file; without it no .env is touched."""
+        dotenv = tmp_path / "settings.env"
+        dotenv.write_text("GH_SCORE_LLM_ENABLED=true\n")
+        runner = CliRunner()
+        with (
+            patch("gh_score.cli.main.analyze_repo") as mock_analyze,
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+            patch("gh_score.cli.main._load_dotenv") as mock_load,
+        ):
+            mock_cfg.return_value = _mock_config()
+            mock_analyze.return_value = MagicMock(url="https://github.com/o/r")
+            runner.invoke(cli, ["analyze", "--env", str(dotenv), "https://github.com/o/r"])
+
+        mock_load.assert_called_once_with(str(dotenv))
+
     def test_no_args_uses_cwd(self):
         """Without arguments and inside a git repo, the CWD should be used."""
         runner = CliRunner()

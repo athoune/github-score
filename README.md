@@ -75,6 +75,21 @@ Set a `GITHUB_TOKEN` to raise API rate limits. LLM settings can also live
 in a `config.toml` (see `gh-score config`). Everything stays optional:
 the tool works fully offline with local clones and no token.
 
+`gh-score` loads a `.env` file from the current directory at startup
+(`KEY=VALUE` lines, an `export` prefix is fine, an already-exported
+variable wins). Put your settings there and they apply without sourcing
+anything:
+
+```bash
+cat > .env <<'EOF'
+GITHUB_TOKEN="..."
+GH_SCORE_LLM_ENABLED=true
+GH_SCORE_LLM_BASE_URL="http://127.0.0.1:8008/v1"
+GH_SCORE_LLM_MODEL="Qwen3.5-2B-6bit"
+EOF
+gh-score https://github.com/owner/repo
+```
+
 To enrich the report with **dependents counts** (how many packages depend
 on this library) for PyPI, npm and Maven — the only ecosystems whose
 official registries expose no reverse-dependency count — set a free

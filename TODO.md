@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 89% coverage, 551 tests). Last updated: 2026-08-10.
+(suite at 89% coverage, 564 tests). Last updated: 2026-08-10.
 
 ## Tests / coverage
 
@@ -52,10 +52,11 @@ Feature ideas carried over from the maintainer's notes (`TODO.txt`),
 described cleanly. Scope and acceptance criteria still to be defined per
 item.
 
-- [ ] **Broken repository URLs** — malformed URLs are already rejected by
-      `RepoUrl.parse`; extend this to repositories that do not exist
-      (GitHub API 404) or that are not repositories, with a clear,
-      localized error instead of a raw exception.
+- [x] (done 2026-08-10) **Broken repository URLs** — malformed URLs are
+      already rejected by `RepoUrl.parse`; repositories that do not exist
+      (GitHub API 404) now raise a clear localized error, and a transient
+      API failure (rate limit, auth, network) degrades the analysis with a
+      localized warning instead of a raw exception or a ghost report.
 - [x] (done 2026-08-07) **Mirror-only repositories** — flag repositories
       that are pure mirrors (all commits imported from an upstream, no
       original development): GitHub `mirror_url` field or a text heuristic

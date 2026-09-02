@@ -84,6 +84,7 @@ async def analyze_repo_async(
     is_local = use_local or (path.exists() and (path / ".git").exists())
 
     fetcher: GitHubFetcher | None = None
+    api_meta_ok = False
     try:
         if is_local:
             # Local analysis
@@ -96,14 +97,18 @@ async def analyze_repo_async(
                 fetcher = GitHubFetcher(config, cache)
                 # Enrich with API data
                 api_repo = await fetcher.fetch_all(repo.url)
-                # Merge: prefer local data for commits/contributors, API for metadata
-                repo.meta = api_repo.meta
-                repo.license = api_repo.license
-                repo.release_health = api_repo.release_health
-                repo.languages = api_repo.languages
-                repo.community = api_repo.community
-                repo.issues = api_repo.issues
-                repo.security_updates = await fetcher.fetch_security_updates(repo.url)
+                # Merge: prefer local data for commits/contributors, API for
+                # metadata. Only merge when the API answered: a failed fetch
+                # would replace good local data with empty fields.
+                api_meta_ok = bool(api_repo.meta.full_name)
+                if api_meta_ok:
+                    repo.meta = api_repo.meta
+                    repo.license = api_repo.license
+                    repo.release_health = api_repo.release_health
+                    repo.languages = api_repo.languages
+                    repo.community = api_repo.community
+                    repo.issues = api_repo.issues
+                    repo.security_updates = await fetcher.fetch_security_updates(repo.url)
                 # Keep local commits and contributors (more complete)
             local_path = str(path)
         else:
@@ -114,6 +119,7 @@ async def analyze_repo_async(
             fetcher = GitHubFetcher(config, cache)
             repo = await fetcher.fetch_all(repo_url)
             repo.security_updates = await fetcher.fetch_security_updates(repo_url)
+            api_meta_ok = bool(repo.meta.full_name)
             local_path = None
 
         # Fetch registry information. Remote mode reuses the still-open
@@ -152,6 +158,16 @@ async def analyze_repo_async(
             )
         repo.meta.is_soft_fork = classify_fork(repo.meta.fork_ahead)
 
+        # Hardening: never analyze a ghost repository. When the GitHub API
+        # could not return the repository metadata, surface it clearly
+        # instead of silently analyzing empty data: 404 means the repository
+        # does not exist (hard error); anything else (network, rate limit,
+        # auth) degrades the analysis with a warning.
+        if fetcher is not None and not api_meta_ok:
+            status = await fetcher.probe_status(repo.url.api_url)
+            if status == 404:
+                raise ValueError(t("error_repo_not_found", url=str(repo.url)))
+            warnings.append(t("warn_api_unreachable", url=str(repo.url)))
     finally:
         if fetcher is not None:
             await fetcher.close()

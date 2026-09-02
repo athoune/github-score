@@ -50,6 +50,7 @@ def _make_repo_data() -> Repository:
     return Repository(
         url=RepoUrl("owner", "repo"),
         meta=RepositoryMeta(
+            full_name="owner/repo",
             stars=1000,
             forks=100,
             created_at=now - timedelta(days=500),
@@ -111,6 +112,7 @@ def _mock_fetcher(mock_cls, repo: Repository) -> MagicMock:
     instance.fetch_security_updates = AsyncMock(return_value=[])
     instance.fetch_fork_divergence = AsyncMock(return_value=(0, 0))
     instance.fetch_fork_prs = AsyncMock(return_value=[])
+    instance.probe_status = AsyncMock(return_value=200)
     instance.close = AsyncMock()
     mock_cls.return_value = instance
     return instance
@@ -239,6 +241,45 @@ class TestRemotePath:
 
         instance.fetch_fork_prs.assert_awaited_once_with("livekit/sip", "owner")
         assert result.meta.fork_prs[0].number == 784
+
+    @pytest.mark.asyncio
+    async def test_repo_not_found_raises(self, tmp_path):
+        """A 404 on the metadata means the repository does not exist."""
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()
+        repo.meta = RepositoryMeta()  # empty: the API did not answer
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            instance = _mock_fetcher(mock_fetcher_cls, repo)
+            instance.probe_status = AsyncMock(return_value=404)
+            with pytest.raises(ValueError, match="Repository not found"):
+                await analyze_repo_async("https://github.com/owner/repo", config)
+
+    @pytest.mark.asyncio
+    async def test_api_unreachable_warns(self, tmp_path):
+        """A transient API failure degrades the analysis with a warning."""
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()
+        repo.meta = RepositoryMeta()  # empty: the API did not answer
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            instance = _mock_fetcher(mock_fetcher_cls, repo)
+            instance.probe_status = AsyncMock(return_value=500)
+            result = await analyze_repo_async("https://github.com/owner/repo", config)
+
+        assert any("GitHub API unreachable" in w for w in result.warnings)
 
     @pytest.mark.asyncio
     async def test_config_defaults_to_load(self, tmp_path):

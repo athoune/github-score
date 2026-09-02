@@ -346,6 +346,11 @@ MESSAGES: dict[str, dict[str, str]] = {
             "La recommandation affinée (LLM) semble contredire les signaux "
             "extraits (nie : {facts})"
         ),
+        "warn_api_unreachable": (
+            "API GitHub injoignable — analyse dégradée "
+            "(métadonnées indisponibles) pour {url}"
+        ),
+        "error_repo_not_found": "Dépôt introuvable sur GitHub : {url}",
         "panel_warnings": "Avertissements",
 
         # ------------------------------------------------------------------
@@ -721,6 +726,11 @@ MESSAGES: dict[str, dict[str, str]] = {
             "The refined recommendation (LLM) seems to contradict the "
             "extracted signals (denies: {facts})"
         ),
+        "warn_api_unreachable": (
+            "GitHub API unreachable — degraded analysis "
+            "(metadata unavailable) for {url}"
+        ),
+        "error_repo_not_found": "Repository not found on GitHub: {url}",
         "panel_warnings": "Warnings",
 
         # ------------------------------------------------------------------

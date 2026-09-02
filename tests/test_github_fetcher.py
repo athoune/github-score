@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -365,6 +365,26 @@ class TestFetchForkPrs:
         fetcher._get = AsyncMock(return_value=None)
 
         assert await fetcher.fetch_fork_prs("owner/parent", "forker") == []
+
+
+class TestProbeStatus:
+    @pytest.mark.asyncio
+    async def test_returns_status_code(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        resp = MagicMock()
+        resp.status_code = 404
+        fetcher.client.get = AsyncMock(return_value=resp)
+
+        assert await fetcher.probe_status("https://api.github.com/repos/x/y") == 404
+
+    @pytest.mark.asyncio
+    async def test_request_error_returns_none(self, tmp_path):
+        import httpx
+
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.client.get = AsyncMock(side_effect=httpx.RequestError("boom"))
+
+        assert await fetcher.probe_status("https://api.github.com/repos/x/y") is None
 
 
 class TestFetchLicense:

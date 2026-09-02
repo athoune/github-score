@@ -349,6 +349,13 @@ requires an exact `owner:branch` pair. Merged PRs (`state: closed` with
 `pull_request.merged_at`) are reported as "merged". The PRs are listed in
 the report badge (TUI and Markdown) and in the soft-fork verdict reasoning.
 
+**API failure hardening**: the analysis never runs on a ghost repository.
+When the GitHub metadata fetch fails, `probe_status` distinguishes a 404
+(the repository does not exist → localized `ValueError`, printed cleanly
+by the CLI) from any other failure (network, rate limit, auth → a
+localized warning and a degraded analysis). In local mode the API merge is
+skipped when the fetch failed, keeping the local data intact.
+
 The divergence and PR lookups only run when a GitHub fetcher is available
 (remote analysis, or local analysis enriched from a URL); a pure local
 clone without a remote URL never has fork data.

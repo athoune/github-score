@@ -438,6 +438,8 @@ class TestForkKeys:
                 "tui_fork_soft",
                 "tui_fork_hard",
                 "tui_fork_prs",
+                "warn_api_unreachable",
+                "error_repo_not_found",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
 

@@ -307,6 +307,19 @@ class GitHubFetcher:
             )
         return prs
 
+    async def probe_status(self, url: str) -> int | None:
+        """HTTP status of a direct GET (uncached, no error collapsing).
+
+        Used to diagnose a failed metadata fetch: 404 means the repository
+        does not exist; any other failure (network, rate limit, auth) is
+        reported as ``None`` or the actual status code.
+        """
+        try:
+            resp = await self.client.get(url)
+            return resp.status_code
+        except httpx.RequestError:
+            return None
+
     async def fetch_license(self, url: RepoUrl) -> LicenseInfo:
         """Fetch license information."""
         data = await self._get(f"{url.api_url}/license")

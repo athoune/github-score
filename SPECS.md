@@ -616,15 +616,19 @@ The comparison reuses the three output formats:
 
 - **TUI**: a condensed view that fits in a terminal window without
   scrolling — a comparability block listing the flagged pairs with their
-  reasons and similarity score, then a table with one line per project
-  (project, stars, license, language, maintenance state, last commit,
-  traffic-light verdict).
-- **JSON**: `{"projects": [...], "pairs": [...], "warnings": [...]}`
-  where `projects` are full `AnalysisResult` objects and `pairs` carry
-  the comparability verdicts (`subject`, `language_compatible`, kinds,
-  `similarity`, reasons).
-- **Markdown**: a comparability section, a comparison table, then the
-  full per-project report (same content as a single analysis).
+  reasons and similarity score, then a **decision table** with one line
+  per project (project, stars, license, language, maintenance state, last
+  commit, bus factor, downloads, latest release, traffic-light verdict).
+  Rows are ranked: verdict first (green → orange → red), then downloads,
+  then bus factor (no composite score — the verdict stays primary, SPECS
+  §3). A dim note under the table explains the order.
+- **JSON**: `{"projects": [...], "ranking": [...], "pairs": [...],
+  "warnings": [...]}` where `projects` are full `AnalysisResult` objects,
+  `ranking` lists the projects in the recommended (ranked) order, and
+  `pairs` carry the comparability verdicts (`subject`,
+  `language_compatible`, kinds, `similarity`, reasons).
+- **Markdown**: a comparability section, the same ranked decision table,
+  then the full per-project report (same content as a single analysis).
 
 ## 9. LLM integration
 

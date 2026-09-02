@@ -14,6 +14,7 @@ from gh_score.core.comparison import (
     compare_results,
     consumer_languages,
     normalize_language,
+    ranked_projects,
     similarity_score,
 )
 from gh_score.core.models import (
@@ -23,6 +24,7 @@ from gh_score.core.models import (
     LicenseIndicator,
     MaintenanceIndicator,
     Recommendation,
+    RecommendationLevel,
     RegistryInfo,
     ReleaseHealthIndicator,
     RepoUrl,
@@ -341,6 +343,51 @@ class TestCompareResults:
         a = _result(name="a", topics=["http"])
         b = _result(name="b", topics=["http"])
         assert compare_results([a, b]).warnings == []
+
+
+class TestRankedProjects:
+    """Decision-table order: verdict, then downloads, then bus factor."""
+
+    def _ranked(self, results) -> list[str]:
+        return [r.url.repo for r in ranked_projects(compare_results(results))]
+
+    def test_verdict_first_then_downloads(self):
+        green_low = _result(
+            name="green-low",
+            registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=100)],
+        )
+        green_high = _result(
+            name="green-high",
+            registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=9000)],
+        )
+        red = _result(
+            name="red",
+            registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=999999)],
+        )
+        green_high.recommendation.level = RecommendationLevel.GREEN
+        green_low.recommendation.level = RecommendationLevel.GREEN
+        red.recommendation.level = RecommendationLevel.RED
+        # The red project has the most downloads but the worst verdict.
+        assert self._ranked([red, green_low, green_high]) == [
+            "green-high",
+            "green-low",
+            "red",
+        ]
+
+    def test_bus_factor_breaks_download_ties(self):
+        a = _result(
+            name="a",
+            registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=100)],
+        )
+        b = _result(
+            name="b",
+            registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=100)],
+        )
+        a.recommendation.level = RecommendationLevel.GREEN
+        b.recommendation.level = RecommendationLevel.GREEN
+        a.contributors = ContributorsIndicator(bus_factor=2)
+        b.contributors = ContributorsIndicator(bus_factor=5)
+        assert self._ranked([a, b]) == ["b", "a"]
 
 
 class TestApplySubjectRefinement:

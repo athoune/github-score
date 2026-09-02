@@ -115,7 +115,10 @@ item.
       cross-signal rule was added (a topic of one project shared with a
       description keyword of the other — fixes the FastAPI vs Flask
       false negative). New informational pair `similarity` score (0.0–1.0
-      lexical closeness, `None` on unjudgeable subjects). Remaining:
+      lexical closeness, `None` on unjudgeable subjects) and a ranked
+      decision table (verdict, then downloads, then bus factor; bus
+      factor / downloads / latest-release columns; `ranking` in JSON).
+      Remaining:
       detect bindings that never publish to a registry (ctypes/JNI — see
       SPECS §16).
 - [x] (done 2026-08-09) **Registry popularity (dependents + downloads)** —

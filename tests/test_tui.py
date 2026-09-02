@@ -573,6 +573,9 @@ class TestRenderComparison:
         # Comparability panel: OK pair
         assert "Comparability" in output
         assert "✓" in output
+        # Similarity score for the compatible pair (shared topic "http",
+        # both Python libraries): 1.00
+        assert "similarity: 1.00" in output
         # Table columns and values
         assert "Stars" in output
         assert "76.0k" in output
@@ -581,9 +584,15 @@ class TestRenderComparison:
         assert "Python" in output
         assert "active" in output
         assert "2d" in output
+        # Decision-support columns: bus factor, downloads, latest release
+        assert "Bus" in output
+        assert "Dl" in output
+        assert "Release" in output
         # Verdict glyphs (green + orange)
         assert "🟢" in output
         assert "🟠" in output
+        # Rows sorted by verdict: green first
+        assert output.index("fastapi") < output.index("tornado")
 
     def test_incompatible_pair_warns(self, en_locale):
         a = _project("fastapi", 76000, ["http"])

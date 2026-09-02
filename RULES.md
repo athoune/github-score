@@ -303,6 +303,20 @@ score, which stays `None` otherwise.
 
 Warnings never prevent the comparison.
 
+### Decision table
+
+The comparison table (TUI and Markdown) is **ranked** to answer "which
+should I pick?": rows are ordered by the traffic-light verdict (green →
+orange → red), then by registry **downloads** (real adoption), then by
+**bus factor** (team depth), then by name. No composite score is
+invented — the verdict stays the primary signal (SPECS §3). The JSON
+payload exposes the same order as a `ranking` list of project names.
+The rank note is shown under the table (`cmp_rank_note`).
+
+Columns: project, stars, license, main language, maintenance state, last
+commit, bus factor, downloads, latest release (version · age), verdict.
+Downloads aggregate every published package (`project_downloads`).
+
 ### Thresholds (`core/comparison.py`)
 
 | Constant | Value | Used for |
@@ -335,6 +349,10 @@ Binding detection is limited to registry publications and explicit
 | `cmp_kind_unknown` | type inconnu pour {repo} — traité comme une application | unknown project kind for {repo} — treated as an application |
 | `cmp_warning` | {a} vs {b} : comparaison peu crédible | {a} vs {b}: comparison may not be credible |
 | `cmp_similarity` | similarité : {score} | similarity: {score} |
+| `cmp_table_busfactor` | Bus | Bus |
+| `cmp_table_downloads` | Tél. | Dl |
+| `cmp_table_release` | Version | Release |
+| `cmp_rank_note` | lignes triées par verdict, puis téléchargements, puis bus factor | rows sorted by verdict, then downloads, then bus factor |
 
 The full catalog (TUI and Markdown labels included) lives in
 `src/gh_score/i18n.py`.

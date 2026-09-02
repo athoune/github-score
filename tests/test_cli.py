@@ -601,7 +601,8 @@ class TestComparisonRenderers:
 
     def test_markdown_has_comparability_and_table(self):
         buf = io.StringIO()
-        console = Console(file=buf)
+        # The 10-column table needs more than the 80-column default width.
+        console = Console(file=buf, width=200)
         _render_comparison_markdown(self._comparison(), console)
         output = buf.getvalue()
         assert "# GitHub Health Comparison" in output
@@ -615,8 +616,19 @@ class TestComparisonRenderers:
         assert "| owner/fastapi | 76,000 |" in output
         assert "| owner/asyncpg | 9,000 |" in output
         assert "🟠" in output
+        # Decision-support columns and rank note
+        assert "| Bus | Downloads | Release |" in output
+        assert "rows sorted by verdict, then downloads, then bus factor" in output
         # Full per-project reports are embedded
         assert "GitHub Health Report: " in output
+
+    def test_markdown_rows_sorted_by_verdict(self):
+        buf = io.StringIO()
+        console = Console(file=buf)
+        _render_comparison_markdown(self._comparison(), console)
+        output = buf.getvalue()
+        # fastapi is green, asyncpg orange → fastapi's row comes first.
+        assert output.index("owner/fastapi") < output.index("owner/asyncpg")
 
     def test_json_structure(self):
         buf = io.StringIO()
@@ -630,6 +642,10 @@ class TestComparisonRenderers:
         assert pair["subject"] == "unknown"
         assert pair["language_compatible"] is None
         assert pair["verdict"] == "warning"
+        assert "similarity" in pair
+        assert pair["similarity"] is None  # subject unknown → no score
         assert len(payload["warnings"]) == 1
         # Projects keep the single-analysis JSON shape
         assert payload["projects"][0]["meta"]["stars"] == 76000
+        # Decision support: recommended order (green before orange)
+        assert payload["ranking"] == ["owner/fastapi", "owner/asyncpg"]

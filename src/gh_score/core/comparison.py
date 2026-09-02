@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
-from gh_score.core.models import AnalysisResult, RepoUrl
+from gh_score.core.models import AnalysisResult, RecommendationLevel, RepoUrl
 from gh_score.i18n import t
 
 
@@ -447,6 +447,45 @@ def compare_results(results: list[AnalysisResult]) -> ComparisonResult:
         pairs=pairs,
         warnings=_build_warnings(pairs),
     )
+
+
+# ---------------------------------------------------------------------------
+# Decision support: ranked order for the comparison tables
+# ---------------------------------------------------------------------------
+
+# Traffic-light order for the decision table. No composite score is
+# invented (SPECS §3): the verdict is the primary signal, then real-world
+# adoption (downloads), then team depth (bus factor).
+_VERDICT_ORDER = {
+    RecommendationLevel.GREEN: 0,
+    RecommendationLevel.ORANGE: 1,
+    RecommendationLevel.RED: 2,
+}
+
+
+def project_downloads(result: AnalysisResult) -> int:
+    """Total registry downloads across the published packages."""
+    return sum(r.downloads or 0 for r in result.registries if r.exists)
+
+
+def _project_sort_key(result: AnalysisResult) -> tuple:
+    name = result.meta.full_name or f"{result.url.owner}/{result.url.repo}"
+    return (
+        _VERDICT_ORDER.get(result.recommendation.level, 3),
+        -project_downloads(result),
+        -(result.contributors.bus_factor or 0),
+        name,
+    )
+
+
+def ranked_projects(comparison: ComparisonResult) -> list[AnalysisResult]:
+    """Projects in recommended comparison order.
+
+    Traffic-light verdict first (green → orange → red), then registry
+    downloads (real adoption), then bus factor, then name. Used by the
+    decision table in every renderer; never changes the analysis itself.
+    """
+    return sorted(comparison.projects, key=_project_sort_key)
 
 
 def _build_warnings(pairs: list[PairComparison]) -> list[str]:

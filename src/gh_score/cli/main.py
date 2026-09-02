@@ -21,6 +21,8 @@ from gh_score.core.comparison import (
     ComparisonResult,
     ComparisonVerdict,
     compare_results,
+    project_downloads,
+    ranked_projects,
 )
 from gh_score.core.models import AnalysisResult, RecommendationLevel, RepoUrl
 from gh_score.i18n import t
@@ -357,6 +359,16 @@ def _md_commit_cell(days: int | None) -> str:
     return f"{days}d"
 
 
+def _md_release_cell(result) -> str:
+    """Compact latest-release cell: 'v2.4.1 · 12d' or '—'."""
+    rh = result.release_health
+    if not rh.latest_version:
+        return "—"
+    if rh.age_days is None:
+        return rh.latest_version
+    return f"{rh.latest_version} · {rh.age_days}d"
+
+
 def _pair_md_label(pair) -> str:
     """'owner/repo vs owner/repo' Markdown label for a pair."""
     return (
@@ -374,6 +386,8 @@ def _render_comparison_markdown(comparison: ComparisonResult, console: Console) 
     for pair in comparison.pairs:
         glyph = "✅" if pair.verdict == ComparisonVerdict.OK else "⚠️"
         console.print(f"- {glyph} **{_pair_md_label(pair)}**")
+        if pair.similarity is not None:
+            console.print(f"  - {t('cmp_similarity', score=pair.similarity)}")
         for reason in pair.reasons:
             console.print(f"  - {reason}")
         for note in pair.notes:
@@ -381,9 +395,11 @@ def _render_comparison_markdown(comparison: ComparisonResult, console: Console) 
     console.print()
 
     console.print(f"{t('md_section_comparison_table')}\n")
-    console.print("| Project | Stars | License | Lang | State | Last commit | Verdict |")
-    console.print("|---|---|---|---|---|---|---|")
-    for result in comparison.projects:
+    console.print(
+        "| Project | Stars | License | Lang | State | Last commit | Bus | Downloads | Release | Verdict |"
+    )
+    console.print("|---|---|---|---|---|---|---|---|---|---|")
+    for result in ranked_projects(comparison):
         meta = result.meta
         name = meta.full_name or f"{result.url.owner}/{result.url.repo}"
         stars = f"{meta.stars:,}"
@@ -391,9 +407,17 @@ def _render_comparison_markdown(comparison: ComparisonResult, console: Console) 
         lang = result.languages.primary or "—"
         state = t(f"state_{result.maintenance.state.value}")
         commit = _md_commit_cell(result.maintenance.last_commit_days_ago)
+        bus = str(result.contributors.bus_factor) if result.contributors.bus_factor else "—"
+        downloads = (
+            f"{project_downloads(result):,}" if project_downloads(result) else "—"
+        )
+        release = _md_release_cell(result)
         glyph = _MD_GLYPHS.get(result.recommendation.level, "❓")
-        console.print(f"| {name} | {stars} | {lic} | {lang} | {state} | {commit} | {glyph} |")
+        console.print(
+            f"| {name} | {stars} | {lic} | {lang} | {state} | {commit} | {bus} | {downloads} | {release} | {glyph} |"
+        )
     console.print()
+    console.print(f"*{t('cmp_rank_note')}*\n")
 
     # Full per-project reports (same content as a single analysis).
     for result in comparison.projects:
@@ -405,6 +429,10 @@ def _render_comparison_json(comparison: ComparisonResult, console: Console) -> N
     _warn_comparison_stderr(comparison)
     payload = {
         "projects": [asdict(result) for result in comparison.projects],
+        "ranking": [
+            result.meta.full_name or f"{result.url.owner}/{result.url.repo}"
+            for result in ranked_projects(comparison)
+        ],
         "pairs": [
             {
                 "url_a": str(pair.url_a),
@@ -414,6 +442,7 @@ def _render_comparison_json(comparison: ComparisonResult, console: Console) -> N
                 "language_compatible": pair.language_compatible,
                 "kind_mismatch": pair.kind_mismatch,
                 "verdict": pair.verdict.value,
+                "similarity": pair.similarity,
                 "reasons": pair.reasons,
                 "notes": pair.notes,
             }

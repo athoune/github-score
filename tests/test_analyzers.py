@@ -28,6 +28,7 @@ from gh_score.core.analyzers import (
     analyze_security,
     analyze_sustainability,
 )
+from gh_score.core.analyzers.sustainability import _detect_corporate_backing
 
 
 class TestReleaseHealthAnalyzer:
@@ -311,6 +312,58 @@ class TestSustainabilityAnalyzer:
         result = analyze_sustainability(repo)
         assert result.has_funding is True
         assert "GitHub Sponsors" in result.funding_platforms
+
+
+class TestCorporateBacking:
+    """_detect_corporate_backing phrasings (noun-first and keyword-first)."""
+
+    def _repo(self, owner: str = "owner", repo: str = "repo") -> Repository:
+        return Repository(url=RepoUrl(owner, repo), community=CommunityFiles())
+
+    def test_noun_phrase_founding_sponsor(self):
+        # "OpenAI is the founding sponsor of the … Warp repository"
+        # (warpdotdev/warp README): the company precedes the backing noun.
+        repo = self._repo("warpdotdev", "warp")
+        repo.readme_content = (
+            "> OpenAI is the founding sponsor of the new, open-source Warp "
+            "repository, and the new agentic management workflows are powered "
+            "by GPT models."
+        )
+        assert _detect_corporate_backing(repo) == "OpenAI"
+
+    def test_noun_phrase_plain_sponsor(self):
+        repo = self._repo()
+        repo.readme_content = "Acme Corp is a sponsor of this project."
+        assert _detect_corporate_backing(repo) == "Acme Corp"
+
+    def test_noun_phrase_multiword_company(self):
+        repo = self._repo()
+        repo.readme_content = (
+            "The Faraway Foundation is the primary backer of the project."
+        )
+        assert _detect_corporate_backing(repo) == "The Faraway Foundation"
+
+    def test_keyword_phrase_backed_by(self):
+        repo = self._repo()
+        repo.readme_content = "Backed by Acme Corp, the project is actively developed."
+        assert _detect_corporate_backing(repo) == "Acme Corp"
+
+    def test_self_mention_is_not_backing(self):
+        # "Warp is a sponsor of X" — the repo sponsors others, it is not backed.
+        repo = self._repo("warpdotdev", "warp")
+        repo.readme_content = "Warp is a proud sponsor of the Rust Foundation."
+        assert _detect_corporate_backing(repo) is None
+
+    def test_analysis_uses_noun_phrase(self):
+        # analyze_sustainability surfaces the noun-phrase backing in the report.
+        repo = self._repo("warpdotdev", "warp")
+        repo.readme_content = (
+            "> OpenAI is the founding sponsor of the new, open-source Warp "
+            "repository."
+        )
+        result = analyze_sustainability(repo, lang="en")
+        assert result.corporate_backing == "OpenAI"
+        assert "OpenAI" in result.interpretation
 
 
 class TestSecurityAnalyzer:

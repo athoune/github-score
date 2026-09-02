@@ -409,9 +409,11 @@ Composite signal based on:
 
 - Presence and content of `FUNDING.yml`.
 - Funding platforms detected in README/FUNDING (`github/sponsors`, `opencollective`, `tidelift`, `patreon`, `ko-fi`, `liberapay`, etc.).
-- Corporate affiliation of major contributors inferred from email domains and GitHub profiles.
 - Membership in a recognized foundation or organization (Apache, CNCF, Linux Foundation, etc.) via topic, owner, or README.
-- Mentions in README/GOVERNANCE of corporate backing, maintainers, governance model.
+- Explicit mentions in README/GOVERNANCE of corporate backing, maintainers, governance model. Corporate backing is detected from two
+  phrasings: keyword-first (`backed by <Company>`, `sponsored by <Company>`, …) and noun-first (`<Company> is a/the (founding) sponsor/backer of
+  …`). A sentence where the repository names itself as the sponsor of others ("Warp is a sponsor of X") is not backing of that repository and is
+  ignored.
 - Optional LLM pass: read README, GOVERNANCE, SECURITY to extract sustainability hints.
 
 ### 7.7 Website availability

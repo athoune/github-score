@@ -15,8 +15,9 @@ Remaining actions after the comparison feature
       `_classify_request_error` OTHER fallback and the cache round-trip
       error/typo paths.
 - [ ] `analyzers/sustainability.py` (70%) — detection helpers tested
-      directly: `_detect_foundation`, `_detect_corporate_backing` (regex),
-      `_detect_governance_model`.
+      directly: `_detect_foundation`, `_detect_governance_model` (regex)
+      still uncovered; `_detect_corporate_backing` is covered (noun-first
+      and keyword-first phrasings, self-mention guard).
 - [x] (done 2026-08-07) `analyzers/languages.py` (90%) — `_infer_ecosystem`
       branches covered by the popularity feature's tests.
 - [ ] `__main__.py` (0%) — trivial entry point, currently uncovered.

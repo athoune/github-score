@@ -38,10 +38,31 @@ _FUNDING_PLATFORMS = {
     "custom": "Custom funding",
 }
 
-# Corporate backing keywords
+# Corporate backing keywords: "<…> backed by <Company>" — the company
+# name follows the keyword.
 _CORPORATE_KEYWORDS = [
-    "backed by", "sponsored by", "supported by", "maintained by",
-    "developed by", "created by", "funded by",
+    "backed by",
+    "sponsored by",
+    "supported by",
+    "maintained by",
+    "developed by",
+    "created by",
+    "funded by",
+]
+
+# Corporate backing noun-phrase patterns: "<Company> is a/the (founding)
+# sponsor of <…>" — the company name precedes the backing noun. Covers
+# phrasings such as "OpenAI is the founding sponsor of the Warp repository".
+# Not covered: past tense ("was a sponsor"), title-case verbs.
+_CORPORATE_SPONSOR_PATTERNS = [
+    re.compile(
+        r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+)*)"
+        r"\s+(?:is|are)\s+"
+        r"(?:a\s+|an\s+|the\s+)?"
+        r"(?:founding\s+|primary\s+|proud\s+|lead\s+|major\s+|gold\s+|"
+        r"platinum\s+|official\s+|corporate\s+)?"
+        r"(?:sponsor|backer|supporter|funder)s?\s+of\b"
+    ),
 ]
 
 
@@ -95,14 +116,50 @@ def _detect_foundation(repo: Repository) -> str | None:
     return None
 
 
+def _clean_company(raw: str) -> str | None:
+    """Normalize a raw company match; None when it does not look like a name."""
+    company = re.sub(r"[^\w\s]", "", raw).strip()
+    if len(company) > 2 and len(company) < 50:
+        return company
+    return None
+
+
+def _is_self_mention(repo: Repository, company: str) -> bool:
+    """True when the sentence names the repository itself as the sponsor.
+
+    "Warp is a sponsor of X" means Warp backs someone else — that is not
+    backing of Warp. Compare against the owner/repo slug (URL and meta),
+    case-insensitively.
+    """
+    slugs = {slug.lower() for slug in (repo.meta.name, repo.meta.owner) if slug}
+    slugs.update(slug.lower() for slug in (repo.url.owner, repo.url.repo))
+    return company.lower().strip() in slugs
+
+
 def _detect_corporate_backing(repo: Repository) -> str | None:
-    """Detect corporate backing from explicit mentions in README/GOVERNANCE."""
+    """Detect corporate backing from explicit mentions in README/GOVERNANCE.
+
+    Two phrasings are recognized:
+    - "<Company> is a/the (founding) sponsor of …" — the company precedes
+      the backing noun (_CORPORATE_SPONSOR_PATTERNS);
+    - "<…> backed by <Company>" — the company follows the keyword
+      (_CORPORATE_KEYWORDS).
+    """
     texts = [
         repo.readme_content or "",
         repo.governance_content or "",
     ]
 
     for text in texts:
+        # Noun phrase: "OpenAI is the founding sponsor of the Warp repository".
+        for pattern in _CORPORATE_SPONSOR_PATTERNS:
+            match = pattern.search(text)
+            if match:
+                company = _clean_company(match.group(1))
+                if company and not _is_self_mention(repo, company):
+                    return company
+
+        # Keyword phrase: "Backed by Acme Corp", "Sponsored by Acme Corp", …
         text_lower = text.lower()
         for keyword in _CORPORATE_KEYWORDS:
             if keyword in text_lower:
@@ -111,10 +168,8 @@ def _detect_corporate_backing(repo: Repository) -> str | None:
                 pattern = rf"{keyword}\s+([A-Z][A-Za-z0-9\s]+)"
                 match = re.search(pattern, text, re.IGNORECASE)
                 if match:
-                    company = match.group(1).strip()
-                    # Clean up
-                    company = re.sub(r"[^\w\s]", "", company)
-                    if len(company) > 2 and len(company) < 50:
+                    company = _clean_company(match.group(1))
+                    if company and not _is_self_mention(repo, company):
                         return company
 
     return None

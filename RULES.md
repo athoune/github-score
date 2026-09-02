@@ -259,7 +259,9 @@ Applications (and unknown kinds) are exempt from the language rule.
 ### Subject comparability
 
 Language-name and generic topics (`python`, `framework`,
-`hacktoberfest`, …) carry no subject information and are excluded:
+`hacktoberfest`, …) carry no subject information and are excluded. The
+subject vocabulary of a project is its meaningful topics plus its
+meaningful description keywords; a match in either form counts:
 
 1. Both projects have non-generic topics → a shared topic means
    `compatible`; disjoint non-generic topics defer to the description
@@ -267,14 +269,28 @@ Language-name and generic topics (`python`, `framework`,
 2. Both have a description → at least one shared meaningful token
    (stopwords, generic project words and language names excluded, min
    length 3) means `compatible`, otherwise `incompatible`.
-3. Otherwise → `unknown` (not enough signal; the pair is flagged for
+3. **Cross-signals**: a topic of one project shared with a description
+   keyword of the other (e.g. FastAPI topic `web` vs Flask description
+   "web applications") means `compatible` (`cmp_subject_signals`).
+4. Otherwise → `unknown` (not enough signal; the pair is flagged for
    information).
+
+**Pair similarity** (informational, never part of the verdict): each pair
+carries a 0.0–1.0 `similarity` score — the Jaccard of the two projects'
+combined subject vocabularies (topics + description keywords), blended
+with the consumer-language overlap for library pairs
+(`_SIMILARITY_TOPIC_WEIGHT` / `_SIMILARITY_LANG_WEIGHT`). It says *how
+close* the expressed subjects are, not whether the comparison is
+credible (that is the verdict's job). `similarity` is `None` when the
+subject cannot be judged (no topics, no description) and 0.0 when the
+subjects are incompatible.
 
 LLM (optional): when `llm.enabled`, the LLM judges subject equivalence
 from the topics and descriptions of every project. It only lifts
 `unknown` to `compatible` / `incompatible`; a deterministic verdict
 always wins (same principle as the maintenance branches: commit data
-wins over prose).
+wins over prose). Lifting a subject also unlocks the pair's `similarity`
+score, which stays `None` otherwise.
 
 ### Pair verdict (decision tree)
 
@@ -295,6 +311,8 @@ Warnings never prevent the comparison.
 | `_GENERIC_TOPICS` | language names + `library`, `frameworks`, `hacktoberfest`, `awesome` | topic filtering |
 | `_SUBJECT_GENERIC_TOKENS` | function words + generic project words + language names | description token filtering |
 | `_LIBRARY_KEYWORDS` / `_APPLICATION_KEYWORDS` | see classification above | library/application detection |
+| `_SIMILARITY_TOPIC_WEIGHT` | 0.7 | pair similarity: subject-vocabulary share |
+| `_SIMILARITY_LANG_WEIGHT` | 0.3 | pair similarity: consumer-language share (library pairs) |
 
 Binding detection is limited to registry publications and explicit
 `bindings/<lang>` directories: bindings that never publish to a registry
@@ -306,6 +324,7 @@ Binding detection is limited to registry publications and explicit
 |-----|--------|---------|
 | `cmp_subject_topic` | sujets compatibles — topic partagé : {topics} | compatible subjects — shared topic: {topics} |
 | `cmp_subject_desc` | sujets compatibles — mots-clés partagés : {tokens} | compatible subjects — shared keywords: {tokens} |
+| `cmp_subject_signals` | sujets compatibles — signaux partagés : {signals} | compatible subjects — shared signals: {signals} |
 | `cmp_subject_desc_disjoint` | sujets différents — descriptions sans mot-clé commun | different subjects — no shared description keyword |
 | `cmp_subject_unknown` | sujets non vérifiables (pas de topics ni de description exploitable) | subjects cannot be verified (no topics or usable description) |
 | `cmp_subject_llm_compatible` | l'IA juge les sujets compatibles | LLM judged the subjects compatible |
@@ -315,6 +334,7 @@ Binding detection is limited to registry publications and explicit
 | `cmp_kind_mismatch` | un projet est une bibliothèque, l'autre une application | one project is a library, the other an application |
 | `cmp_kind_unknown` | type inconnu pour {repo} — traité comme une application | unknown project kind for {repo} — treated as an application |
 | `cmp_warning` | {a} vs {b} : comparaison peu crédible | {a} vs {b}: comparison may not be credible |
+| `cmp_similarity` | similarité : {score} | similarity: {score} |
 
 The full catalog (TUI and Markdown labels included) lives in
 `src/gh_score/i18n.py`.

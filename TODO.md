@@ -110,9 +110,14 @@ item.
       binding detection (registries + `bindings/*` dirs, JS ≡ TS),
       subject matching (non-generic topics → description keywords →
       unknown). Optional LLM lifts only `unknown` subject verdicts.
-      Follow-ups: tune the subject thresholds (`_SUBJECT_MIN_TOKEN_LEN`,
-      generic token/topic lists) against real projects; detect bindings
-      that never publish to a registry (ctypes/JNI — see SPECS §16).
+      Follow-ups: the subject thresholds were tuned against real
+      projects (2026-08-13): the generic token/topic lists held up, and a
+      cross-signal rule was added (a topic of one project shared with a
+      description keyword of the other — fixes the FastAPI vs Flask
+      false negative). New informational pair `similarity` score (0.0–1.0
+      lexical closeness, `None` on unjudgeable subjects). Remaining:
+      detect bindings that never publish to a registry (ctypes/JNI — see
+      SPECS §16).
 - [x] (done 2026-08-09) **Registry popularity (dependents + downloads)** —
       number of packages depending on the library (reverse dependencies)
       from the official registries (crates.io `meta.total`, RubyGems array

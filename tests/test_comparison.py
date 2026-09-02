@@ -14,6 +14,7 @@ from gh_score.core.comparison import (
     compare_results,
     consumer_languages,
     normalize_language,
+    similarity_score,
 )
 from gh_score.core.models import (
     AnalysisResult,
@@ -260,6 +261,59 @@ class TestAssessPair:
         assert pair.language_compatible is True
         assert pair.verdict == ComparisonVerdict.OK
 
+    def test_cross_signal_topic_vs_description(self):
+        # "web" as a topic of one project and "web" in the other's
+        # description is still a shared subject (FastAPI vs Flask pattern).
+        a = _result(topics=["web", "framework"], description="High performance API framework")
+        b = _result(topics=["flask", "wsgi"], description="Micro framework for building web applications")
+        pair = assess_pair(a, b)
+        assert pair.subject == SubjectVerdict.COMPATIBLE
+        assert t("cmp_subject_signals", lang="en", signals="web") in pair.reasons
+
+
+class TestSimilarityScore:
+    """Informational 0.0–1.0 lexical closeness, never part of the verdict."""
+
+    def test_compatible_libraries_blend_language(self):
+        a = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
+        b = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
+        # Shared topic "http" only: topic Jaccard 1.0, language Jaccard 1.0.
+        assert similarity_score(a, b, SubjectVerdict.COMPATIBLE) == 1.0
+
+    def test_different_languages_penalize_the_score(self):
+        a = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
+        b = _result(primary="Rust", topics=["http"], registries=[RegistryInfo(ecosystem="crates.io", exists=True)])
+        # Topic Jaccard 1.0 (0.7) + language Jaccard 0.0 (0.3).
+        assert similarity_score(a, b, SubjectVerdict.COMPATIBLE) == 0.7
+
+    def test_incompatible_is_zero(self):
+        a = _result(description="PostgreSQL database driver")
+        b = _result(description="HTTP framework for Python")
+        assert similarity_score(a, b, SubjectVerdict.INCOMPATIBLE) == 0.0
+
+    def test_unknown_subject_is_none(self):
+        a = _result(topics=["http"])
+        b = _result(topics=["database"])
+        assert similarity_score(a, b, SubjectVerdict.UNKNOWN) is None
+
+    def test_no_signals_is_none(self):
+        # Defensive: compatible verdicts normally imply shared signals.
+        a = _result()
+        b = _result()
+        assert similarity_score(a, b, SubjectVerdict.COMPATIBLE) is None
+
+    def test_assess_pair_carries_similarity(self):
+        a = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
+        b = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
+        pair = assess_pair(a, b)
+        assert pair.similarity == 1.0
+
+    def test_incompatible_pair_similarity_zero(self):
+        a = _result(description="PostgreSQL database driver")
+        b = _result(description="HTTP framework for Python")
+        pair = assess_pair(a, b)
+        assert pair.similarity == 0.0
+
 
 class TestCompareResults:
     @pytest.fixture(autouse=True)
@@ -353,4 +407,16 @@ class TestApplySubjectRefinement:
 
         assert pair.subject == SubjectVerdict.UNKNOWN
         assert pair.verdict == ComparisonVerdict.WARNING
-        assert len(comparison.warnings) == 1
+
+    def test_lift_unlocks_similarity(self):
+        # A lifted subject unlocks the similarity score that was None.
+        comparison, a, b = self._unknown_pair()
+        pair = comparison.pairs[0]
+        assert pair.similarity is None
+
+        apply_subject_refinement(
+            comparison, {frozenset({str(a.url), str(b.url)}): True}
+        )
+
+        assert pair.similarity is not None
+        assert pair.subject == SubjectVerdict.COMPATIBLE

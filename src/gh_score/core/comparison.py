@@ -50,6 +50,7 @@ class PairComparison:
     language_compatible: bool | None  # None when the language rule does not apply
     kind_mismatch: bool  # library vs application
     verdict: ComparisonVerdict
+    similarity: float | None = None  # 0.0–1.0 lexical closeness, None when unjudgeable
     reasons: list[str] = field(default_factory=list)  # localized explanation lines
     notes: list[str] = field(default_factory=list)  # informational, e.g. unknown kind
 
@@ -262,31 +263,102 @@ def _assess_subject(a: AnalysisResult, b: AnalysisResult) -> tuple[SubjectVerdic
     """Subject verdict with a localized explanation.
 
     Non-generic topics when both projects have some, then description
-    keywords, then ``unknown`` (see SPECS §8.4). Disjoint non-generic
-    topics are not decisive on their own: the descriptions get a second
-    opinion before the pair is judged incompatible.
+    keywords, then cross-signals — a subject expressed as a topic on one
+    side can be expressed in the description on the other (see SPECS
+    §8.4). Disjoint non-generic topics are not decisive on their own: the
+    descriptions get a second opinion before the pair is judged
+    incompatible.
     """
     topics_a = _meaningful_topics(a)
     topics_b = _meaningful_topics(b)
-    if topics_a and topics_b:
-        shared = topics_a & topics_b
-        if shared:
-            return SubjectVerdict.COMPATIBLE, t(
-                "cmp_subject_topic", topics=", ".join(sorted(shared))
-            )
-        # Both tagged, no overlap: fall through to the description rule.
-
     tokens_a = _description_tokens(a.meta.description)
     tokens_b = _description_tokens(b.meta.description)
-    if tokens_a and tokens_b:
-        shared = tokens_a & tokens_b
-        if shared:
+
+    if topics_a and topics_b:
+        shared_topics = topics_a & topics_b
+        if shared_topics:
             return SubjectVerdict.COMPATIBLE, t(
-                "cmp_subject_desc", tokens=", ".join(sorted(shared))
+                "cmp_subject_topic", topics=", ".join(sorted(shared_topics))
             )
+
+    if tokens_a and tokens_b:
+        shared_tokens = tokens_a & tokens_b
+        if shared_tokens:
+            return SubjectVerdict.COMPATIBLE, t(
+                "cmp_subject_desc", tokens=", ".join(sorted(shared_tokens))
+            )
+
+    # Cross-signals: "web" as a topic of one project and "web" in the
+    # other's description is still a shared subject. Fixes false negatives
+    # such as FastAPI (topic "web") vs Flask (description "web applications").
+    cross = (topics_a & tokens_b) | (tokens_a & topics_b)
+    if cross:
+        return SubjectVerdict.COMPATIBLE, t(
+            "cmp_subject_signals", signals=", ".join(sorted(cross))
+        )
+
+    if tokens_a and tokens_b:
         return SubjectVerdict.INCOMPATIBLE, t("cmp_subject_desc_disjoint")
 
     return SubjectVerdict.UNKNOWN, t("cmp_subject_unknown")
+
+
+# ---------------------------------------------------------------------------
+# Similarity score (informational, never part of the verdict)
+# ---------------------------------------------------------------------------
+
+# Blend weights for the pair similarity score (RULES.md thresholds).
+_SIMILARITY_TOPIC_WEIGHT = 0.7
+_SIMILARITY_LANG_WEIGHT = 0.3
+
+
+def _subject_signals(result: AnalysisResult) -> frozenset[str]:
+    """Combined subject vocabulary of a project: meaningful topics plus
+    meaningful description keywords."""
+    return _meaningful_topics(result) | _description_tokens(result.meta.description)
+
+
+def similarity_score(
+    a: AnalysisResult, b: AnalysisResult, subject: SubjectVerdict
+) -> float | None:
+    """0.0–1.0 lexical closeness of two projects' subject signals.
+
+    Jaccard of the combined topic+description vocabularies, blended with
+    the consumer-language overlap for library pairs. ``None`` when the
+    subject cannot be judged (no topics, no description); 0.0 when the
+    verdict is incompatible. Informational only: the pair verdict is the
+    comparability signal, the score says *how close* the expressed
+    subjects are.
+    """
+    if subject == SubjectVerdict.UNKNOWN:
+        return None
+    if subject == SubjectVerdict.INCOMPATIBLE:
+        return 0.0
+
+    sa = _subject_signals(a)
+    sb = _subject_signals(b)
+    if not sa or not sb:
+        return None
+    shared = sa & sb
+    union = sa | sb
+    topic_jaccard = len(shared) / len(union) if union else 0.0
+
+    lang_jaccard = 1.0
+    if (
+        classify_project(a) == ProjectKind.LIBRARY
+        and classify_project(b) == ProjectKind.LIBRARY
+    ):
+        la = consumer_languages(a)
+        lb = consumer_languages(b)
+        if la and lb:
+            lang_union = la | lb
+            lang_jaccard = len(la & lb) / len(lang_union) if lang_union else 1.0
+
+    score = (
+        _SIMILARITY_TOPIC_WEIGHT * topic_jaccard
+        + _SIMILARITY_LANG_WEIGHT * lang_jaccard
+    )
+    return round(score, 2)
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +431,7 @@ def assess_pair(a: AnalysisResult, b: AnalysisResult) -> PairComparison:
         language_compatible=language_compatible,
         kind_mismatch=kind_mismatch,
         verdict=ComparisonVerdict.OK,
+        similarity=similarity_score(a, b, subject),
         reasons=reasons,
         notes=notes,
     )
@@ -393,8 +466,9 @@ def apply_subject_refinement(
 
     Only ``unknown`` pairs are touched — deterministic ``compatible`` /
     ``incompatible`` verdicts always win. Pairs and warnings are updated
-    in place.
+    in place; a lifted subject also unlocks the pair's similarity score.
     """
+    by_url = {str(r.url): r for r in comparison.projects}
     for pair in comparison.pairs:
         if pair.subject != SubjectVerdict.UNKNOWN:
             continue
@@ -408,4 +482,9 @@ def apply_subject_refinement(
             pair.subject = SubjectVerdict.INCOMPATIBLE
             pair.reasons.insert(0, t("cmp_subject_llm_incompatible"))
         _recompute_pair_verdict(pair)
+        # A lifted subject unlocks a similarity score that was None.
+        a = by_url.get(str(pair.url_a))
+        b = by_url.get(str(pair.url_b))
+        if a is not None and b is not None:
+            pair.similarity = similarity_score(a, b, pair.subject)
     comparison.warnings = _build_warnings(comparison.pairs)

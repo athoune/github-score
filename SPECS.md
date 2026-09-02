@@ -571,7 +571,12 @@ no subject information and are excluded:
    token (stopwords and generic tokens — language names, "tool",
    "library", "project", … — excluded) means `compatible`, otherwise
    `incompatible`.
-3. Otherwise → `unknown` (not enough signal to judge; the pair is
+3. Cross-signals: a topic of one project shared with a description
+   keyword of the other means `compatible`. A subject expressed as a
+   topic on one side can be expressed in the description on the other
+   (e.g. FastAPI topic `web` vs Flask description "web applications") —
+   without this rule the pair would be misjudged `incompatible`.
+4. Otherwise → `unknown` (not enough signal to judge; the pair is
    flagged for information).
 
 When the LLM is enabled, it judges subject equivalence from topics,
@@ -591,19 +596,33 @@ A pair is flagged as a **warning** when:
 
 Otherwise the pair is `ok`. Warnings never prevent the comparison.
 
-### 8.6 Output
+### 8.6 Similarity score
+
+Every pair carries an informational `similarity` score (0.0–1.0): the
+Jaccard of the two projects' combined subject vocabularies (meaningful
+topics + meaningful description keywords), blended with the
+consumer-language overlap for library pairs
+(`_SIMILARITY_TOPIC_WEIGHT = 0.7` / `_SIMILARITY_LANG_WEIGHT = 0.3`).
+
+The score says *how close* the expressed subjects are; it is never part
+of the pair verdict (credibility is the verdict's job). It is `None`
+when the subject cannot be judged (no topics, no description), 0.0 when
+the subjects are incompatible. An LLM lift of an `unknown` subject also
+unlocks the score.
+
+### 8.7 Output
 
 The comparison reuses the three output formats:
 
 - **TUI**: a condensed view that fits in a terminal window without
   scrolling — a comparability block listing the flagged pairs with their
-  reasons, then a table with one line per project (project, stars,
-  license, language, maintenance state, last commit, traffic-light
-  verdict).
+  reasons and similarity score, then a table with one line per project
+  (project, stars, license, language, maintenance state, last commit,
+  traffic-light verdict).
 - **JSON**: `{"projects": [...], "pairs": [...], "warnings": [...]}`
   where `projects` are full `AnalysisResult` objects and `pairs` carry
   the comparability verdicts (`subject`, `language_compatible`, kinds,
-  reasons).
+  `similarity`, reasons).
 - **Markdown**: a comparability section, a comparison table, then the
   full per-project report (same content as a single analysis).
 

@@ -107,6 +107,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         # ------------------------------------------------------------------
         "cmp_subject_topic": "sujets compatibles — topic partagé : {topics}",
         "cmp_subject_desc": "sujets compatibles — mots-clés partagés : {tokens}",
+        "cmp_subject_signals": "sujets compatibles — signaux partagés : {signals}",
         "cmp_subject_desc_disjoint": "sujets différents — descriptions sans mot-clé commun",
         "cmp_subject_unknown": "sujets non vérifiables (pas de topics ni de description exploitable)",
         "cmp_language_compatible": "langages compatibles ({langs})",
@@ -118,6 +119,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_kind_mismatch": "un projet est une bibliothèque, l'autre une application",
         "cmp_kind_unknown": "type inconnu pour {repo} — traité comme une application",
         "cmp_warning": "{a} vs {b} : comparaison peu crédible",
+        "cmp_similarity": "similarité : {score}",
         "cmp_title": "Comparaison de projets",
         "cmp_no_pairs": "Au moins deux projets sont requis pour comparer",
         "panel_comparability": "Comparabilité",
@@ -489,6 +491,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         # ------------------------------------------------------------------
         "cmp_subject_topic": "compatible subjects — shared topic: {topics}",
         "cmp_subject_desc": "compatible subjects — shared keywords: {tokens}",
+        "cmp_subject_signals": "compatible subjects — shared signals: {signals}",
         "cmp_subject_desc_disjoint": "different subjects — no shared description keyword",
         "cmp_subject_unknown": "subjects cannot be verified (no topics or usable description)",
         "cmp_language_compatible": "compatible languages ({langs})",
@@ -500,6 +503,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_kind_mismatch": "one project is a library, the other an application",
         "cmp_kind_unknown": "unknown project kind for {repo} — treated as an application",
         "cmp_warning": "{a} vs {b}: comparison may not be credible",
+        "cmp_similarity": "similarity: {score}",
         "cmp_title": "Project comparison",
         "cmp_no_pairs": "At least two projects are required for comparison",
         "panel_comparability": "Comparability",

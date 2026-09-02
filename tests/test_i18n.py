@@ -454,6 +454,7 @@ class TestComparisonKeys:
             for key in (
                 "cmp_subject_topic",
                 "cmp_subject_desc",
+                "cmp_subject_signals",
                 "cmp_subject_desc_disjoint",
                 "cmp_subject_unknown",
                 "cmp_language_compatible",
@@ -463,6 +464,7 @@ class TestComparisonKeys:
                 "cmp_kind_mismatch",
                 "cmp_kind_unknown",
                 "cmp_warning",
+                "cmp_similarity",
                 "cmp_title",
                 "cmp_no_pairs",
                 "panel_comparability",

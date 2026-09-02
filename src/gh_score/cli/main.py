@@ -393,6 +393,7 @@ def _render_comparison_markdown(comparison: ComparisonResult, console: Console) 
         for note in pair.notes:
             console.print(f"  - _{note}_")
     console.print()
+    console.print(f"_{t('cmp_legend')}_\n")
 
     console.print(f"{t('md_section_comparison_table')}\n")
     console.print(

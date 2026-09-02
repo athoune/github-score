@@ -573,6 +573,8 @@ class TestRenderComparison:
         # Comparability panel: OK pair
         assert "Comparability" in output
         assert "✓" in output
+        # Legend under the comparability block
+        assert "✓ credible comparison · ⚠ comparison may not be credible" in output
         # Similarity score for the compatible pair (shared topic "http",
         # both Python libraries): 1.00
         assert "similarity: 1.00" in output

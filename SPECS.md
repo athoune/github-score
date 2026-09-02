@@ -616,7 +616,8 @@ The comparison reuses the three output formats:
 
 - **TUI**: a condensed view that fits in a terminal window without
   scrolling — a comparability block listing the flagged pairs with their
-  reasons and similarity score, then a **decision table** with one line
+  reasons and similarity score (a legend explains the ✓/⚠ symbols), then
+  a **decision table** with one line
   per project (project, stars, license, language, maintenance state, last
   commit, bus factor, downloads, latest release, traffic-light verdict).
   Rows are ranked: verdict first (green → orange → red), then downloads,
@@ -629,6 +630,8 @@ The comparison reuses the three output formats:
   `language_compatible`, kinds, `similarity`, reasons).
 - **Markdown**: a comparability section, the same ranked decision table,
   then the full per-project report (same content as a single analysis).
+  Both the TUI and Markdown comparability sections end with the ✓/⚠
+  legend (`cmp_legend`).
 
 ## 9. LLM integration
 

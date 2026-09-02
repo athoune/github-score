@@ -640,6 +640,7 @@ def render_comparison(comparison: ComparisonResult, console: Console | None = No
         console.print()
 
     console.print(_render_comparability(comparison))
+    console.print(t("cmp_legend"), style="dim")
     console.print()
 
     table = Table(show_header=True, header_style="bold", box=box.SIMPLE)

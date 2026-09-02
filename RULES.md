@@ -353,6 +353,7 @@ Binding detection is limited to registry publications and explicit
 | `cmp_table_downloads` | Tél. | Dl |
 | `cmp_table_release` | Version | Release |
 | `cmp_rank_note` | lignes triées par verdict, puis téléchargements, puis bus factor | rows sorted by verdict, then downloads, then bus factor |
+| `cmp_legend` | ✓ comparaison crédible · ⚠ comparaison peu crédible | ✓ credible comparison · ⚠ comparison may not be credible |
 
 The full catalog (TUI and Markdown labels included) lives in
 `src/gh_score/i18n.py`.

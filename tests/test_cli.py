@@ -619,6 +619,8 @@ class TestComparisonRenderers:
         # Decision-support columns and rank note
         assert "| Bus | Downloads | Release |" in output
         assert "rows sorted by verdict, then downloads, then bus factor" in output
+        # Legend under the comparability section
+        assert "✓ credible comparison · ⚠ comparison may not be credible" in output
         # Full per-project reports are embedded
         assert "GitHub Health Report: " in output
 

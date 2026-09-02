@@ -618,7 +618,7 @@ class TestComparisonRenderers:
         assert "🟠" in output
         # Decision-support columns and rank note
         assert "| Bus | Downloads | Release |" in output
-        assert "rows sorted by verdict, then downloads, then bus factor" in output
+        assert "rows sorted by verdict, then downloads, then bus factor, then stars" in output
         # Legend under the comparability section
         assert "✓ credible comparison · ⚠ comparison may not be credible" in output
         # Decision block: starred best pick, ranked list

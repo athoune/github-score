@@ -623,8 +623,8 @@ The comparison reuses the three output formats:
   per project (project, stars, license, language, maintenance state, last
   commit, bus factor, downloads, latest release, traffic-light verdict).
   Rows are ranked: verdict first (green → orange → red), then downloads,
-  then bus factor (no composite score — the verdict stays primary, SPECS
-  §3). A dim note under the table explains the order.
+  then bus factor, then stars (no composite score — the verdict stays
+  primary, SPECS §3). A dim note under the table explains the order.
 - **JSON**: `{"projects": [...], "ranking": [...], "pairs": [...],
   "warnings": [...]}` where `projects` are full `AnalysisResult` objects,
   `ranking` lists the projects in the recommended (ranked) order, and

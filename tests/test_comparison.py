@@ -389,6 +389,17 @@ class TestRankedProjects:
         b.contributors = ContributorsIndicator(bus_factor=5)
         assert self._ranked([a, b]) == ["b", "a"]
 
+    def test_stars_break_bus_factor_ties(self):
+        a = _result(name="a", registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=100)])
+        b = _result(name="b", registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=100)])
+        a.recommendation.level = RecommendationLevel.GREEN
+        b.recommendation.level = RecommendationLevel.GREEN
+        a.contributors = ContributorsIndicator(bus_factor=3)
+        b.contributors = ContributorsIndicator(bus_factor=3)
+        a.meta.stars = 500
+        b.meta.stars = 9000
+        assert self._ranked([a, b]) == ["b", "a"]
+
 
 class TestApplySubjectRefinement:
     """LLM subject judgments only lift deterministic 'unknown' verdicts."""

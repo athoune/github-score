@@ -328,9 +328,10 @@ recommended order, one line each — rank, name, traffic-light glyph and
 the verdict message (the human-readable reason); the #1 pick is starred.
 Then the **decision table**: rows ranked by the traffic-light verdict
 (green → orange → red), then by registry **downloads** (real adoption),
-then by **bus factor** (team depth), then by name. No composite score is
-invented — the verdict stays the primary signal (SPECS §3). The JSON
-payload exposes the same order as a `ranking` list of project names.
+then by **bus factor** (team depth), then by **stars**, then by name. No
+composite score is invented — the verdict stays the primary signal
+(SPECS §3). The JSON payload exposes the same order as a `ranking` list
+of project names.
 The rank note is shown under the table (`cmp_rank_note`).
 
 Columns: project, stars, license, main language, maintenance state, last
@@ -373,7 +374,7 @@ Binding detection is limited to registry publications and explicit
 | `cmp_table_busfactor` | Bus | Bus |
 | `cmp_table_downloads` | Tél. | Dl |
 | `cmp_table_release` | Version | Release |
-| `cmp_rank_note` | lignes triées par verdict, puis téléchargements, puis bus factor | rows sorted by verdict, then downloads, then bus factor |
+| `cmp_rank_note` | lignes triées par verdict, puis téléchargements, puis bus factor, puis stars | rows sorted by verdict, then downloads, then bus factor, then stars |
 | `cmp_legend` | ✓ comparaison crédible · ⚠ comparaison peu crédible | ✓ credible comparison · ⚠ comparison may not be credible |
 
 The full catalog (TUI and Markdown labels included) lives in

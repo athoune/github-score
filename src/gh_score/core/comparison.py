@@ -474,6 +474,7 @@ def _project_sort_key(result: AnalysisResult) -> tuple:
         _VERDICT_ORDER.get(result.recommendation.level, 3),
         -project_downloads(result),
         -(result.contributors.bus_factor or 0),
+        -(result.meta.stars or 0),
         name,
     )
 
@@ -482,8 +483,9 @@ def ranked_projects(comparison: ComparisonResult) -> list[AnalysisResult]:
     """Projects in recommended comparison order.
 
     Traffic-light verdict first (green → orange → red), then registry
-    downloads (real adoption), then bus factor, then name. Used by the
-    decision table in every renderer; never changes the analysis itself.
+    downloads (real adoption), then bus factor (team depth), then stars,
+    then name. Used by the decision table in every renderer; never
+    changes the analysis itself.
     """
     return sorted(comparison.projects, key=_project_sort_key)
 

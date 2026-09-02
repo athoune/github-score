@@ -54,6 +54,33 @@ class TestWarningsPropagation:
         assert len(warnings) == 1
 
     @pytest.mark.asyncio
+    async def test_warning_carries_model_server_and_error(self):
+        # The warning must be diagnosable: which model, which server, and
+        # the server's actual error (e.g. "HTTP 507: Insufficient Storage").
+        warnings: list[str] = []
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                side_effect=LLMError("HTTP 507: Insufficient Storage")
+            ),
+        ):
+            await analyze_qualitative_with_llm(
+                self._repo_with_readme(),
+                LLMConfig(
+                    enabled=True,
+                    model="Muse-Glimmer-30B-4bit",
+                    base_url="http://127.0.0.1:8008/v1",
+                ),
+                warnings,
+            )
+
+        assert len(warnings) == 1
+        assert "Muse-Glimmer-30B-4bit" in warnings[0]
+        assert "127.0.0.1:8008" in warnings[0]
+        assert "HTTP 507" in warnings[0]
+
+    @pytest.mark.asyncio
     async def test_success_appends_no_warning(self):
         warnings: list[str] = []
 
@@ -80,6 +107,33 @@ class TestWarningsPropagation:
 
         assert signals == QualitativeSignals()
         assert warnings == []
+
+
+class TestExtractSignalsHttpErrors:
+    """extract_signals surfaces the server's HTTP error status + body."""
+
+    @pytest.mark.asyncio
+    async def test_http_error_detail(self):
+        import httpx
+
+        from gh_score.llm.provider import LLMProvider
+
+        provider = LLMProvider(
+            LLMConfig(enabled=True, model="m", base_url="http://x/v1")
+        )
+        response = httpx.Response(
+            507,
+            text="Insufficient Storage",
+            request=httpx.Request("POST", "http://x/v1/chat/completions"),
+        )
+        provider.client.post = AsyncMock(return_value=response)
+
+        with pytest.raises(LLMError) as excinfo:
+            await provider.extract_signals("prompt")
+        await provider.close()
+
+        assert "HTTP 507" in str(excinfo.value)
+        assert "Insufficient Storage" in str(excinfo.value)
 
 
 class TestExtractJsonObject:

@@ -341,8 +341,8 @@ async def assess_subjects_with_llm(
         )
         raw = await provider.extract_signals(prompt, max_tokens=1500)
         return _parse_subject_verdicts(raw, results)
-    except LLMError:
-        _append_warning(warnings, "warn_llm_unavailable")
+    except LLMError as exc:
+        _append_llm_unavailable(warnings, config, exc)
         return {}
     finally:
         await provider.close()
@@ -420,10 +420,32 @@ class LLMProvider:
 
         except LLMError:
             raise
+        except httpx.HTTPStatusError as exc:
+            # The server answered with an error (404 unknown model, 507
+            # out of memory, 409 model busy, …): surface status + body so
+            # the user can diagnose instead of a generic "unreachable".
+            detail = f"HTTP {exc.response.status_code}"
+            body = (exc.response.text or "").strip()
+            if body:
+                detail += f": {body[:200]}"
+            raise LLMError(detail) from exc
         except Exception as exc:
             # LLM is optional, but a failure is meaningful: re-raise so the
             # caller can warn the user instead of silently degrading.
             raise LLMError(str(exc)) from exc
+
+
+def _append_llm_unavailable(
+    warnings: list[str] | None, config: LLMConfig, exc: Exception
+) -> None:
+    """Localized, diagnosable warning: which model, which server, what error."""
+    _append_warning(
+        warnings,
+        "warn_llm_unavailable",
+        model=config.model or "?",
+        base_url=config.base_url or "?",
+        detail=str(exc) if exc else "",
+    )
 
 
 async def analyze_qualitative_with_llm(
@@ -460,8 +482,8 @@ async def analyze_qualitative_with_llm(
         )
         raw = await provider.extract_signals(prompt)
         return _parse_qualitative(raw)
-    except LLMError:
-        _append_warning(warnings, "warn_llm_unavailable")
+    except LLMError as exc:
+        _append_llm_unavailable(warnings, config, exc)
         return QualitativeSignals()
     finally:
         await provider.close()
@@ -491,8 +513,8 @@ async def analyze_recommendation_with_llm(
         rec = _parse_recommendation(raw)
         _check_contradictions(result, rec, warnings)
         return rec
-    except LLMError:
-        _append_warning(warnings, "warn_llm_unavailable")
+    except LLMError as exc:
+        _append_llm_unavailable(warnings, config, exc)
         return None
     finally:
         await provider.close()

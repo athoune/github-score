@@ -344,8 +344,8 @@ MESSAGES: dict[str, dict[str, str]] = {
             "Token GitHub non défini — requêtes anonymes limitées (60/h)"
         ),
         "warn_llm_unavailable": (
-            "LLM configuré mais injoignable ou réponse invalide — "
-            "signaux qualitatifs indisponibles"
+            "LLM configuré mais injoignable ou réponse invalide "
+            "({model} @ {base_url}) : {detail} — analyse LLM indisponible"
         ),
         "warn_llm_no_api_key": (
             "LLM distant configuré sans clé API (GH_SCORE_LLM_API_KEY)"
@@ -736,8 +736,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         # ------------------------------------------------------------------
         "warn_no_token": "No GitHub token set — anonymous requests limited (60/hour)",
         "warn_llm_unavailable": (
-            "LLM configured but unreachable or invalid response — "
-            "qualitative signals unavailable"
+            "LLM configured but unreachable or invalid response "
+            "({model} @ {base_url}): {detail} — LLM analysis unavailable"
         ),
         "warn_llm_no_api_key": (
             "Remote LLM configured without an API key (GH_SCORE_LLM_API_KEY)"

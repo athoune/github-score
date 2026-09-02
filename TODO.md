@@ -120,9 +120,11 @@ item.
       cross-signal rule was added (a topic of one project shared with a
       description keyword of the other — fixes the FastAPI vs Flask
       false negative). New informational pair `similarity` score (0.0–1.0
-      lexical closeness, `None` on unjudgeable subjects) and a ranked
+      lexical closeness, `None` on unjudgeable subjects), a ranked
       decision table (verdict, then downloads, then bus factor; bus
-      factor / downloads / latest-release columns; `ranking` in JSON).
+      factor / downloads / latest-release columns; `ranking` in JSON)
+      and a **recommended pick** block (starred #1 + verdict message per
+      project) answering "which should I pick?" at a glance.
       Remaining:
       detect bindings that never publish to a registry (ctypes/JNI — see
       SPECS §16).

@@ -395,6 +395,16 @@ def _render_comparison_markdown(comparison: ComparisonResult, console: Console) 
     console.print()
     console.print(f"_{t('cmp_legend')}_\n")
 
+    console.print(f"## {t('cmp_pick_title')}\n")
+    for rank, result in enumerate(ranked_projects(comparison), start=1):
+        name = result.meta.full_name or f"{result.url.owner}/{result.url.repo}"
+        glyph = _MD_GLYPHS.get(result.recommendation.level, "❓")
+        message = result.recommendation.message
+        line = f"{name} — {glyph} {message}" if message else f"{name} — {glyph}"
+        marker = "★" if rank == 1 else f"{rank}"
+        console.print(f"- **{marker} {line}**" if rank == 1 else f"- {marker}. {line}")
+    console.print()
+
     console.print(f"{t('md_section_comparison_table')}\n")
     console.print(
         "| Project | Stars | License | Lang | State | Last commit | Bus | Downloads | Release | Verdict |"

@@ -466,6 +466,7 @@ class TestComparisonKeys:
                 "cmp_kind_unknown",
                 "cmp_warning",
                 "cmp_similarity",
+                "cmp_pick_title",
                 "cmp_title",
                 "cmp_no_pairs",
                 "panel_comparability",

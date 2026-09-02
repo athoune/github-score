@@ -621,6 +621,10 @@ class TestComparisonRenderers:
         assert "rows sorted by verdict, then downloads, then bus factor" in output
         # Legend under the comparability section
         assert "✓ credible comparison · ⚠ comparison may not be credible" in output
+        # Decision block: starred best pick, ranked list
+        assert "## Recommended pick" in output
+        assert "★ owner/fastapi" in output
+        assert "2. owner/asyncpg" in output
         # Full per-project reports are embedded
         assert "GitHub Health Report: " in output
 

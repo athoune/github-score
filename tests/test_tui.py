@@ -575,6 +575,10 @@ class TestRenderComparison:
         assert "✓" in output
         # Legend under the comparability block
         assert "✓ credible comparison · ⚠ comparison may not be credible" in output
+        # Decision block: recommended pick, starred best, ranked
+        assert "Recommended pick" in output
+        assert "★" in output
+        assert "2. owner/tornado" in output
         # Similarity score for the compatible pair (shared topic "http",
         # both Python libraries): 1.00
         assert "similarity: 1.00" in output

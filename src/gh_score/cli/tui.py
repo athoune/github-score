@@ -620,6 +620,28 @@ def _render_comparability(comparison: ComparisonResult) -> Panel:
     )
 
 
+def _render_pick_list(comparison: ComparisonResult) -> Panel:
+    """Decision block: the projects in recommended order with their
+    verdict message, the #1 pick starred. Answers "which should I pick?"
+    at a glance; the table below carries the numbers."""
+    content = Text()
+    for rank, result in enumerate(ranked_projects(comparison), start=1):
+        name = result.meta.full_name or f"{result.url.owner}/{result.url.repo}"
+        glyph, color = _TRAFFIC_LIGHT.get(result.recommendation.level, ("❓", "dim"))
+        message = result.recommendation.message
+        line = f"{name}  {glyph} {message}" if message else f"{name}  {glyph}"
+        if rank == 1:
+            content.append("★ ", style="bold yellow")
+            content.append(f"{line}\n", style=f"bold {color}")
+        else:
+            content.append(f"{rank}. {line}\n", style="dim")
+    return Panel(
+        content,
+        title=t("cmp_pick_title"),
+        border_style="yellow",
+    )
+
+
 def render_comparison(comparison: ComparisonResult, console: Console | None = None) -> None:
     """Render the condensed comparison view: comparability block + one
     line per project. Everything fits in a terminal window."""
@@ -641,6 +663,9 @@ def render_comparison(comparison: ComparisonResult, console: Console | None = No
 
     console.print(_render_comparability(comparison))
     console.print(t("cmp_legend"), style="dim")
+    console.print()
+
+    console.print(_render_pick_list(comparison))
     console.print()
 
     table = Table(show_header=True, header_style="bold", box=box.SIMPLE)

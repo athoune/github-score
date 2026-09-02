@@ -322,10 +322,13 @@ Warnings never prevent the comparison.
 
 ### Decision table
 
-The comparison table (TUI and Markdown) is **ranked** to answer "which
-should I pick?": rows are ordered by the traffic-light verdict (green →
-orange → red), then by registry **downloads** (real adoption), then by
-**bus factor** (team depth), then by name. No composite score is
+The comparison output answers "which should I pick?" with two layers.
+First a **recommended pick** block (TUI and Markdown): the projects in
+recommended order, one line each — rank, name, traffic-light glyph and
+the verdict message (the human-readable reason); the #1 pick is starred.
+Then the **decision table**: rows ranked by the traffic-light verdict
+(green → orange → red), then by registry **downloads** (real adoption),
+then by **bus factor** (team depth), then by name. No composite score is
 invented — the verdict stays the primary signal (SPECS §3). The JSON
 payload exposes the same order as a `ranking` list of project names.
 The rank note is shown under the table (`cmp_rank_note`).
@@ -366,6 +369,7 @@ Binding detection is limited to registry publications and explicit
 | `cmp_kind_unknown` | type inconnu pour {repo} — traité comme une application | unknown project kind for {repo} — treated as an application |
 | `cmp_warning` | {a} vs {b} : comparaison peu crédible | {a} vs {b}: comparison may not be credible |
 | `cmp_similarity` | similarité : {score} | similarity: {score} |
+| `cmp_pick_title` | Choix recommandé | Recommended pick |
 | `cmp_table_busfactor` | Bus | Bus |
 | `cmp_table_downloads` | Tél. | Dl |
 | `cmp_table_release` | Version | Release |

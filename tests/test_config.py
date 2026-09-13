@@ -1,10 +1,11 @@
 """Tests for configuration loading."""
 
-import tempfile
 import os
+import tempfile
 from pathlib import Path
 
 from gh_score.config import Config
+from gh_score.cli.main import _load_dotenv
 
 
 _ENV_OVERRIDES = (
@@ -17,6 +18,7 @@ _ENV_OVERRIDES = (
     "GH_SCORE_LLM_MODEL",
     "GH_SCORE_LLM_BASE_URL",
     "GH_SCORE_LLM_API_KEY",
+    "GH_SCORE_LLM_DISABLE_REASONING",
     "LIBRARIES_IO_API_KEY",
 )
 
@@ -48,6 +50,7 @@ ttl_hours = 48
 enabled = true
 provider = "openai"
 model = "gpt-4"
+disable_reasoning = true
 
 [registries]
 libraries_io_api_key = "lio_secret"
@@ -59,7 +62,24 @@ libraries_io_api_key = "lio_secret"
             assert config.llm.enabled is True
             assert config.llm.provider == "openai"
             assert config.llm.model == "gpt-4"
+            assert config.llm.disable_reasoning is True
             assert config.registries.libraries_io_api_key == "lio_secret"
+
+    def test_llm_disable_reasoning_env_override(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.toml"
+            config_path.write_text("[llm]\ndisable_reasoning = false\n")
+
+            # monkeypatch restores the shell's value afterwards (the LLM
+            # functional tests read this env var in the same session).
+            monkeypatch.setenv("GH_SCORE_LLM_DISABLE_REASONING", "true")
+            config = Config.load(str(config_path))
+            assert config.llm.disable_reasoning is True
+
+    def test_llm_disable_reasoning_env_falsey(self, monkeypatch):
+        monkeypatch.setenv("GH_SCORE_LLM_DISABLE_REASONING", "0")
+        config = Config.load("/nonexistent/path/config.toml")
+        assert config.llm.disable_reasoning is False
 
     def test_registries_env_override(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -96,3 +116,36 @@ libraries_io_api_key = "lio_secret"
             monkeypatch.delenv(var, raising=False)
         config = Config.load("/nonexistent/path/config.toml")
         assert config.github.token == ""
+
+
+class TestLoadDotenv:
+    """The CLI loads .env from the working directory so GH_SCORE_LLM_*
+    and friends work without sourcing it."""
+
+    def test_missing_file_is_noop(self, monkeypatch):
+        monkeypatch.delenv("GH_SCORE_LLM_ENABLED", raising=False)
+        _load_dotenv("/nonexistent/.env")
+        assert "GH_SCORE_LLM_ENABLED" not in os.environ
+
+    def test_parses_keys_and_export_prefix(self, tmp_path, monkeypatch):
+        dotenv = tmp_path / ".env"
+        dotenv.write_text(
+            "# comment\n"
+            "export GH_SCORE_LLM_ENABLED=true\n"
+            'GH_SCORE_LLM_MODEL="Qwen3.5-2B-6bit"\n'
+            "GITHUB_TOKEN=secret\n"
+            "MALFORMED_LINE_NO_EQ\n"
+        )
+        for var in ("GH_SCORE_LLM_ENABLED", "GH_SCORE_LLM_MODEL", "GITHUB_TOKEN"):
+            monkeypatch.delenv(var, raising=False)
+        _load_dotenv(str(dotenv))
+        assert os.environ["GH_SCORE_LLM_ENABLED"] == "true"
+        assert os.environ["GH_SCORE_LLM_MODEL"] == "Qwen3.5-2B-6bit"
+        assert os.environ["GITHUB_TOKEN"] == "secret"
+
+    def test_existing_env_var_wins(self, tmp_path, monkeypatch):
+        dotenv = tmp_path / ".env"
+        dotenv.write_text("GH_SCORE_LLM_MODEL=from-dotenv\n")
+        monkeypatch.setenv("GH_SCORE_LLM_MODEL", "from-shell")
+        _load_dotenv(str(dotenv))
+        assert os.environ["GH_SCORE_LLM_MODEL"] == "from-shell"

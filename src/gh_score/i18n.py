@@ -107,6 +107,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         # ------------------------------------------------------------------
         "cmp_subject_topic": "sujets compatibles — topic partagé : {topics}",
         "cmp_subject_desc": "sujets compatibles — mots-clés partagés : {tokens}",
+        "cmp_subject_signals": "sujets compatibles — signaux partagés : {signals}",
         "cmp_subject_desc_disjoint": "sujets différents — descriptions sans mot-clé commun",
         "cmp_subject_unknown": "sujets non vérifiables (pas de topics ni de description exploitable)",
         "cmp_language_compatible": "langages compatibles ({langs})",
@@ -118,7 +119,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_kind_mismatch": "un projet est une bibliothèque, l'autre une application",
         "cmp_kind_unknown": "type inconnu pour {repo} — traité comme une application",
         "cmp_warning": "{a} vs {b} : comparaison peu crédible",
+        "cmp_similarity": "similarité : {score}",
         "cmp_title": "Comparaison de projets",
+        "cmp_pick_title": "Choix recommandé",
         "cmp_no_pairs": "Au moins deux projets sont requis pour comparer",
         "panel_comparability": "Comparabilité",
         "cmp_table_project": "Projet",
@@ -127,7 +130,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_table_lang": "Lang.",
         "cmp_table_state": "État",
         "cmp_table_commit": "Commit",
+        "cmp_table_busfactor": "Bus",
+        "cmp_table_downloads": "Tél.",
+        "cmp_table_release": "Version",
         "cmp_table_verdict": "Verdict",
+        "cmp_rank_note": "lignes triées par verdict, puis téléchargements, puis bus factor, puis stars",
+        "cmp_legend": "✓ comparaison crédible · ⚠ comparaison peu crédible",
         "cmp_table_today": "aujourd'hui",
         "md_section_comparability": "## Comparabilité",
         "md_section_comparison_table": "## Comparaison",
@@ -336,8 +344,8 @@ MESSAGES: dict[str, dict[str, str]] = {
             "Token GitHub non défini — requêtes anonymes limitées (60/h)"
         ),
         "warn_llm_unavailable": (
-            "LLM configuré mais injoignable ou réponse invalide — "
-            "signaux qualitatifs indisponibles"
+            "LLM configuré mais injoignable ou réponse invalide "
+            "({model} @ {base_url}) : {detail} — analyse LLM indisponible"
         ),
         "warn_llm_no_api_key": (
             "LLM distant configuré sans clé API (GH_SCORE_LLM_API_KEY)"
@@ -345,6 +353,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "warn_llm_contradiction": (
             "La recommandation affinée (LLM) semble contredire les signaux "
             "extraits (nie : {facts})"
+        ),
+        "warn_llm_unsupported_negative": (
+            "La recommandation affinée (LLM) affirme l'absence de signaux que "
+            "l'analyse n'a pas pu vérifier (affirme absent : {facts})"
         ),
         "warn_api_unreachable": (
             "API GitHub injoignable — analyse dégradée "
@@ -419,6 +431,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cli_cfg_llm_provider": "Fournisseur LLM",
         "cli_cfg_llm_model": "Modèle LLM",
         "cli_cfg_llm_base_url": "URL de base LLM",
+        "cli_cfg_llm_disable_reasoning": "Raisonnement LLM désactivé",
         "cli_cfg_libraries_io": "Clé API libraries.io",
     },
     "en": {
@@ -489,6 +502,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         # ------------------------------------------------------------------
         "cmp_subject_topic": "compatible subjects — shared topic: {topics}",
         "cmp_subject_desc": "compatible subjects — shared keywords: {tokens}",
+        "cmp_subject_signals": "compatible subjects — shared signals: {signals}",
         "cmp_subject_desc_disjoint": "different subjects — no shared description keyword",
         "cmp_subject_unknown": "subjects cannot be verified (no topics or usable description)",
         "cmp_language_compatible": "compatible languages ({langs})",
@@ -500,7 +514,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_kind_mismatch": "one project is a library, the other an application",
         "cmp_kind_unknown": "unknown project kind for {repo} — treated as an application",
         "cmp_warning": "{a} vs {b}: comparison may not be credible",
+        "cmp_similarity": "similarity: {score}",
         "cmp_title": "Project comparison",
+        "cmp_pick_title": "Recommended pick",
         "cmp_no_pairs": "At least two projects are required for comparison",
         "panel_comparability": "Comparability",
         "cmp_table_project": "Project",
@@ -509,7 +525,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_table_lang": "Lang.",
         "cmp_table_state": "State",
         "cmp_table_commit": "Commit",
+        "cmp_table_busfactor": "Bus",
+        "cmp_table_downloads": "Dl",
+        "cmp_table_release": "Release",
         "cmp_table_verdict": "Verdict",
+        "cmp_rank_note": "rows sorted by verdict, then downloads, then bus factor, then stars",
+        "cmp_legend": "✓ credible comparison · ⚠ comparison may not be credible",
         "cmp_table_today": "today",
         "md_section_comparability": "## Comparability",
         "md_section_comparison_table": "## Comparison",
@@ -716,15 +737,19 @@ MESSAGES: dict[str, dict[str, str]] = {
         # ------------------------------------------------------------------
         "warn_no_token": "No GitHub token set — anonymous requests limited (60/hour)",
         "warn_llm_unavailable": (
-            "LLM configured but unreachable or invalid response — "
-            "qualitative signals unavailable"
+            "LLM configured but unreachable or invalid response "
+            "({model} @ {base_url}): {detail} — LLM analysis unavailable"
         ),
         "warn_llm_no_api_key": (
             "Remote LLM configured without an API key (GH_SCORE_LLM_API_KEY)"
         ),
-        "warn_llm_contradiction": (
-            "The refined recommendation (LLM) seems to contradict the "
+"warn_llm_contradiction": (
+            "The refined LLM recommendation seems to contradict the "
             "extracted signals (denies: {facts})"
+        ),
+        "warn_llm_unsupported_negative": (
+            "The refined LLM recommendation claims the absence of signals "
+            "the analysis could not verify (claims absent: {facts})"
         ),
         "warn_api_unreachable": (
             "GitHub API unreachable — degraded analysis "
@@ -799,6 +824,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cli_cfg_llm_provider": "LLM Provider",
         "cli_cfg_llm_model": "LLM Model",
         "cli_cfg_llm_base_url": "LLM Base URL",
+        "cli_cfg_llm_disable_reasoning": "LLM Reasoning Disabled",
         "cli_cfg_libraries_io": "libraries.io API Key",
     },
 }

@@ -54,6 +54,33 @@ class TestWarningsPropagation:
         assert len(warnings) == 1
 
     @pytest.mark.asyncio
+    async def test_warning_carries_model_server_and_error(self):
+        # The warning must be diagnosable: which model, which server, and
+        # the server's actual error (e.g. "HTTP 507: Insufficient Storage").
+        warnings: list[str] = []
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                side_effect=LLMError("HTTP 507: Insufficient Storage")
+            ),
+        ):
+            await analyze_qualitative_with_llm(
+                self._repo_with_readme(),
+                LLMConfig(
+                    enabled=True,
+                    model="Muse-Glimmer-30B-4bit",
+                    base_url="http://127.0.0.1:8008/v1",
+                ),
+                warnings,
+            )
+
+        assert len(warnings) == 1
+        assert "Muse-Glimmer-30B-4bit" in warnings[0]
+        assert "127.0.0.1:8008" in warnings[0]
+        assert "HTTP 507" in warnings[0]
+
+    @pytest.mark.asyncio
     async def test_success_appends_no_warning(self):
         warnings: list[str] = []
 
@@ -80,6 +107,79 @@ class TestWarningsPropagation:
 
         assert signals == QualitativeSignals()
         assert warnings == []
+
+
+class TestExtractSignalsHttpErrors:
+    """extract_signals surfaces the server's HTTP error status + body."""
+
+    @pytest.mark.asyncio
+    async def test_http_error_detail(self):
+        import httpx
+
+        from gh_score.llm.provider import LLMProvider
+
+        provider = LLMProvider(
+            LLMConfig(enabled=True, model="m", base_url="http://x/v1")
+        )
+        response = httpx.Response(
+            507,
+            text="Insufficient Storage",
+            request=httpx.Request("POST", "http://x/v1/chat/completions"),
+        )
+        provider.client.post = AsyncMock(return_value=response)
+
+        with pytest.raises(LLMError) as excinfo:
+            await provider.extract_signals("prompt")
+        await provider.close()
+
+        assert "HTTP 507" in str(excinfo.value)
+        assert "Insufficient Storage" in str(excinfo.value)
+
+
+class TestDisableReasoning:
+    """disable_reasoning asks the server to skip the chain-of-thought pass
+    so reasoning models do not burn the token budget before the JSON."""
+
+    async def _post_payload(self, config: LLMConfig) -> dict:
+        import httpx
+
+        from gh_score.llm.provider import LLMProvider
+
+        provider = LLMProvider(config)
+        response = httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"message": {"content": '{"roadmap": null}'}},
+                ]
+            },
+            request=httpx.Request("POST", "http://x/v1/chat/completions"),
+        )
+        provider.client.post = AsyncMock(return_value=response)
+
+        try:
+            await provider.extract_signals("prompt")
+            call = provider.client.post.await_args
+            assert call is not None
+            return call.kwargs["json"]
+        finally:
+            await provider.close()
+
+    @pytest.mark.asyncio
+    async def test_flag_disables_thinking(self):
+        payload = await self._post_payload(
+            LLMConfig(enabled=True, disable_reasoning=True)
+        )
+        # oMLX / vLLM style: chat_template_kwargs.enable_thinking
+        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+        # OpenAI-compatible spelling
+        assert payload["reasoning_effort"] == "none"
+
+    @pytest.mark.asyncio
+    async def test_without_flag_no_reasoning_params(self):
+        payload = await self._post_payload(LLMConfig(enabled=True))
+        assert "chat_template_kwargs" not in payload
+        assert "reasoning_effort" not in payload
 
 
 class TestExtractJsonObject:
@@ -225,6 +325,8 @@ class TestRecommendationPromptHardening:
         prompt = _build_recommendation_prompt()
         assert "never claim that a provided signal is absent" in prompt
         assert "do not deny it" in prompt
+        assert "never state an absolute absence" in prompt.lower()
+        assert "no X announced in the project texts" in prompt
 
 
 class TestDeniesFact:
@@ -336,9 +438,9 @@ class TestContradictionGuard:
         assert warnings == []
 
     @pytest.mark.asyncio
-    async def test_absent_fact_not_checked(self):
-        # No commercial support was extracted, so denying it is not a
-        # contradiction — the guard must stay silent.
+    async def test_absent_fact_unsupported_negative_warns(self):
+        # No commercial support was extracted: claiming it is absent is an
+        # unsupported negative (absence of evidence ≠ evidence of absence).
         warnings: list[str] = []
         result = self._result()
         from gh_score.core.models import QualitativeIndicator
@@ -361,7 +463,64 @@ class TestContradictionGuard:
             )
 
         assert rec is not None
+        assert len(warnings) == 1
+        assert "commercial" in warnings[0].lower()
+
+    @pytest.mark.asyncio
+    async def test_no_negative_claim_stays_silent(self):
+        # Saying nothing about a fact never triggers the guard.
+        warnings: list[str] = []
+        result = self._result()
+        from gh_score.core.models import QualitativeIndicator
+
+        result.qualitative = QualitativeIndicator(available=False)
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                return_value={
+                    "level": "orange",
+                    "message": "Active development but young",
+                    "explanation": "The project is active but has few contributors.",
+                    "confidence": 0.5,
+                }
+            ),
+        ):
+            rec = await analyze_recommendation_with_llm(
+                result, LLMConfig(enabled=True), warnings
+            )
+
+        assert rec is not None
         assert warnings == []
+
+    @pytest.mark.asyncio
+    async def test_unsupported_negative_on_undetected_funding(self):
+        # No funding detected (deterministic): an absolute "no funding"
+        # claim is unsupported, the tool only knows "not detected".
+        warnings: list[str] = []
+        result = self._result()
+        from gh_score.core.models import SustainabilityIndicator
+
+        result.sustainability = SustainabilityIndicator(has_funding=False)
+
+        with patch(
+            "gh_score.llm.provider.LLMProvider.extract_signals",
+            new=AsyncMock(
+                return_value={
+                    "level": "red",
+                    "message": "No funding, risky",
+                    "explanation": "The project has no funding whatsoever.",
+                    "confidence": 0.6,
+                }
+            ),
+        ):
+            rec = await analyze_recommendation_with_llm(
+                result, LLMConfig(enabled=True), warnings
+            )
+
+        assert rec is not None
+        assert len(warnings) == 1
+        assert "funding" in warnings[0].lower()
 
 
 class TestSubjectVerdicts:

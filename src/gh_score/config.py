@@ -32,6 +32,7 @@ class LLMConfig:
     model: str = "llama3.2"
     base_url: str = "http://localhost:11434/v1"
     api_key: str = ""
+    disable_reasoning: bool = False
 
 
 @dataclass
@@ -113,6 +114,8 @@ class Config:
                 self.llm.base_url = llm["base_url"]
             if "api_key" in llm:
                 self.llm.api_key = llm["api_key"]
+            if "disable_reasoning" in llm:
+                self.llm.disable_reasoning = bool(llm["disable_reasoning"])
         if "dashboard" in data:
             dash = data["dashboard"]
             if "colors" in dash:
@@ -141,5 +144,7 @@ class Config:
             self.llm.base_url = val
         if val := os.environ.get("GH_SCORE_LLM_API_KEY"):
             self.llm.api_key = val
+        if val := os.environ.get("GH_SCORE_LLM_DISABLE_REASONING"):
+            self.llm.disable_reasoning = val.lower() in ("1", "true", "yes")
         if val := os.environ.get("LIBRARIES_IO_API_KEY"):
             self.registries.libraries_io_api_key = val

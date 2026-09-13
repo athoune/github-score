@@ -252,6 +252,12 @@ class TestCliStrings:
     def test_config_title_en(self):
         assert t("cli_config_title", lang="en") == "Current Configuration"
 
+    def test_config_llm_disable_reasoning_key(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            assert "cli_cfg_llm_disable_reasoning" in MESSAGES[lang]
+
     def test_error_label(self):
         assert t("cli_error", lang="fr") == "Erreur :"
         assert t("cli_error", lang="en") == "Error:"
@@ -356,6 +362,7 @@ class TestContradictionGuardKeys:
         for lang in ("fr", "en"):
             for key in (
                 "warn_llm_contradiction",
+                "warn_llm_unsupported_negative",
                 "fact_funding",
                 "fact_corporate",
                 "fact_foundation",
@@ -454,6 +461,7 @@ class TestComparisonKeys:
             for key in (
                 "cmp_subject_topic",
                 "cmp_subject_desc",
+                "cmp_subject_signals",
                 "cmp_subject_desc_disjoint",
                 "cmp_subject_unknown",
                 "cmp_language_compatible",
@@ -463,6 +471,8 @@ class TestComparisonKeys:
                 "cmp_kind_mismatch",
                 "cmp_kind_unknown",
                 "cmp_warning",
+                "cmp_similarity",
+                "cmp_pick_title",
                 "cmp_title",
                 "cmp_no_pairs",
                 "panel_comparability",

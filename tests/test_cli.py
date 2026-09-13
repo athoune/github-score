@@ -191,6 +191,22 @@ class TestDefaultGroupForwardsArgs:
         url_arg = mock_analyze.call_args[0][0]
         assert url_arg == "https://github.com/o/r"
 
+    def test_env_file_loaded_only_on_explicit_flag(self, tmp_path):
+        """--env loads the file; without it no .env is touched."""
+        dotenv = tmp_path / "settings.env"
+        dotenv.write_text("GH_SCORE_LLM_ENABLED=true\n")
+        runner = CliRunner()
+        with (
+            patch("gh_score.cli.main.analyze_repo") as mock_analyze,
+            patch("gh_score.cli.main._prepare_config") as mock_cfg,
+            patch("gh_score.cli.main._load_dotenv") as mock_load,
+        ):
+            mock_cfg.return_value = _mock_config()
+            mock_analyze.return_value = MagicMock(url="https://github.com/o/r")
+            runner.invoke(cli, ["analyze", "--env", str(dotenv), "https://github.com/o/r"])
+
+        mock_load.assert_called_once_with(str(dotenv))
+
     def test_no_args_uses_cwd(self):
         """Without arguments and inside a git repo, the CWD should be used."""
         runner = CliRunner()
@@ -601,7 +617,8 @@ class TestComparisonRenderers:
 
     def test_markdown_has_comparability_and_table(self):
         buf = io.StringIO()
-        console = Console(file=buf)
+        # The 10-column table needs more than the 80-column default width.
+        console = Console(file=buf, width=200)
         _render_comparison_markdown(self._comparison(), console)
         output = buf.getvalue()
         assert "# GitHub Health Comparison" in output
@@ -615,8 +632,25 @@ class TestComparisonRenderers:
         assert "| owner/fastapi | 76,000 |" in output
         assert "| owner/asyncpg | 9,000 |" in output
         assert "🟠" in output
+        # Decision-support columns and rank note
+        assert "| Bus | Downloads | Release |" in output
+        assert "rows sorted by verdict, then downloads, then bus factor, then stars" in output
+        # Legend under the comparability section
+        assert "✓ credible comparison · ⚠ comparison may not be credible" in output
+        # Decision block: starred best pick, ranked list
+        assert "## Recommended pick" in output
+        assert "★ owner/fastapi" in output
+        assert "2. owner/asyncpg" in output
         # Full per-project reports are embedded
         assert "GitHub Health Report: " in output
+
+    def test_markdown_rows_sorted_by_verdict(self):
+        buf = io.StringIO()
+        console = Console(file=buf)
+        _render_comparison_markdown(self._comparison(), console)
+        output = buf.getvalue()
+        # fastapi is green, asyncpg orange → fastapi's row comes first.
+        assert output.index("owner/fastapi") < output.index("owner/asyncpg")
 
     def test_json_structure(self):
         buf = io.StringIO()
@@ -630,6 +664,10 @@ class TestComparisonRenderers:
         assert pair["subject"] == "unknown"
         assert pair["language_compatible"] is None
         assert pair["verdict"] == "warning"
+        assert "similarity" in pair
+        assert pair["similarity"] is None  # subject unknown → no score
         assert len(payload["warnings"]) == 1
         # Projects keep the single-analysis JSON shape
         assert payload["projects"][0]["meta"]["stars"] == 76000
+        # Decision support: recommended order (green before orange)
+        assert payload["ranking"] == ["owner/fastapi", "owner/asyncpg"]

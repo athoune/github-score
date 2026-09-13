@@ -14,7 +14,12 @@ from rich.table import Table
 from rich.text import Text
 
 from gh_score.core.analyzers.license_analyzer import license_family_label
-from gh_score.core.comparison import ComparisonResult, ComparisonVerdict
+from gh_score.core.comparison import (
+    ComparisonResult,
+    ComparisonVerdict,
+    project_downloads,
+    ranked_projects,
+)
 from gh_score.core.models import (
     AnalysisResult,
     MaintenanceState,
@@ -557,12 +562,29 @@ def _compact_days(days: int | None) -> str:
     return f"{days}d"
 
 
+def _release_cell(result) -> str:
+    """Compact latest-release cell: 'v2.4.1 · 12d' or '—'."""
+    rh = result.release_health
+    if not rh.latest_version:
+        return "—"
+    if rh.age_days is None:
+        return rh.latest_version
+    return f"{rh.latest_version} · {_compact_days(rh.age_days)}"
+
+
 def _pair_label(pair) -> str:
     """Short 'owner/repo vs owner/repo' label for a pair."""
     return (
         f"{pair.url_a.owner}/{pair.url_a.repo} "
         f"vs {pair.url_b.owner}/{pair.url_b.repo}"
     )
+
+
+def _similarity_cell(similarity: float | None) -> str:
+    """Compact similarity display: 0.32 → '0.32', None → '—'."""
+    if similarity is None:
+        return "—"
+    return f"{similarity:.2f}"
 
 
 def _render_comparability(comparison: ComparisonResult) -> Panel:
@@ -578,6 +600,11 @@ def _render_comparability(comparison: ComparisonResult) -> Panel:
             any_warning = True
             content.append("⚠ ", style="yellow")
             content.append(f"{_pair_label(pair)}\n", style="bold yellow")
+        if pair.similarity is not None:
+            content.append(
+                f"   · {t('cmp_similarity', score=_similarity_cell(pair.similarity))}\n",
+                style="dim",
+            )
         for reason in pair.reasons:
             content.append(f"   · {reason}\n", style="dim")
         for note in pair.notes:
@@ -590,6 +617,28 @@ def _render_comparability(comparison: ComparisonResult) -> Panel:
         content,
         title=t("panel_comparability"),
         border_style="yellow" if any_warning else "green",
+    )
+
+
+def _render_pick_list(comparison: ComparisonResult) -> Panel:
+    """Decision block: the projects in recommended order with their
+    verdict message, the #1 pick starred. Answers "which should I pick?"
+    at a glance; the table below carries the numbers."""
+    content = Text()
+    for rank, result in enumerate(ranked_projects(comparison), start=1):
+        name = result.meta.full_name or f"{result.url.owner}/{result.url.repo}"
+        glyph, color = _TRAFFIC_LIGHT.get(result.recommendation.level, ("❓", "dim"))
+        message = result.recommendation.message
+        line = f"{name}  {glyph} {message}" if message else f"{name}  {glyph}"
+        if rank == 1:
+            content.append("★ ", style="bold yellow")
+            content.append(f"{line}\n", style=f"bold {color}")
+        else:
+            content.append(f"{rank}. {line}\n", style="dim")
+    return Panel(
+        content,
+        title=t("cmp_pick_title"),
+        border_style="yellow",
     )
 
 
@@ -613,6 +662,10 @@ def render_comparison(comparison: ComparisonResult, console: Console | None = No
         console.print()
 
     console.print(_render_comparability(comparison))
+    console.print(t("cmp_legend"), style="dim")
+    console.print()
+
+    console.print(_render_pick_list(comparison))
     console.print()
 
     table = Table(show_header=True, header_style="bold", box=box.SIMPLE)
@@ -622,15 +675,21 @@ def render_comparison(comparison: ComparisonResult, console: Console | None = No
     table.add_column(t("cmp_table_lang"))
     table.add_column(t("cmp_table_state"))
     table.add_column(t("cmp_table_commit"), justify="right")
+    table.add_column(t("cmp_table_busfactor"), justify="right")
+    table.add_column(t("cmp_table_downloads"), justify="right")
+    table.add_column(t("cmp_table_release"))
     table.add_column(t("cmp_table_verdict"), justify="center")
 
-    for result in comparison.projects:
+    for result in ranked_projects(comparison):
         meta = result.meta
         name = meta.full_name or f"{result.url.owner}/{result.url.repo}"
         lic = result.license.spdx_id or "—"
         lang = result.languages.primary or "—"
         state = t(f"state_{result.maintenance.state.value}")
         commit = _compact_days(result.maintenance.last_commit_days_ago)
+        bus = str(result.contributors.bus_factor) if result.contributors.bus_factor else "—"
+        downloads = _compact_number(project_downloads(result)) if project_downloads(result) else "—"
+        release = _release_cell(result)
         glyph, _ = _TRAFFIC_LIGHT.get(result.recommendation.level, ("❓", "dim"))
         table.add_row(
             name,
@@ -639,8 +698,12 @@ def render_comparison(comparison: ComparisonResult, console: Console | None = No
             lang,
             state,
             commit,
+            bus,
+            downloads,
+            release,
             glyph,
         )
 
     console.print(table)
+    console.print(t("cmp_rank_note"), style="dim")
     console.print()

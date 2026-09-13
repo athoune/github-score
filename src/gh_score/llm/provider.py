@@ -208,6 +208,12 @@ def _build_recommendation_prompt() -> str:
         "not say there is no commercial support or no roadmap when the "
         "digest lists one). If you disagree with a signal, say so and "
         "explain why, but do not deny it.\n\n"
+        "An absent or null qualitative field means the signal was NOT "
+        "found in the project's texts — it does not prove the project "
+        "lacks it. Never state an absolute absence (\"no roadmap\", \"no "
+        "funding\", \"no commercial support\"); if you must mention it, "
+        "phrase it as \"no X announced in the project texts\" or stay "
+        "silent about it.\n\n"
         "Return a JSON object with:\n"
         '- level: one of "green", "orange", "red"\n'
         "- message: a short verdict sentence (max 15 words)\n"
@@ -335,8 +341,8 @@ async def assess_subjects_with_llm(
         )
         raw = await provider.extract_signals(prompt, max_tokens=1500)
         return _parse_subject_verdicts(raw, results)
-    except LLMError:
-        _append_warning(warnings, "warn_llm_unavailable")
+    except LLMError as exc:
+        _append_llm_unavailable(warnings, config, exc)
         return {}
     finally:
         await provider.close()
@@ -388,16 +394,30 @@ class LLMProvider:
             return {}
 
         try:
+            payload: dict[str, Any] = {
+                "model": self.config.model,
+                "messages": [
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.3,
+                "max_tokens": max_tokens,
+            }
+            if self.config.disable_reasoning:
+                # Reasoning models (Qwen-style "thinking", DeepSeek R1,
+                # ...) burn the whole token budget on chain-of-thought and
+                # get cut mid-JSON. Ask the server to skip the reasoning
+                # pass. Two knobs, one per server family:
+                # - "chat_template_kwargs": {"enable_thinking": false} is
+                #   honored by oMLX / vLLM / llama.cpp-style servers;
+                # - top-level "reasoning_effort": "none" is the
+                #   OpenAI-compatible spelling.
+                # Servers that ignore unknown fields are unaffected; this
+                # flag is opt-in (GH_SCORE_LLM_DISABLE_REASONING).
+                payload["chat_template_kwargs"] = {"enable_thinking": False}
+                payload["reasoning_effort"] = "none"
             response = await self.client.post(
                 "/chat/completions",
-                json={
-                    "model": self.config.model,
-                    "messages": [
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": 0.3,
-                    "max_tokens": max_tokens,
-                },
+                json=payload,
             )
             response.raise_for_status()
 
@@ -414,10 +434,32 @@ class LLMProvider:
 
         except LLMError:
             raise
+        except httpx.HTTPStatusError as exc:
+            # The server answered with an error (404 unknown model, 507
+            # out of memory, 409 model busy, …): surface status + body so
+            # the user can diagnose instead of a generic "unreachable".
+            detail = f"HTTP {exc.response.status_code}"
+            body = (exc.response.text or "").strip()
+            if body:
+                detail += f": {body[:200]}"
+            raise LLMError(detail) from exc
         except Exception as exc:
             # LLM is optional, but a failure is meaningful: re-raise so the
             # caller can warn the user instead of silently degrading.
             raise LLMError(str(exc)) from exc
+
+
+def _append_llm_unavailable(
+    warnings: list[str] | None, config: LLMConfig, exc: Exception
+) -> None:
+    """Localized, diagnosable warning: which model, which server, what error."""
+    _append_warning(
+        warnings,
+        "warn_llm_unavailable",
+        model=config.model or "?",
+        base_url=config.base_url or "?",
+        detail=str(exc) if exc else "",
+    )
 
 
 async def analyze_qualitative_with_llm(
@@ -454,8 +496,8 @@ async def analyze_qualitative_with_llm(
         )
         raw = await provider.extract_signals(prompt)
         return _parse_qualitative(raw)
-    except LLMError:
-        _append_warning(warnings, "warn_llm_unavailable")
+    except LLMError as exc:
+        _append_llm_unavailable(warnings, config, exc)
         return QualitativeSignals()
     finally:
         await provider.close()
@@ -485,8 +527,8 @@ async def analyze_recommendation_with_llm(
         rec = _parse_recommendation(raw)
         _check_contradictions(result, rec, warnings)
         return rec
-    except LLMError:
-        _append_warning(warnings, "warn_llm_unavailable")
+    except LLMError as exc:
+        _append_llm_unavailable(warnings, config, exc)
         return None
     finally:
         await provider.close()
@@ -559,11 +601,21 @@ def _denies_fact(
 
 
 def _check_contradictions(result, rec: LLMRecommendation, warnings) -> None:
-    """Append a warning when the recommendation denies a present fact.
+    """Append a warning when the recommendation misuses a fact.
 
-    Only facts actually found by the analysis are checked, so the guard
-    never fires on absent signals. The warning is hedged ("seems to
-    contradict"): the detection is a heuristic, not a verdict.
+    Two cases are detected with the same windowed heuristic:
+    - the recommendation *denies* a fact the analysis actually found
+      (e.g. "no commercial support" while the project's texts mention
+      one) → ``warn_llm_contradiction``;
+    - the recommendation *claims the absence* of a fact the analysis
+      could not verify (e.g. "no roadmap" when the README simply never
+      mentions one) — absence of evidence is not evidence of absence,
+      and small models routinely confuse the two →
+      ``warn_llm_unsupported_negative``.
+
+    Both warnings are hedged ("seems to / claims"): the detection is a
+    heuristic, not a verdict. The guard never fires when the
+    recommendation says nothing about a fact.
     """
     if not rec.message and not rec.explanation:
         return
@@ -581,14 +633,22 @@ def _check_contradictions(result, rec: LLMRecommendation, warnings) -> None:
         "foundation": bool(result.sustainability.foundation),
     }
 
-    denied = [
-        key
-        for key, (_, keywords, negations) in _FACT_CHECKS.items()
-        if present.get(key) and _denies_fact(text, keywords, negations)
-    ]
+    denied: list[str] = []
+    unsupported: list[str] = []
+    for key, (_, keywords, negations) in _FACT_CHECKS.items():
+        if not _denies_fact(text, keywords, negations):
+            continue
+        if present.get(key):
+            denied.append(key)
+        else:
+            unsupported.append(key)
+
     if denied:
         labels = ", ".join(t(_FACT_CHECKS[key][0]) for key in denied)
         _append_warning(warnings, "warn_llm_contradiction", facts=labels)
+    if unsupported:
+        labels = ", ".join(t(_FACT_CHECKS[key][0]) for key in unsupported)
+        _append_warning(warnings, "warn_llm_unsupported_negative", facts=labels)
 
 
 def _append_warning(warnings: list[str] | None, key: str, **kwargs: Any) -> None:

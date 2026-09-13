@@ -211,6 +211,23 @@ Rules:
 - Invalid LLM output (unknown level, unparseable JSON, provider failure)
   simply hides the refined panel; the pipeline never breaks.
 
+**Contradiction / unsupported-negative guard** (deterministic, model-agnostic):
+the recommendation must not misuse the extracted facts. A windowed
+heuristic (negation word within ~30 chars of a fact keyword, or keyword
+followed by absent/missing/lacking) detects two cases and appends a
+hedged warning:
+
+- the recommendation **denies** a fact the analysis actually found
+  (`warn_llm_contradiction`, e.g. "no commercial support" while the
+  project's texts mention one);
+- the recommendation **claims the absence** of a fact the analysis could
+  not verify (`warn_llm_unsupported_negative`). Absence of evidence is
+  not evidence of absence: "no roadmap" when the README simply never
+  mentions one is an overclaim, typical of small models. The prompt also
+  instructs the model to phrase negatives as "no X announced in the
+  project texts" — the guard catches what the prompt fails to prevent,
+  whatever model the user runs.
+
 ## Comparison comparability rules
 
 `gh-score URL1 URL2 [URL3…]` compares several repositories and assesses,
@@ -259,7 +276,9 @@ Applications (and unknown kinds) are exempt from the language rule.
 ### Subject comparability
 
 Language-name and generic topics (`python`, `framework`,
-`hacktoberfest`, …) carry no subject information and are excluded:
+`hacktoberfest`, …) carry no subject information and are excluded. The
+subject vocabulary of a project is its meaningful topics plus its
+meaningful description keywords; a match in either form counts:
 
 1. Both projects have non-generic topics → a shared topic means
    `compatible`; disjoint non-generic topics defer to the description
@@ -267,14 +286,28 @@ Language-name and generic topics (`python`, `framework`,
 2. Both have a description → at least one shared meaningful token
    (stopwords, generic project words and language names excluded, min
    length 3) means `compatible`, otherwise `incompatible`.
-3. Otherwise → `unknown` (not enough signal; the pair is flagged for
+3. **Cross-signals**: a topic of one project shared with a description
+   keyword of the other (e.g. FastAPI topic `web` vs Flask description
+   "web applications") means `compatible` (`cmp_subject_signals`).
+4. Otherwise → `unknown` (not enough signal; the pair is flagged for
    information).
+
+**Pair similarity** (informational, never part of the verdict): each pair
+carries a 0.0–1.0 `similarity` score — the Jaccard of the two projects'
+combined subject vocabularies (topics + description keywords), blended
+with the consumer-language overlap for library pairs
+(`_SIMILARITY_TOPIC_WEIGHT` / `_SIMILARITY_LANG_WEIGHT`). It says *how
+close* the expressed subjects are, not whether the comparison is
+credible (that is the verdict's job). `similarity` is `None` when the
+subject cannot be judged (no topics, no description) and 0.0 when the
+subjects are incompatible.
 
 LLM (optional): when `llm.enabled`, the LLM judges subject equivalence
 from the topics and descriptions of every project. It only lifts
 `unknown` to `compatible` / `incompatible`; a deterministic verdict
 always wins (same principle as the maintenance branches: commit data
-wins over prose).
+wins over prose). Lifting a subject also unlocks the pair's `similarity`
+score, which stays `None` otherwise.
 
 ### Pair verdict (decision tree)
 
@@ -287,6 +320,24 @@ wins over prose).
 
 Warnings never prevent the comparison.
 
+### Decision table
+
+The comparison output answers "which should I pick?" with two layers.
+First a **recommended pick** block (TUI and Markdown): the projects in
+recommended order, one line each — rank, name, traffic-light glyph and
+the verdict message (the human-readable reason); the #1 pick is starred.
+Then the **decision table**: rows ranked by the traffic-light verdict
+(green → orange → red), then by registry **downloads** (real adoption),
+then by **bus factor** (team depth), then by **stars**, then by name. No
+composite score is invented — the verdict stays the primary signal
+(SPECS §3). The JSON payload exposes the same order as a `ranking` list
+of project names.
+The rank note is shown under the table (`cmp_rank_note`).
+
+Columns: project, stars, license, main language, maintenance state, last
+commit, bus factor, downloads, latest release (version · age), verdict.
+Downloads aggregate every published package (`project_downloads`).
+
 ### Thresholds (`core/comparison.py`)
 
 | Constant | Value | Used for |
@@ -295,6 +346,8 @@ Warnings never prevent the comparison.
 | `_GENERIC_TOPICS` | language names + `library`, `frameworks`, `hacktoberfest`, `awesome` | topic filtering |
 | `_SUBJECT_GENERIC_TOKENS` | function words + generic project words + language names | description token filtering |
 | `_LIBRARY_KEYWORDS` / `_APPLICATION_KEYWORDS` | see classification above | library/application detection |
+| `_SIMILARITY_TOPIC_WEIGHT` | 0.7 | pair similarity: subject-vocabulary share |
+| `_SIMILARITY_LANG_WEIGHT` | 0.3 | pair similarity: consumer-language share (library pairs) |
 
 Binding detection is limited to registry publications and explicit
 `bindings/<lang>` directories: bindings that never publish to a registry
@@ -306,6 +359,7 @@ Binding detection is limited to registry publications and explicit
 |-----|--------|---------|
 | `cmp_subject_topic` | sujets compatibles — topic partagé : {topics} | compatible subjects — shared topic: {topics} |
 | `cmp_subject_desc` | sujets compatibles — mots-clés partagés : {tokens} | compatible subjects — shared keywords: {tokens} |
+| `cmp_subject_signals` | sujets compatibles — signaux partagés : {signals} | compatible subjects — shared signals: {signals} |
 | `cmp_subject_desc_disjoint` | sujets différents — descriptions sans mot-clé commun | different subjects — no shared description keyword |
 | `cmp_subject_unknown` | sujets non vérifiables (pas de topics ni de description exploitable) | subjects cannot be verified (no topics or usable description) |
 | `cmp_subject_llm_compatible` | l'IA juge les sujets compatibles | LLM judged the subjects compatible |
@@ -315,6 +369,13 @@ Binding detection is limited to registry publications and explicit
 | `cmp_kind_mismatch` | un projet est une bibliothèque, l'autre une application | one project is a library, the other an application |
 | `cmp_kind_unknown` | type inconnu pour {repo} — traité comme une application | unknown project kind for {repo} — treated as an application |
 | `cmp_warning` | {a} vs {b} : comparaison peu crédible | {a} vs {b}: comparison may not be credible |
+| `cmp_similarity` | similarité : {score} | similarity: {score} |
+| `cmp_pick_title` | Choix recommandé | Recommended pick |
+| `cmp_table_busfactor` | Bus | Bus |
+| `cmp_table_downloads` | Tél. | Dl |
+| `cmp_table_release` | Version | Release |
+| `cmp_rank_note` | lignes triées par verdict, puis téléchargements, puis bus factor, puis stars | rows sorted by verdict, then downloads, then bus factor, then stars |
+| `cmp_legend` | ✓ comparaison crédible · ⚠ comparaison peu crédible | ✓ credible comparison · ⚠ comparison may not be credible |
 
 The full catalog (TUI and Markdown labels included) lives in
 `src/gh_score/i18n.py`.

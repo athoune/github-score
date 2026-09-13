@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 import textwrap
 from dataclasses import asdict
@@ -21,6 +22,8 @@ from gh_score.core.comparison import (
     ComparisonResult,
     ComparisonVerdict,
     compare_results,
+    project_downloads,
+    ranked_projects,
 )
 from gh_score.core.models import AnalysisResult, RecommendationLevel, RepoUrl
 from gh_score.i18n import t
@@ -65,6 +68,44 @@ def _validate_url(url_or_path: str, local: bool, console: Console) -> None:
     except ValueError as exc:
         console.print(f"[red]{t('cli_error')}[/red] {exc}")
         sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# .env loading
+# ---------------------------------------------------------------------------
+
+
+def _load_dotenv(path: str | None = None) -> None:
+    """Load KEY=VALUE pairs from a .env file into os.environ.
+
+    Looks for ``.env`` in the current working directory (override with
+    ``path``). Only sets variables that are not already present in the
+    environment — an exported variable wins. Supports blank lines,
+    comments (#), an optional ``export`` prefix and single/double-quoted
+    values. A missing file is a no-op.
+    """
+    dotenv = Path(path) if path else Path.cwd() / ".env"
+    if not dotenv.is_file():
+        return
+    for raw in dotenv.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if (
+            len(value) >= 2
+            and value[0] == value[-1]
+            and value[0] in ("'", '"')
+        ):
+            value = value[1:-1]
+        if key and key not in os.environ:
+            os.environ[key] = value
 
 
 # ---------------------------------------------------------------------------
@@ -357,6 +398,16 @@ def _md_commit_cell(days: int | None) -> str:
     return f"{days}d"
 
 
+def _md_release_cell(result) -> str:
+    """Compact latest-release cell: 'v2.4.1 · 12d' or '—'."""
+    rh = result.release_health
+    if not rh.latest_version:
+        return "—"
+    if rh.age_days is None:
+        return rh.latest_version
+    return f"{rh.latest_version} · {rh.age_days}d"
+
+
 def _pair_md_label(pair) -> str:
     """'owner/repo vs owner/repo' Markdown label for a pair."""
     return (
@@ -374,16 +425,31 @@ def _render_comparison_markdown(comparison: ComparisonResult, console: Console) 
     for pair in comparison.pairs:
         glyph = "✅" if pair.verdict == ComparisonVerdict.OK else "⚠️"
         console.print(f"- {glyph} **{_pair_md_label(pair)}**")
+        if pair.similarity is not None:
+            console.print(f"  - {t('cmp_similarity', score=pair.similarity)}")
         for reason in pair.reasons:
             console.print(f"  - {reason}")
         for note in pair.notes:
             console.print(f"  - _{note}_")
     console.print()
+    console.print(f"_{t('cmp_legend')}_\n")
+
+    console.print(f"## {t('cmp_pick_title')}\n")
+    for rank, result in enumerate(ranked_projects(comparison), start=1):
+        name = result.meta.full_name or f"{result.url.owner}/{result.url.repo}"
+        glyph = _MD_GLYPHS.get(result.recommendation.level, "❓")
+        message = result.recommendation.message
+        line = f"{name} — {glyph} {message}" if message else f"{name} — {glyph}"
+        marker = "★" if rank == 1 else f"{rank}"
+        console.print(f"- **{marker} {line}**" if rank == 1 else f"- {marker}. {line}")
+    console.print()
 
     console.print(f"{t('md_section_comparison_table')}\n")
-    console.print("| Project | Stars | License | Lang | State | Last commit | Verdict |")
-    console.print("|---|---|---|---|---|---|---|")
-    for result in comparison.projects:
+    console.print(
+        "| Project | Stars | License | Lang | State | Last commit | Bus | Downloads | Release | Verdict |"
+    )
+    console.print("|---|---|---|---|---|---|---|---|---|---|")
+    for result in ranked_projects(comparison):
         meta = result.meta
         name = meta.full_name or f"{result.url.owner}/{result.url.repo}"
         stars = f"{meta.stars:,}"
@@ -391,9 +457,17 @@ def _render_comparison_markdown(comparison: ComparisonResult, console: Console) 
         lang = result.languages.primary or "—"
         state = t(f"state_{result.maintenance.state.value}")
         commit = _md_commit_cell(result.maintenance.last_commit_days_ago)
+        bus = str(result.contributors.bus_factor) if result.contributors.bus_factor else "—"
+        downloads = (
+            f"{project_downloads(result):,}" if project_downloads(result) else "—"
+        )
+        release = _md_release_cell(result)
         glyph = _MD_GLYPHS.get(result.recommendation.level, "❓")
-        console.print(f"| {name} | {stars} | {lic} | {lang} | {state} | {commit} | {glyph} |")
+        console.print(
+            f"| {name} | {stars} | {lic} | {lang} | {state} | {commit} | {bus} | {downloads} | {release} | {glyph} |"
+        )
     console.print()
+    console.print(f"*{t('cmp_rank_note')}*\n")
 
     # Full per-project reports (same content as a single analysis).
     for result in comparison.projects:
@@ -405,6 +479,10 @@ def _render_comparison_json(comparison: ComparisonResult, console: Console) -> N
     _warn_comparison_stderr(comparison)
     payload = {
         "projects": [asdict(result) for result in comparison.projects],
+        "ranking": [
+            result.meta.full_name or f"{result.url.owner}/{result.url.repo}"
+            for result in ranked_projects(comparison)
+        ],
         "pairs": [
             {
                 "url_a": str(pair.url_a),
@@ -414,6 +492,7 @@ def _render_comparison_json(comparison: ComparisonResult, console: Console) -> N
                 "language_compatible": pair.language_compatible,
                 "kind_mismatch": pair.kind_mismatch,
                 "verdict": pair.verdict.value,
+                "similarity": pair.similarity,
                 "reasons": pair.reasons,
                 "notes": pair.notes,
             }
@@ -458,6 +537,8 @@ _ENV_VARS_HELP = textwrap.dedent(
       GH_SCORE_LLM_BASE_URL        OpenAI-compatible base URL (e.g. https://api.openai.com/v1)
       GH_SCORE_LLM_MODEL           LLM model name
       GH_SCORE_LLM_API_KEY         LLM API key (empty for local servers such as Ollama)
+      GH_SCORE_LLM_DISABLE_REASONING  1/true/yes to skip the reasoning pass (models that
+                                  burn the token budget on chain-of-thought)
       LIBRARIES_IO_API_KEY         libraries.io API key (dependents for PyPI/npm/Maven)
     """
 )
@@ -516,8 +597,9 @@ class DefaultGroup(_EpilogMixin, click.Group):
 
 
 def _default_analyze() -> None:
-    """Group callback: invoked when ``gh-score`` is called without a
-    subcommand (``invoke_without_command=True``)."""
+    """Group callback: invoked on every ``gh-score`` call. Dispatches to
+    the subcommand or the default ``analyze``. Environment files are
+    loaded only on explicit request (``--env``), never tacitly."""
     ctx = click.get_current_context()
     if ctx.invoked_subcommand is not None:
         return  # a real subcommand will handle it
@@ -576,6 +658,11 @@ def _resolve_and_validate(
 @click.option("--no-llm", is_flag=True, help="Disable LLM analysis")
 @click.option("--config", "config_path", help="Path to config file")
 @click.option(
+    "--env",
+    "env_path",
+    help="Load KEY=VALUE pairs from this .env file (explicit opt-in)",
+)
+@click.option(
     "--format",
     "output_format",
     type=click.Choice(["tui", "json", "markdown"]),
@@ -589,10 +676,16 @@ def analyze(
     refresh: bool,
     no_llm: bool,
     config_path: str | None,
+    env_path: str | None,
     output_format: str,
 ) -> None:
     """Analyze a repository, or compare several repositories (2+ URLs)."""
     console = Console()
+
+    # .env is loaded only on explicit request: the working directory may
+    # contain an unrelated .env, so we never load one tacitly.
+    if env_path:
+        _load_dotenv(env_path)
 
     # Resolve every target; with no argument, fall back to the current
     # directory when it is a git clone.
@@ -659,6 +752,7 @@ def config() -> None:
     table.add_row(t("cli_cfg_llm_provider"), cfg.llm.provider)
     table.add_row(t("cli_cfg_llm_model"), cfg.llm.model)
     table.add_row(t("cli_cfg_llm_base_url"), cfg.llm.base_url)
+    table.add_row(t("cli_cfg_llm_disable_reasoning"), str(cfg.llm.disable_reasoning))
     libraries_io = cfg.registries.libraries_io_api_key
     table.add_row(
         t("cli_cfg_libraries_io"),

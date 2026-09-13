@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 89% coverage, 564 tests). Last updated: 2026-08-10.
+(suite at 89% coverage, 564 tests). Last updated: 2026-09-13.
 
 ## Tests / coverage
 
@@ -97,6 +97,11 @@ item.
       recommendation prompt forbids denying the extracted qualitative
       signals, and a deterministic windowed heuristic surfaces a warning
       when the recommendation still claims a present fact is absent.
+      Extended (2026-08-13) to **unsupported negatives**: claiming the
+      absence of a fact the analysis could not verify (e.g. "no roadmap"
+      when the README never mentions one) now warns
+      (`warn_llm_unsupported_negative`), and the prompt tells the model
+      to phrase such claims as "no X announced in the project texts".
 - [ ] **LLM contradiction repair loop (optional, off by default)** — when
       the contradiction guard fires, re-ask the LLM once, quoting the
       contradiction (the claim vs the extracted fact), to revise its
@@ -110,9 +115,19 @@ item.
       binding detection (registries + `bindings/*` dirs, JS ≡ TS),
       subject matching (non-generic topics → description keywords →
       unknown). Optional LLM lifts only `unknown` subject verdicts.
-      Follow-ups: tune the subject thresholds (`_SUBJECT_MIN_TOKEN_LEN`,
-      generic token/topic lists) against real projects; detect bindings
-      that never publish to a registry (ctypes/JNI — see SPECS §16).
+      Follow-ups: the subject thresholds were tuned against real
+      projects (2026-08-13): the generic token/topic lists held up, and a
+      cross-signal rule was added (a topic of one project shared with a
+      description keyword of the other — fixes the FastAPI vs Flask
+      false negative). New informational pair `similarity` score (0.0–1.0
+      lexical closeness, `None` on unjudgeable subjects), a ranked
+      decision table (verdict, then downloads, then bus factor; bus
+      factor / downloads / latest-release columns; `ranking` in JSON)
+      and a **recommended pick** block (starred #1 + verdict message per
+      project) answering "which should I pick?" at a glance.
+      Remaining:
+      detect bindings that never publish to a registry (ctypes/JNI — see
+      SPECS §16).
 - [x] (done 2026-08-09) **Registry popularity (dependents + downloads)** —
       number of packages depending on the library (reverse dependencies)
       from the official registries (crates.io `meta.total`, RubyGems array
@@ -130,6 +145,13 @@ item.
 
 ## Product / housekeeping
 
+- [x] (done 2026-09-13) **Reasoning models in the LLM provider** — Qwen
+      "thinking"-style models (e.g. Ornith on oMLX) burn the token budget
+      on chain-of-thought and get cut mid-JSON ("empty or unparseable JSON
+      response"). New `GH_SCORE_LLM_DISABLE_REASONING` env/TOML flag
+      sends `chat_template_kwargs.enable_thinking: false` + top-level
+      `reasoning_effort: "none"` so the answer lands in `content`.
+      Documented in README, surfaced in `gh-score config`.
 - [x] (done 2026-08-05) Upgrade `gitpython` to `>=3.1.57` — fixes 3 open Dependabot
       alerts (1 high, 2 medium) on the default branch:
       - high   GHSA-3f7w-8rr8-f37f — unguarded git option forwarding

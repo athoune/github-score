@@ -431,6 +431,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cli_cfg_llm_provider": "Fournisseur LLM",
         "cli_cfg_llm_model": "Modèle LLM",
         "cli_cfg_llm_base_url": "URL de base LLM",
+        "cli_cfg_llm_disable_reasoning": "Raisonnement LLM désactivé",
         "cli_cfg_libraries_io": "Clé API libraries.io",
     },
     "en": {
@@ -823,6 +824,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cli_cfg_llm_provider": "LLM Provider",
         "cli_cfg_llm_model": "LLM Model",
         "cli_cfg_llm_base_url": "LLM Base URL",
+        "cli_cfg_llm_disable_reasoning": "LLM Reasoning Disabled",
         "cli_cfg_libraries_io": "libraries.io API Key",
     },
 }

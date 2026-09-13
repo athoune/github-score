@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 89% coverage, 564 tests). Last updated: 2026-08-10.
+(suite at 89% coverage, 564 tests). Last updated: 2026-09-13.
 
 ## Tests / coverage
 
@@ -145,6 +145,13 @@ item.
 
 ## Product / housekeeping
 
+- [x] (done 2026-09-13) **Reasoning models in the LLM provider** — Qwen
+      "thinking"-style models (e.g. Ornith on oMLX) burn the token budget
+      on chain-of-thought and get cut mid-JSON ("empty or unparseable JSON
+      response"). New `GH_SCORE_LLM_DISABLE_REASONING` env/TOML flag
+      sends `chat_template_kwargs.enable_thinking: false` + top-level
+      `reasoning_effort: "none"` so the answer lands in `content`.
+      Documented in README, surfaced in `gh-score config`.
 - [x] (done 2026-08-05) Upgrade `gitpython` to `>=3.1.57` — fixes 3 open Dependabot
       alerts (1 high, 2 medium) on the default branch:
       - high   GHSA-3f7w-8rr8-f37f — unguarded git option forwarding

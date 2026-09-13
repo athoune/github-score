@@ -394,16 +394,30 @@ class LLMProvider:
             return {}
 
         try:
+            payload: dict[str, Any] = {
+                "model": self.config.model,
+                "messages": [
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.3,
+                "max_tokens": max_tokens,
+            }
+            if self.config.disable_reasoning:
+                # Reasoning models (Qwen-style "thinking", DeepSeek R1,
+                # ...) burn the whole token budget on chain-of-thought and
+                # get cut mid-JSON. Ask the server to skip the reasoning
+                # pass. Two knobs, one per server family:
+                # - "chat_template_kwargs": {"enable_thinking": false} is
+                #   honored by oMLX / vLLM / llama.cpp-style servers;
+                # - top-level "reasoning_effort": "none" is the
+                #   OpenAI-compatible spelling.
+                # Servers that ignore unknown fields are unaffected; this
+                # flag is opt-in (GH_SCORE_LLM_DISABLE_REASONING).
+                payload["chat_template_kwargs"] = {"enable_thinking": False}
+                payload["reasoning_effort"] = "none"
             response = await self.client.post(
                 "/chat/completions",
-                json={
-                    "model": self.config.model,
-                    "messages": [
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": 0.3,
-                    "max_tokens": max_tokens,
-                },
+                json=payload,
             )
             response.raise_for_status()
 

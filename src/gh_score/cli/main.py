@@ -537,6 +537,8 @@ _ENV_VARS_HELP = textwrap.dedent(
       GH_SCORE_LLM_BASE_URL        OpenAI-compatible base URL (e.g. https://api.openai.com/v1)
       GH_SCORE_LLM_MODEL           LLM model name
       GH_SCORE_LLM_API_KEY         LLM API key (empty for local servers such as Ollama)
+      GH_SCORE_LLM_DISABLE_REASONING  1/true/yes to skip the reasoning pass (models that
+                                  burn the token budget on chain-of-thought)
       LIBRARIES_IO_API_KEY         libraries.io API key (dependents for PyPI/npm/Maven)
     """
 )
@@ -750,6 +752,7 @@ def config() -> None:
     table.add_row(t("cli_cfg_llm_provider"), cfg.llm.provider)
     table.add_row(t("cli_cfg_llm_model"), cfg.llm.model)
     table.add_row(t("cli_cfg_llm_base_url"), cfg.llm.base_url)
+    table.add_row(t("cli_cfg_llm_disable_reasoning"), str(cfg.llm.disable_reasoning))
     libraries_io = cfg.registries.libraries_io_api_key
     table.add_row(
         t("cli_cfg_libraries_io"),

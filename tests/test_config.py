@@ -18,6 +18,7 @@ _ENV_OVERRIDES = (
     "GH_SCORE_LLM_MODEL",
     "GH_SCORE_LLM_BASE_URL",
     "GH_SCORE_LLM_API_KEY",
+    "GH_SCORE_LLM_DISABLE_REASONING",
     "LIBRARIES_IO_API_KEY",
 )
 
@@ -49,6 +50,7 @@ ttl_hours = 48
 enabled = true
 provider = "openai"
 model = "gpt-4"
+disable_reasoning = true
 
 [registries]
 libraries_io_api_key = "lio_secret"
@@ -60,7 +62,24 @@ libraries_io_api_key = "lio_secret"
             assert config.llm.enabled is True
             assert config.llm.provider == "openai"
             assert config.llm.model == "gpt-4"
+            assert config.llm.disable_reasoning is True
             assert config.registries.libraries_io_api_key == "lio_secret"
+
+    def test_llm_disable_reasoning_env_override(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.toml"
+            config_path.write_text("[llm]\ndisable_reasoning = false\n")
+
+            # monkeypatch restores the shell's value afterwards (the LLM
+            # functional tests read this env var in the same session).
+            monkeypatch.setenv("GH_SCORE_LLM_DISABLE_REASONING", "true")
+            config = Config.load(str(config_path))
+            assert config.llm.disable_reasoning is True
+
+    def test_llm_disable_reasoning_env_falsey(self, monkeypatch):
+        monkeypatch.setenv("GH_SCORE_LLM_DISABLE_REASONING", "0")
+        config = Config.load("/nonexistent/path/config.toml")
+        assert config.llm.disable_reasoning is False
 
     def test_registries_env_override(self):
         with tempfile.TemporaryDirectory() as tmpdir:

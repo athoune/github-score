@@ -47,6 +47,10 @@ def _llm_config() -> LLMConfig:
         ),
         model=os.environ.get("GH_SCORE_LLM_MODEL", "llama3.2"),
         api_key=os.environ.get("GH_SCORE_LLM_API_KEY", ""),
+        disable_reasoning=os.environ.get(
+            "GH_SCORE_LLM_DISABLE_REASONING", ""
+        ).lower()
+        in ("1", "true", "yes"),
     )
 
 

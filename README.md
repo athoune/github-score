@@ -69,6 +69,20 @@ export GH_SCORE_LLM_API_KEY="sk-..."
 gh-score https://github.com/owner/repo
 ```
 
+**Reasoning models** (Qwen-style "thinking", DeepSeek R1, …) spend the
+whole token budget on chain-of-thought and get cut off before emitting
+the JSON. If your model produces "empty or unparseable JSON response"
+warnings, disable the reasoning pass:
+
+```bash
+export GH_SCORE_LLM_DISABLE_REASONING=true
+```
+
+The provider then asks the server to skip reasoning
+(`chat_template_kwargs.enable_thinking: false`, honored by oMLX / vLLM /
+llama.cpp-style servers, plus the OpenAI-compatible
+`reasoning_effort: "none"`). Opt-in: only set it for reasoning models.
+
 ### Configuration
 
 Set a `GITHUB_TOKEN` to raise API rate limits. LLM settings can also live

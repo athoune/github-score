@@ -252,6 +252,12 @@ class TestCliStrings:
     def test_config_title_en(self):
         assert t("cli_config_title", lang="en") == "Current Configuration"
 
+    def test_config_llm_disable_reasoning_key(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            assert "cli_cfg_llm_disable_reasoning" in MESSAGES[lang]
+
     def test_error_label(self):
         assert t("cli_error", lang="fr") == "Erreur :"
         assert t("cli_error", lang="en") == "Error:"

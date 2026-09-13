@@ -136,6 +136,52 @@ class TestExtractSignalsHttpErrors:
         assert "Insufficient Storage" in str(excinfo.value)
 
 
+class TestDisableReasoning:
+    """disable_reasoning asks the server to skip the chain-of-thought pass
+    so reasoning models do not burn the token budget before the JSON."""
+
+    async def _post_payload(self, config: LLMConfig) -> dict:
+        import httpx
+
+        from gh_score.llm.provider import LLMProvider
+
+        provider = LLMProvider(config)
+        response = httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"message": {"content": '{"roadmap": null}'}},
+                ]
+            },
+            request=httpx.Request("POST", "http://x/v1/chat/completions"),
+        )
+        provider.client.post = AsyncMock(return_value=response)
+
+        try:
+            await provider.extract_signals("prompt")
+            call = provider.client.post.await_args
+            assert call is not None
+            return call.kwargs["json"]
+        finally:
+            await provider.close()
+
+    @pytest.mark.asyncio
+    async def test_flag_disables_thinking(self):
+        payload = await self._post_payload(
+            LLMConfig(enabled=True, disable_reasoning=True)
+        )
+        # oMLX / vLLM style: chat_template_kwargs.enable_thinking
+        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+        # OpenAI-compatible spelling
+        assert payload["reasoning_effort"] == "none"
+
+    @pytest.mark.asyncio
+    async def test_without_flag_no_reasoning_params(self):
+        payload = await self._post_payload(LLMConfig(enabled=True))
+        assert "chat_template_kwargs" not in payload
+        assert "reasoning_effort" not in payload
+
+
 class TestExtractJsonObject:
     def test_pure_json(self):
         assert _extract_json_object('{"a": 1}') == {"a": 1}

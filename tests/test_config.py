@@ -5,7 +5,6 @@ import tempfile
 from pathlib import Path
 
 from gh_score.config import Config
-from gh_score.cli.main import _load_dotenv
 
 
 _ENV_OVERRIDES = (
@@ -117,35 +116,3 @@ libraries_io_api_key = "lio_secret"
         config = Config.load("/nonexistent/path/config.toml")
         assert config.github.token == ""
 
-
-class TestLoadDotenv:
-    """The CLI loads .env from the working directory so GH_SCORE_LLM_*
-    and friends work without sourcing it."""
-
-    def test_missing_file_is_noop(self, monkeypatch):
-        monkeypatch.delenv("GH_SCORE_LLM_ENABLED", raising=False)
-        _load_dotenv("/nonexistent/.env")
-        assert "GH_SCORE_LLM_ENABLED" not in os.environ
-
-    def test_parses_keys_and_export_prefix(self, tmp_path, monkeypatch):
-        dotenv = tmp_path / ".env"
-        dotenv.write_text(
-            "# comment\n"
-            "export GH_SCORE_LLM_ENABLED=true\n"
-            'GH_SCORE_LLM_MODEL="Qwen3.5-2B-6bit"\n'
-            "GITHUB_TOKEN=secret\n"
-            "MALFORMED_LINE_NO_EQ\n"
-        )
-        for var in ("GH_SCORE_LLM_ENABLED", "GH_SCORE_LLM_MODEL", "GITHUB_TOKEN"):
-            monkeypatch.delenv(var, raising=False)
-        _load_dotenv(str(dotenv))
-        assert os.environ["GH_SCORE_LLM_ENABLED"] == "true"
-        assert os.environ["GH_SCORE_LLM_MODEL"] == "Qwen3.5-2B-6bit"
-        assert os.environ["GITHUB_TOKEN"] == "secret"
-
-    def test_existing_env_var_wins(self, tmp_path, monkeypatch):
-        dotenv = tmp_path / ".env"
-        dotenv.write_text("GH_SCORE_LLM_MODEL=from-dotenv\n")
-        monkeypatch.setenv("GH_SCORE_LLM_MODEL", "from-shell")
-        _load_dotenv(str(dotenv))
-        assert os.environ["GH_SCORE_LLM_MODEL"] == "from-shell"

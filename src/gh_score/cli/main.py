@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import sys
 import textwrap
 from dataclasses import asdict
@@ -68,44 +67,6 @@ def _validate_url(url_or_path: str, local: bool, console: Console) -> None:
     except ValueError as exc:
         console.print(f"[red]{t('cli_error')}[/red] {exc}")
         sys.exit(1)
-
-
-# ---------------------------------------------------------------------------
-# .env loading
-# ---------------------------------------------------------------------------
-
-
-def _load_dotenv(path: str | None = None) -> None:
-    """Load KEY=VALUE pairs from a .env file into os.environ.
-
-    Looks for ``.env`` in the current working directory (override with
-    ``path``). Only sets variables that are not already present in the
-    environment — an exported variable wins. Supports blank lines,
-    comments (#), an optional ``export`` prefix and single/double-quoted
-    values. A missing file is a no-op.
-    """
-    dotenv = Path(path) if path else Path.cwd() / ".env"
-    if not dotenv.is_file():
-        return
-    for raw in dotenv.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("export "):
-            line = line[7:].strip()
-        if "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if (
-            len(value) >= 2
-            and value[0] == value[-1]
-            and value[0] in ("'", '"')
-        ):
-            value = value[1:-1]
-        if key and key not in os.environ:
-            os.environ[key] = value
 
 
 # ---------------------------------------------------------------------------
@@ -598,8 +559,7 @@ class DefaultGroup(_EpilogMixin, click.Group):
 
 def _default_analyze() -> None:
     """Group callback: invoked on every ``gh-score`` call. Dispatches to
-    the subcommand or the default ``analyze``. Environment files are
-    loaded only on explicit request (``--env``), never tacitly."""
+    the subcommand or the default ``analyze``."""
     ctx = click.get_current_context()
     if ctx.invoked_subcommand is not None:
         return  # a real subcommand will handle it
@@ -658,11 +618,6 @@ def _resolve_and_validate(
 @click.option("--no-llm", is_flag=True, help="Disable LLM analysis")
 @click.option("--config", "config_path", help="Path to config file")
 @click.option(
-    "--env",
-    "env_path",
-    help="Load KEY=VALUE pairs from this .env file (explicit opt-in)",
-)
-@click.option(
     "--format",
     "output_format",
     type=click.Choice(["tui", "json", "markdown"]),
@@ -676,16 +631,10 @@ def analyze(
     refresh: bool,
     no_llm: bool,
     config_path: str | None,
-    env_path: str | None,
     output_format: str,
 ) -> None:
     """Analyze a repository, or compare several repositories (2+ URLs)."""
     console = Console()
-
-    # .env is loaded only on explicit request: the working directory may
-    # contain an unrelated .env, so we never load one tacitly.
-    if env_path:
-        _load_dotenv(env_path)
 
     # Resolve every target; with no argument, fall back to the current
     # directory when it is a git clone.

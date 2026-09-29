@@ -82,9 +82,7 @@ libraries_io_api_key = "lio_secret"
     def test_registries_env_override(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.toml"
-            config_path.write_text(
-                "[registries]\nlibraries_io_api_key = \"file_key\"\n"
-            )
+            config_path.write_text('[registries]\nlibraries_io_api_key = "file_key"\n')
 
             os.environ["LIBRARIES_IO_API_KEY"] = "env_key"
             try:
@@ -97,7 +95,7 @@ libraries_io_api_key = "lio_secret"
     def test_env_override(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.toml"
-            config_path.write_text("[github]\ntoken = \"file_token\"\n")
+            config_path.write_text('[github]\ntoken = "file_token"\n')
 
             # Set env var
             os.environ["GH_SCORE_GITHUB_TOKEN"] = "env_token"
@@ -114,4 +112,3 @@ libraries_io_api_key = "lio_secret"
             monkeypatch.delenv(var, raising=False)
         config = Config.load("/nonexistent/path/config.toml")
         assert config.github.token == ""
-

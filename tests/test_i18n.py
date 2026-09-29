@@ -1,6 +1,6 @@
 """Tests for the lightweight internationalization module."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from gh_score.core.analyzers import (
     analyze_contributors,
@@ -13,8 +13,8 @@ from gh_score.core.models import (
     AnalysisResult,
     Commit,
     Contributor,
-    ContributorStats,
     ContributorsIndicator,
+    ContributorStats,
     LicenseFamily,
     LicenseIndicator,
     MaintenanceIndicator,
@@ -22,9 +22,9 @@ from gh_score.core.models import (
     Release,
     ReleaseHealth,
     ReleaseHealthIndicator,
-    RepoUrl,
     Repository,
     RepositoryMeta,
+    RepoUrl,
     SustainabilityIndicator,
 )
 from gh_score.i18n import current_language, t
@@ -91,7 +91,10 @@ class TestTranslate:
         assert t("fact_stars", lang="fr", stars=1234) == "1,234 étoiles"
 
     def test_format_ratio(self):
-        assert t("reason_bots", lang="fr", ratio=0.9) == "90% des commits proviennent de bots"
+        assert (
+            t("reason_bots", lang="fr", ratio=0.9)
+            == "90% des commits proviennent de bots"
+        )
 
     def test_unknown_lang_falls_back_to_english(self):
         assert t("rec_active", lang="xx") == "Active project"
@@ -106,7 +109,7 @@ class TestTranslate:
 
 class TestRecommendationLanguage:
     def _make_active_result(self) -> AnalysisResult:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return AnalysisResult(
             url=RepoUrl("owner", "repo"),
             meta=RepositoryMeta(stars=200, created_at=now - timedelta(days=365)),
@@ -174,7 +177,7 @@ class TestAnalyzerInterpretations:
         assert t("int_bus_factor", lang="en", count=1) in ind.interpretation
 
     def test_maintenance_interpretation_fr(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         repo = Repository(
             url=RepoUrl("owner", "repo"),
             commits=[
@@ -187,7 +190,7 @@ class TestAnalyzerInterpretations:
         assert "dernier commit :" in ind.interpretation
 
     def test_maintenance_interpretation_en(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         repo = Repository(
             url=RepoUrl("owner", "repo"),
             commits=[Commit(sha="a", author_date=now - timedelta(days=30))],
@@ -197,7 +200,7 @@ class TestAnalyzerInterpretations:
         assert "last commit:" in ind.interpretation
 
     def test_release_health_interpretation_fr(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         repo = Repository(
             url=RepoUrl("owner", "repo"),
             release_health=ReleaseHealth(
@@ -211,7 +214,7 @@ class TestAnalyzerInterpretations:
         assert "publiée il y a 10 jours" in ind.interpretation
 
     def test_release_health_interpretation_en(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         repo = Repository(
             url=RepoUrl("owner", "repo"),
             release_health=ReleaseHealth(
@@ -226,8 +229,13 @@ class TestAnalyzerInterpretations:
 
     def test_license_family_label(self):
         assert license_family_label(LicenseFamily.PERMISSIVE, lang="fr") == "permissive"
-        assert license_family_label(LicenseFamily.PUBLIC_DOMAIN, lang="fr") == "domaine public"
-        assert license_family_label(LicenseFamily.PROPRIETARY, lang="en") == "proprietary"
+        assert (
+            license_family_label(LicenseFamily.PUBLIC_DOMAIN, lang="fr")
+            == "domaine public"
+        )
+        assert (
+            license_family_label(LicenseFamily.PROPRIETARY, lang="en") == "proprietary"
+        )
         assert license_family_label(LicenseFamily.OTHER, lang="en") == "other"
 
 
@@ -277,14 +285,26 @@ class TestQualitativeKeys:
 
         for lang in ("fr", "en"):
             for key in (
-                "rec_text_discontinued", "reason_text_discontinued",
+                "rec_text_discontinued",
+                "reason_text_discontinued",
                 "reason_text_active",
-                "fact_roadmap", "fact_commercial", "fact_security",
-                "int_roadmap", "int_commercial", "int_security", "int_text_state",
+                "fact_roadmap",
+                "fact_commercial",
+                "fact_security",
+                "int_roadmap",
+                "int_commercial",
+                "int_security",
+                "int_text_state",
                 "panel_qualitative",
-                "tui_roadmap", "tui_security", "tui_commercial", "tui_text_state",
-                "md_section_qualitative", "md_roadmap", "md_security",
-                "md_commercial", "md_text_state",
+                "tui_roadmap",
+                "tui_security",
+                "tui_commercial",
+                "tui_text_state",
+                "md_section_qualitative",
+                "md_roadmap",
+                "md_security",
+                "md_commercial",
+                "md_text_state",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
 
@@ -308,13 +328,23 @@ class TestWebsiteKeys:
 
         for lang in ("fr", "en"):
             for key in (
-                "panel_website", "md_section_website",
-                "int_site_no_homepage", "int_site_ok", "int_site_dns",
-                "int_site_timeout", "int_site_http", "int_site_redirect",
-                "int_site_captcha", "int_site_unreachable",
-                "rec_site_down", "rec_site_degraded",
-                "reason_site_down", "reason_site_dns", "reason_site_http",
-                "reason_site_redirect", "reason_site_timeout",
+                "panel_website",
+                "md_section_website",
+                "int_site_no_homepage",
+                "int_site_ok",
+                "int_site_dns",
+                "int_site_timeout",
+                "int_site_http",
+                "int_site_redirect",
+                "int_site_captcha",
+                "int_site_unreachable",
+                "rec_site_down",
+                "rec_site_degraded",
+                "reason_site_down",
+                "reason_site_dns",
+                "reason_site_http",
+                "reason_site_redirect",
+                "reason_site_timeout",
                 "reason_site_captcha",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
@@ -327,14 +357,22 @@ class TestWebsiteKeys:
             WebsiteInfo(url="https://example.com", error=WebsiteError.DNS),
             lang="fr",
         )
-        assert t("int_site_dns", lang="fr", site="https://example.com") in ind.interpretation
+        assert (
+            t("int_site_dns", lang="fr", site="https://example.com")
+            in ind.interpretation
+        )
 
     def test_interpretation_en(self):
         from gh_score.core.analyzers.website import analyze_website
         from gh_score.core.models import WebsiteInfo
 
-        ind = analyze_website(WebsiteInfo(url="https://example.com", status_code=200), lang="en")
-        assert t("int_site_ok", lang="en", site="https://example.com", code=200) in ind.interpretation
+        ind = analyze_website(
+            WebsiteInfo(url="https://example.com", status_code=200), lang="en"
+        )
+        assert (
+            t("int_site_ok", lang="en", site="https://example.com", code=200)
+            in ind.interpretation
+        )
 
 
 class TestLanguagePopularityKeys:
@@ -378,10 +416,15 @@ class TestSecurityKeys:
 
         for lang in ("fr", "en"):
             for key in (
-                "panel_security", "md_section_security",
-                "int_security_none", "int_security_pending", "int_security_overdue",
-                "rec_security_pending", "rec_security_overdue",
-                "reason_security_pending", "reason_security_overdue",
+                "panel_security",
+                "md_section_security",
+                "int_security_none",
+                "int_security_pending",
+                "int_security_overdue",
+                "rec_security_pending",
+                "rec_security_overdue",
+                "reason_security_pending",
+                "reason_security_overdue",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
 

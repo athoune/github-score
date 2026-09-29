@@ -6,6 +6,7 @@ GH_SCORE_LLM_MODEL, GH_SCORE_LLM_API_KEY.
 """
 
 import os
+from datetime import UTC
 
 import pytest
 
@@ -18,9 +19,9 @@ from gh_score.core.models import (
     MaintenanceState,
     QualitativeSignals,
     ReleaseHealthIndicator,
-    RepoUrl,
     Repository,
     RepositoryMeta,
+    RepoUrl,
     SustainabilityIndicator,
 )
 from gh_score.llm.provider import (
@@ -42,14 +43,10 @@ requires_llm = pytest.mark.skipif(
 def _llm_config() -> LLMConfig:
     return LLMConfig(
         enabled=True,
-        base_url=os.environ.get(
-            "GH_SCORE_LLM_BASE_URL", "http://localhost:11434/v1"
-        ),
+        base_url=os.environ.get("GH_SCORE_LLM_BASE_URL", "http://localhost:11434/v1"),
         model=os.environ.get("GH_SCORE_LLM_MODEL", "llama3.2"),
         api_key=os.environ.get("GH_SCORE_LLM_API_KEY", ""),
-        disable_reasoning=os.environ.get(
-            "GH_SCORE_LLM_DISABLE_REASONING", ""
-        ).lower()
+        disable_reasoning=os.environ.get("GH_SCORE_LLM_DISABLE_REASONING", "").lower()
         in ("1", "true", "yes"),
     )
 
@@ -89,9 +86,9 @@ async def test_real_llm_no_text_returns_empty():
 @requires_llm
 @pytest.mark.asyncio
 async def test_real_llm_refined_recommendation():
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     result = AnalysisResult(
         url=RepoUrl("owner", "repo"),
         meta=RepositoryMeta(

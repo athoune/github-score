@@ -6,7 +6,7 @@ Analyzes release patterns, cadence, and stability.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from gh_score.core.models import (
     ReleaseHealthIndicator,
@@ -14,7 +14,6 @@ from gh_score.core.models import (
     Status,
 )
 from gh_score.i18n import t
-
 
 # Semver pattern: MAJOR.MINOR.PATCH with optional pre-release
 _SEMVER_RE = re.compile(
@@ -65,7 +64,7 @@ def analyze_release_health(
     indicator.is_prerelease = latest.prerelease
 
     # Age
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if latest.published_at:
         indicator.age_days = (now - latest.published_at).days
 
@@ -78,8 +77,7 @@ def analyze_release_health(
     # Release cadence over last 12 months
     twelve_months_ago = now - __import__("datetime").timedelta(days=365)
     recent = [
-        r for r in non_draft
-        if r.published_at and r.published_at >= twelve_months_ago
+        r for r in non_draft if r.published_at and r.published_at >= twelve_months_ago
     ]
     if len(recent) >= 2:
         sorted_recent = sorted(recent, key=lambda r: r.published_at)  # type: ignore[arg-type]
@@ -131,9 +129,7 @@ def _build_interpretation(ind: ReleaseHealthIndicator, lang: str | None = None) 
             elif ind.age_days == 1:
                 parts.append(t("int_released_yesterday", lang=lang))
             else:
-                parts.append(
-                    t("int_released_days_ago", lang=lang, days=ind.age_days)
-                )
+                parts.append(t("int_released_days_ago", lang=lang, days=ind.age_days))
 
     if ind.cadence_days is not None:
         if ind.cadence_days < 7:

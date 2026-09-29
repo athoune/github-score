@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from platformdirs import user_config_dir, user_cache_dir
+from platformdirs import user_cache_dir, user_config_dir
 
 
 @dataclass
@@ -38,13 +38,15 @@ class LLMConfig:
 @dataclass
 class DashboardConfig:
     colors: bool = True
-    thresholds: dict[str, Any] = field(default_factory=lambda: {
-        "stale_days": 180,
-        "maintenance_commits_per_month": 2,
-        "abandoned_months": 6,
-        "bus_factor_warning": 2,
-        "bus_factor_critical": 1,
-    })
+    thresholds: dict[str, Any] = field(
+        default_factory=lambda: {
+            "stale_days": 180,
+            "maintenance_commits_per_month": 2,
+            "abandoned_months": 6,
+            "bus_factor_warning": 2,
+            "bus_factor_critical": 1,
+        }
+    )
 
 
 @dataclass
@@ -56,6 +58,7 @@ class RegistriesConfig:
     libraries.io aggregator (free account, 60 requests/minute). Without a
     key, ``dependents`` stays ``None`` for those ecosystems.
     """
+
     libraries_io_api_key: str = ""
 
 

@@ -5,7 +5,7 @@ Analyzes maintenance patterns: last commit, issue velocity, staleness.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from gh_score.core.models import (
     MaintenanceIndicator,
@@ -51,8 +51,7 @@ def _compute_commits_per_month(repo: Repository, now: datetime) -> float | None:
     """Compute average commits per month over last 12 months."""
     twelve_months_ago = now - timedelta(days=365)
     recent = [
-        c for c in repo.commits
-        if c.author_date and c.author_date >= twelve_months_ago
+        c for c in repo.commits if c.author_date and c.author_date >= twelve_months_ago
     ]
 
     if not recent:
@@ -63,12 +62,13 @@ def _compute_commits_per_month(repo: Repository, now: datetime) -> float | None:
 
 def _compute_issue_velocity(repo: Repository) -> float | None:
     """Compute median time to close issues (in days) for issues created in last 12 months."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     twelve_months_ago = now - timedelta(days=365)
 
     # Filter issues created in last 12 months and closed
     closed_issues = [
-        i for i in repo.issues
+        i
+        for i in repo.issues
         if i.created_at >= twelve_months_ago
         and i.state == "closed"
         and i.closed_at
@@ -98,7 +98,9 @@ def _compute_issue_velocity(repo: Repository) -> float | None:
 
 def _compute_stale_issue_ratio(repo: Repository, now: datetime) -> float | None:
     """Compute ratio of open issues older than 12 months."""
-    open_issues = [i for i in repo.issues if i.state == "open" and not i.is_pull_request]
+    open_issues = [
+        i for i in repo.issues if i.state == "open" and not i.is_pull_request
+    ]
     if not open_issues:
         return None
 
@@ -156,7 +158,7 @@ def analyze_maintenance(
     - Maintenance state classification
     - Status and interpretation
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     last_commit_days = _compute_last_commit_days(repo, now)
     last_closed_days = _compute_last_closed_days(repo, now)
@@ -292,9 +294,7 @@ def _append_issue_velocity(
     elif ind.issue_velocity_days < 7:
         parts.append(t("int_issues_days", lang=lang, days=ind.issue_velocity_days))
     elif ind.issue_velocity_days < 30:
-        parts.append(
-            t("int_issues_moderate", lang=lang, days=ind.issue_velocity_days)
-        )
+        parts.append(t("int_issues_moderate", lang=lang, days=ind.issue_velocity_days))
     else:
         parts.append(t("int_issues_slow", lang=lang, days=ind.issue_velocity_days))
 

@@ -18,16 +18,26 @@ def _resp(status: int, text: str = "", headers: dict | None = None) -> httpx.Res
 
 class TestCaptchaDetection:
     def test_plain_page(self):
-        assert _detect_captcha(httpx.Headers({}), b"<html>Welcome</html>") == (False, None)
+        assert _detect_captcha(httpx.Headers({}), b"<html>Welcome</html>") == (
+            False,
+            None,
+        )
 
     def test_recaptcha_html(self):
-        assert _detect_captcha(httpx.Headers({}), b'<div class="g-recaptcha"></div>') == (True, "recaptcha")
+        assert _detect_captcha(
+            httpx.Headers({}), b'<div class="g-recaptcha"></div>'
+        ) == (True, "recaptcha")
 
     def test_cloudflare_challenge_header(self):
-        assert _detect_captcha(httpx.Headers({"cf-mitigated": "challenge"}), b"") == (True, "cloudflare")
+        assert _detect_captcha(httpx.Headers({"cf-mitigated": "challenge"}), b"") == (
+            True,
+            "cloudflare",
+        )
 
     def test_hcaptcha_title(self):
-        assert _detect_captcha(httpx.Headers({}), b"<title>Please verify you are human</title>") == (True, "generic")
+        assert _detect_captcha(
+            httpx.Headers({}), b"<title>Please verify you are human</title>"
+        ) == (True, "generic")
 
 
 def _raise_network_error(req: httpx.Request) -> httpx.Response:
@@ -51,7 +61,9 @@ class TestProbeWebsite:
                 return httpx.Response(302, headers={"location": "/final"})
             return _resp(200, "final page")
 
-        info = await probe_website("https://example.com/start", transport=httpx.MockTransport(handler))
+        info = await probe_website(
+            "https://example.com/start", transport=httpx.MockTransport(handler)
+        )
         assert info.status_code == 200
         assert info.final_url == "https://example.com/final"
 
@@ -60,17 +72,21 @@ class TestProbeWebsite:
         def handler(req: httpx.Request) -> httpx.Response:
             return httpx.Response(302, headers={"location": str(req.url)})
 
-        info = await probe_website("https://example.com/loop", transport=httpx.MockTransport(handler))
+        info = await probe_website(
+            "https://example.com/loop", transport=httpx.MockTransport(handler)
+        )
         assert info.error == WebsiteError.REDIRECT
 
     @pytest.mark.asyncio
     async def test_dns_failure(self):
         def handler(req: httpx.Request) -> httpx.Response:
-            raise httpx.ConnectError("name resolution failed", request=req) from socket.gaierror(
-                socket.EAI_NONAME, "Name or service not known"
-            )
+            raise httpx.ConnectError(
+                "name resolution failed", request=req
+            ) from socket.gaierror(socket.EAI_NONAME, "Name or service not known")
 
-        info = await probe_website("https://no-such-host.invalid", transport=httpx.MockTransport(handler))
+        info = await probe_website(
+            "https://no-such-host.invalid", transport=httpx.MockTransport(handler)
+        )
         assert info.error == WebsiteError.DNS
 
     @pytest.mark.asyncio
@@ -78,19 +94,25 @@ class TestProbeWebsite:
         def handler(req: httpx.Request) -> httpx.Response:
             raise httpx.ReadTimeout("timed out", request=req)
 
-        info = await probe_website("https://slow.example.com", transport=httpx.MockTransport(handler))
+        info = await probe_website(
+            "https://slow.example.com", transport=httpx.MockTransport(handler)
+        )
         assert info.error == WebsiteError.TIMEOUT
 
     @pytest.mark.asyncio
     async def test_http_500(self):
-        info = await probe_website("https://example.com", transport=httpx.MockTransport(lambda req: _resp(500)))
+        info = await probe_website(
+            "https://example.com", transport=httpx.MockTransport(lambda req: _resp(500))
+        )
         assert info.error == WebsiteError.HTTP
         assert info.status_code == 500
 
     @pytest.mark.asyncio
     async def test_captcha_page(self):
         transport = httpx.MockTransport(
-            lambda req: _resp(403, "<html><title>Please verify you are human</title></html>")
+            lambda req: _resp(
+                403, "<html><title>Please verify you are human</title></html>"
+            )
         )
         info = await probe_website("https://example.com", transport=transport)
         assert info.captcha is True
@@ -104,6 +126,8 @@ class TestProbeWebsite:
         await probe_website("https://example.com", cache=cache, transport=ok_transport)
 
         info = await probe_website(
-            "https://example.com", cache=cache, transport=httpx.MockTransport(_raise_network_error)
+            "https://example.com",
+            cache=cache,
+            transport=httpx.MockTransport(_raise_network_error),
         )
         assert info.status_code == 200

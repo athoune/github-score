@@ -22,18 +22,26 @@ class TestAnalyzeQualitative:
         assert ind.status == Status.UNKNOWN
 
     def test_signals_mapped_and_available(self):
-        ind = analyze_qualitative(_repo(QualitativeSignals(
-            roadmap="v2",
-            text_maintenance_state="active",
-        )))
+        ind = analyze_qualitative(
+            _repo(
+                QualitativeSignals(
+                    roadmap="v2",
+                    text_maintenance_state="active",
+                )
+            )
+        )
         assert ind.available is True
         assert ind.status == Status.HEALTHY
         assert ind.roadmap == "v2"
         assert ind.text_maintenance_state == "active"
 
     def test_interpretation_mentions_signals(self):
-        ind = analyze_qualitative(_repo(QualitativeSignals(
-            roadmap="v2",
-            commercial_support="paid tiers",
-        )))
+        ind = analyze_qualitative(
+            _repo(
+                QualitativeSignals(
+                    roadmap="v2",
+                    commercial_support="paid tiers",
+                )
+            )
+        )
         assert ind.interpretation != ""

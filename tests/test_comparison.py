@@ -27,8 +27,8 @@ from gh_score.core.models import (
     RecommendationLevel,
     RegistryInfo,
     ReleaseHealthIndicator,
-    RepoUrl,
     RepositoryMeta,
+    RepoUrl,
     SustainabilityIndicator,
 )
 from gh_score.i18n import t
@@ -145,8 +145,16 @@ class TestAssessPair:
         _pinned_en(monkeypatch)
 
     def test_compatible_libraries_shared_topic(self):
-        a = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
-        b = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
+        a = _result(
+            primary="Python",
+            topics=["http"],
+            registries=[RegistryInfo(ecosystem="pypi", exists=True)],
+        )
+        b = _result(
+            primary="Python",
+            topics=["http"],
+            registries=[RegistryInfo(ecosystem="pypi", exists=True)],
+        )
         pair = assess_pair(a, b)
         assert pair.verdict == ComparisonVerdict.OK
         assert pair.subject == SubjectVerdict.COMPATIBLE
@@ -211,12 +219,23 @@ class TestAssessPair:
         assert pair.verdict == ComparisonVerdict.WARNING
 
     def test_libraries_in_different_languages_warn(self):
-        a = _result(primary="Python", registries=[RegistryInfo(ecosystem="pypi", exists=True)], topics=["http"])
-        b = _result(primary="Rust", registries=[RegistryInfo(ecosystem="crates.io", exists=True)], topics=["http"])
+        a = _result(
+            primary="Python",
+            registries=[RegistryInfo(ecosystem="pypi", exists=True)],
+            topics=["http"],
+        )
+        b = _result(
+            primary="Rust",
+            registries=[RegistryInfo(ecosystem="crates.io", exists=True)],
+            topics=["http"],
+        )
         pair = assess_pair(a, b)
         assert pair.language_compatible is False
         assert pair.verdict == ComparisonVerdict.WARNING
-        assert t("cmp_language_incompatible", lang="en", langs_a="python", langs_b="rust") in pair.reasons
+        assert (
+            t("cmp_language_incompatible", lang="en", langs_a="python", langs_b="rust")
+            in pair.reasons
+        )
 
     def test_binding_project_compatible_with_native_library(self):
         # Rust project with Python bindings vs a pure Python library.
@@ -228,13 +247,19 @@ class TestAssessPair:
             ],
             topics=["http"],
         )
-        b = _result(primary="Python", registries=[RegistryInfo(ecosystem="pypi", exists=True)], topics=["http"])
+        b = _result(
+            primary="Python",
+            registries=[RegistryInfo(ecosystem="pypi", exists=True)],
+            topics=["http"],
+        )
         pair = assess_pair(a, b)
         assert pair.language_compatible is True
         assert pair.verdict == ComparisonVerdict.OK
 
     def test_library_vs_application_mismatch(self):
-        a = _result(registries=[RegistryInfo(ecosystem="pypi", exists=True)], topics=["http"])
+        a = _result(
+            registries=[RegistryInfo(ecosystem="pypi", exists=True)], topics=["http"]
+        )
         b = _result(root_files=["dockerfile"], topics=["http"])
         pair = assess_pair(a, b)
         assert pair.kind_mismatch is True
@@ -257,8 +282,16 @@ class TestAssessPair:
         assert pair.language_compatible is None
 
     def test_typescript_and_javascript_compatible(self):
-        a = _result(primary="TypeScript", registries=[RegistryInfo(ecosystem="npm", exists=True)], topics=["http"])
-        b = _result(primary="JavaScript", registries=[RegistryInfo(ecosystem="npm", exists=True)], topics=["http"])
+        a = _result(
+            primary="TypeScript",
+            registries=[RegistryInfo(ecosystem="npm", exists=True)],
+            topics=["http"],
+        )
+        b = _result(
+            primary="JavaScript",
+            registries=[RegistryInfo(ecosystem="npm", exists=True)],
+            topics=["http"],
+        )
         pair = assess_pair(a, b)
         assert pair.language_compatible is True
         assert pair.verdict == ComparisonVerdict.OK
@@ -266,8 +299,13 @@ class TestAssessPair:
     def test_cross_signal_topic_vs_description(self):
         # "web" as a topic of one project and "web" in the other's
         # description is still a shared subject (FastAPI vs Flask pattern).
-        a = _result(topics=["web", "framework"], description="High performance API framework")
-        b = _result(topics=["flask", "wsgi"], description="Micro framework for building web applications")
+        a = _result(
+            topics=["web", "framework"], description="High performance API framework"
+        )
+        b = _result(
+            topics=["flask", "wsgi"],
+            description="Micro framework for building web applications",
+        )
         pair = assess_pair(a, b)
         assert pair.subject == SubjectVerdict.COMPATIBLE
         assert t("cmp_subject_signals", lang="en", signals="web") in pair.reasons
@@ -277,14 +315,30 @@ class TestSimilarityScore:
     """Informational 0.0–1.0 lexical closeness, never part of the verdict."""
 
     def test_compatible_libraries_blend_language(self):
-        a = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
-        b = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
+        a = _result(
+            primary="Python",
+            topics=["http"],
+            registries=[RegistryInfo(ecosystem="pypi", exists=True)],
+        )
+        b = _result(
+            primary="Python",
+            topics=["http"],
+            registries=[RegistryInfo(ecosystem="pypi", exists=True)],
+        )
         # Shared topic "http" only: topic Jaccard 1.0, language Jaccard 1.0.
         assert similarity_score(a, b, SubjectVerdict.COMPATIBLE) == 1.0
 
     def test_different_languages_penalize_the_score(self):
-        a = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
-        b = _result(primary="Rust", topics=["http"], registries=[RegistryInfo(ecosystem="crates.io", exists=True)])
+        a = _result(
+            primary="Python",
+            topics=["http"],
+            registries=[RegistryInfo(ecosystem="pypi", exists=True)],
+        )
+        b = _result(
+            primary="Rust",
+            topics=["http"],
+            registries=[RegistryInfo(ecosystem="crates.io", exists=True)],
+        )
         # Topic Jaccard 1.0 (0.7) + language Jaccard 0.0 (0.3).
         assert similarity_score(a, b, SubjectVerdict.COMPATIBLE) == 0.7
 
@@ -305,8 +359,16 @@ class TestSimilarityScore:
         assert similarity_score(a, b, SubjectVerdict.COMPATIBLE) is None
 
     def test_assess_pair_carries_similarity(self):
-        a = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
-        b = _result(primary="Python", topics=["http"], registries=[RegistryInfo(ecosystem="pypi", exists=True)])
+        a = _result(
+            primary="Python",
+            topics=["http"],
+            registries=[RegistryInfo(ecosystem="pypi", exists=True)],
+        )
+        b = _result(
+            primary="Python",
+            topics=["http"],
+            registries=[RegistryInfo(ecosystem="pypi", exists=True)],
+        )
         pair = assess_pair(a, b)
         assert pair.similarity == 1.0
 
@@ -390,8 +452,14 @@ class TestRankedProjects:
         assert self._ranked([a, b]) == ["b", "a"]
 
     def test_stars_break_bus_factor_ties(self):
-        a = _result(name="a", registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=100)])
-        b = _result(name="b", registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=100)])
+        a = _result(
+            name="a",
+            registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=100)],
+        )
+        b = _result(
+            name="b",
+            registries=[RegistryInfo(ecosystem="pypi", exists=True, downloads=100)],
+        )
         a.recommendation.level = RecommendationLevel.GREEN
         b.recommendation.level = RecommendationLevel.GREEN
         a.contributors = ContributorsIndicator(bus_factor=3)

@@ -12,7 +12,7 @@ explicitly.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from gh_score.core.models import (
     AnalysisResult,
@@ -35,7 +35,7 @@ _LARGE_COMMUNITY_AUTHORS = 100
 _LARGE_COMMUNITY_STARS = 10_000
 _BOT_DOMINATED_RATIO = 0.8
 _DECLINING_FACTOR = 0.25  # 3m commits < 25% of 12m commits → declining
-_NO_RELEASE_MONTHS = 6    # maintained but no release for this long
+_NO_RELEASE_MONTHS = 6  # maintained but no release for this long
 _EPHEMERAL_AGE_DAYS = 180
 _EPHEMERAL_MAX_AUTHORS = 3
 _EPHEMERAL_MAX_STARS = 200
@@ -105,7 +105,7 @@ def _is_ephemeral(result: AnalysisResult) -> bool:
         return False
     if meta.created_at is None:
         return False
-    age_days = (datetime.now(timezone.utc) - meta.created_at).days
+    age_days = (datetime.now(UTC) - meta.created_at).days
     if age_days > _EPHEMERAL_AGE_DAYS:
         return False
     if meta.stars > _EPHEMERAL_MAX_STARS:
@@ -156,9 +156,17 @@ def _build(
         )
     if result.meta.owner_type:
         reasoning.append(
-            t("fact_owner", lang=lang, type=t(f"owner_type_{result.meta.owner_type}", lang=lang))
+            t(
+                "fact_owner",
+                lang=lang,
+                type=t(f"owner_type_{result.meta.owner_type}", lang=lang),
+            )
         )
-    dependents = max((reg.dependents or 0) for reg in result.registries) if result.registries else 0
+    dependents = (
+        max((reg.dependents or 0) for reg in result.registries)
+        if result.registries
+        else 0
+    )
     if dependents:
         reasoning.append(t("fact_dependents", lang=lang, count=dependents))
     if result.meta.fork and result.meta.is_soft_fork is False:

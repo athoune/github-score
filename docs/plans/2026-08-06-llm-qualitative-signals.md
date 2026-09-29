@@ -122,6 +122,7 @@ class QualitativeSignals:
     *self-declared* state as written in README/GOVERNANCE/SECURITY, one of
     "active", "maintenance", "abandoned", "unknown".
     """
+
     roadmap: str | None = None
     security_policy: str | None = None
     commercial_support: str | None = None
@@ -132,8 +133,12 @@ class QualitativeSignals:
         """True when at least one signal was extracted (LLM actually ran)."""
         return any(
             v is not None
-            for v in (self.roadmap, self.security_policy,
-                      self.commercial_support, self.text_maintenance_state)
+            for v in (
+                self.roadmap,
+                self.security_policy,
+                self.commercial_support,
+                self.text_maintenance_state,
+            )
         )
 
 
@@ -145,6 +150,7 @@ class QualitativeIndicator:
     it drives confidence accounting and gates the qualitative branches of the
     recommendation.
     """
+
     roadmap: str | None = None
     security_policy: str | None = None
     commercial_support: str | None = None
@@ -246,7 +252,12 @@ class TestParseQualitative:
         assert s.text_maintenance_state is None
 
     def test_state_values(self):
-        assert _TEXT_MAINTENANCE_STATES == {"active", "maintenance", "abandoned", "unknown"}
+        assert _TEXT_MAINTENANCE_STATES == {
+            "active",
+            "maintenance",
+            "abandoned",
+            "unknown",
+        }
 
 
 class TestPromptScope:
@@ -278,8 +289,7 @@ _TEXT_MAINTENANCE_STATES = frozenset({"active", "maintenance", "abandoned", "unk
 # Deliberately EXCLUDED from the prompt: sponsors/backers and governance
 # model already have deterministic implementations (see sustainability.py).
 _SIGNAL_FIELDS = (
-    "roadmap: brief summary of any roadmap or future plans mentioned "
-    "(or null)",
+    "roadmap: brief summary of any roadmap or future plans mentioned (or null)",
     "security_policy: brief summary of any security policy or vulnerability "
     "handling mentioned (or null)",
     "commercial_support: brief summary of any commercial support / paid "
@@ -324,9 +334,7 @@ def _parse_qualitative(data: dict) -> QualitativeSignals:
 Rename `analyze_sustainability_with_llm` → `analyze_qualitative_with_llm`, return `QualitativeSignals`, use the new prompt and parser:
 
 ```python
-async def analyze_qualitative_with_llm(
-    repo, config: LLMConfig
-) -> QualitativeSignals:
+async def analyze_qualitative_with_llm(repo, config: LLMConfig) -> QualitativeSignals:
     """Use the LLM to extract qualitative facts from repository text.
 
     Scope is limited to signals with NO deterministic implementation:
@@ -450,10 +458,14 @@ class TestAnalyzeQualitative:
         assert ind.status == Status.UNKNOWN
 
     def test_signals_mapped_and_available(self):
-        ind = analyze_qualitative(_repo(QualitativeSignals(
-            roadmap="v2",
-            text_maintenance_state="active",
-        )))
+        ind = analyze_qualitative(
+            _repo(
+                QualitativeSignals(
+                    roadmap="v2",
+                    text_maintenance_state="active",
+                )
+            )
+        )
         assert ind.available is True
         assert ind.status == Status.HEALTHY
         assert ind.roadmap == "v2"
@@ -515,7 +527,9 @@ def _build_interpretation(ind: QualitativeIndicator) -> str:
     if ind.security_policy:
         parts.append(t("int_security", text=ind.security_policy))
     if ind.text_maintenance_state:
-        parts.append(t("int_text_state", state=t(f"state_{ind.text_maintenance_state}")))
+        parts.append(
+            t("int_text_state", state=t(f"state_{ind.text_maintenance_state}"))
+        )
     return ", ".join(parts)
 ```
 
@@ -547,13 +561,25 @@ def test_qualitative_keys_present():
 
     for lang in ("fr", "en"):
         for key in (
-            "rec_text_discontinued", "reason_text_discontinued",
-            "fact_roadmap", "fact_commercial", "fact_security",
-            "int_roadmap", "int_commercial", "int_security", "int_text_state",
-            "tui_qualitative", "tui_roadmap", "tui_security",
-            "tui_commercial", "tui_text_state",
-            "md_section_qualitative", "md_roadmap", "md_security",
-            "md_commercial", "md_text_state",
+            "rec_text_discontinued",
+            "reason_text_discontinued",
+            "fact_roadmap",
+            "fact_commercial",
+            "fact_security",
+            "int_roadmap",
+            "int_commercial",
+            "int_security",
+            "int_text_state",
+            "tui_qualitative",
+            "tui_roadmap",
+            "tui_security",
+            "tui_commercial",
+            "tui_text_state",
+            "md_section_qualitative",
+            "md_roadmap",
+            "md_security",
+            "md_commercial",
+            "md_text_state",
         ):
             assert key in MESSAGES[lang], f"{lang}:{key} missing"
 ```
@@ -660,10 +686,12 @@ class TestLlmIntegration:
             ),
             patch(
                 "gh_score.core.api.analyze_qualitative_with_llm",
-                new=AsyncMock(return_value=QualitativeSignals(
-                    roadmap="v2 planned",
-                    text_maintenance_state="active",
-                )),
+                new=AsyncMock(
+                    return_value=QualitativeSignals(
+                        roadmap="v2 planned",
+                        text_maintenance_state="active",
+                    )
+                ),
             ) as mock_llm,
         ):
             _mock_fetcher(mock_fetcher_cls, repo)
@@ -732,6 +760,7 @@ from gh_score.core.analyzers import (
     analyze_release_health,
     analyze_sustainability,
 )
+
 ...
 from gh_score.llm.provider import analyze_qualitative_with_llm
 ```
@@ -747,9 +776,9 @@ Replace the LLM block (currently lines ~86-91):
 Add to the `AnalysisResult` construction:
 
 ```python
-        sustainability=analyze_sustainability(repo),
-        qualitative=analyze_qualitative(repo),
-        registries=repo.registries,
+sustainability = (analyze_sustainability(repo),)
+qualitative = (analyze_qualitative(repo),)
+registries = (repo.registries,)
 ```
 
 `src/gh_score/core/analyzers/sustainability.py`: remove the `repo.llm_signals` handling — delete lines 171-172 and the `llm_signals=llm_signals,` argument in `SustainabilityIndicator(...)`.
@@ -1027,16 +1056,14 @@ In the "Unknown maintenance state" section:
 In the ACTIVE branch, upgrade the large-community check:
 
 ```python
-        if _has_large_community(result) or (
-            q.available and q.roadmap and q.commercial_support
-        ):
-            return _build(
-                RecommendationLevel.GREEN,
-                t("rec_active_community", lang=lang),
-                result,
-                lang,
-                t("reason_active", lang=lang),
-            )
+if _has_large_community(result) or (q.available and q.roadmap and q.commercial_support):
+    return _build(
+        RecommendationLevel.GREEN,
+        t("rec_active_community", lang=lang),
+        result,
+        lang,
+        t("reason_active", lang=lang),
+    )
 ```
 
 In `_build`, append qualitative facts:

@@ -8,7 +8,7 @@ opt-in, analyzer wiring) rather than the fetchers themselves.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -36,9 +36,9 @@ from gh_score.core.models import (
     RecommendationLevel,
     Release,
     ReleaseHealth,
-    RepoUrl,
     Repository,
     RepositoryMeta,
+    RepoUrl,
     SecurityUpdate,
     WebsiteInfo,
 )
@@ -46,7 +46,7 @@ from gh_score.core.models import (
 
 def _make_repo_data() -> Repository:
     """Raw repository data as 'fetch_all' would return it."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return Repository(
         url=RepoUrl("owner", "repo"),
         meta=RepositoryMeta(
@@ -59,10 +59,12 @@ def _make_repo_data() -> Repository:
         license=LicenseInfo(
             spdx_id="MIT", family=LicenseFamily.PERMISSIVE, osi_approved=True
         ),
-        release_health=ReleaseHealth(releases=[
-            Release(tag_name="v1.0.0", published_at=now - timedelta(days=5)),
-            Release(tag_name="v0.9.0", published_at=now - timedelta(days=40)),
-        ]),
+        release_health=ReleaseHealth(
+            releases=[
+                Release(tag_name="v1.0.0", published_at=now - timedelta(days=5)),
+                Release(tag_name="v0.9.0", published_at=now - timedelta(days=40)),
+            ]
+        ),
         contributors=ContributorStats(
             contributors=[
                 Contributor(login="alice", commits=100),
@@ -233,10 +235,16 @@ class TestRemotePath:
             ),
         ):
             instance = _mock_fetcher(mock_fetcher_cls, repo)
-            instance.fetch_fork_prs = AsyncMock(return_value=[
-                ForkPullRequest(784, "open", "fix: bind SIP media sockets",
-                                "https://github.com/livekit/sip/pull/784"),
-            ])
+            instance.fetch_fork_prs = AsyncMock(
+                return_value=[
+                    ForkPullRequest(
+                        784,
+                        "open",
+                        "fix: bind SIP media sockets",
+                        "https://github.com/livekit/sip/pull/784",
+                    ),
+                ]
+            )
             result = await analyze_repo_async("https://github.com/owner/repo", config)
 
         instance.fetch_fork_prs.assert_awaited_once_with("livekit/sip", "owner")
@@ -390,10 +398,12 @@ class TestLlmIntegration:
             ),
             patch(
                 "gh_score.core.api.analyze_qualitative_with_llm",
-                new=AsyncMock(return_value=QualitativeSignals(
-                    roadmap="v2 planned",
-                    text_maintenance_state="active",
-                )),
+                new=AsyncMock(
+                    return_value=QualitativeSignals(
+                        roadmap="v2 planned",
+                        text_maintenance_state="active",
+                    )
+                ),
             ) as mock_llm,
         ):
             _mock_fetcher(mock_fetcher_cls, repo)
@@ -460,12 +470,14 @@ class TestLlmIntegration:
             ),
             patch(
                 "gh_score.core.api.analyze_recommendation_with_llm",
-                new=AsyncMock(return_value=LLMRecommendation(
-                    level="green",
-                    message="Solid project",
-                    explanation="Active and well documented.",
-                    confidence=0.8,
-                )),
+                new=AsyncMock(
+                    return_value=LLMRecommendation(
+                        level="green",
+                        message="Solid project",
+                        explanation="Active and well documented.",
+                        confidence=0.8,
+                    )
+                ),
             ) as mock_rec,
         ):
             _mock_fetcher(mock_fetcher_cls, repo)
@@ -681,9 +693,7 @@ class TestComparisonLlmRefinement:
             ),
             patch(
                 "gh_score.core.api.assess_subjects_with_llm",
-                new=AsyncMock(
-                    return_value={frozenset({str(a.url), str(b.url)}): True}
-                ),
+                new=AsyncMock(return_value={frozenset({str(a.url), str(b.url)}): True}),
             ) as mock_assess,
         ):
             mock_fetcher_cls.return_value = instance
@@ -737,11 +747,17 @@ class TestSyncWrapper:
             "gh_score.core.api.analyze_repo_async",
             new=AsyncMock(return_value="RESULT"),
         ) as mock_async:
-            result = analyze_repo("https://github.com/owner/repo", config, use_local=True)
+            result = analyze_repo(
+                "https://github.com/owner/repo", config, use_local=True
+            )
 
         assert result == "RESULT"
         mock_async.assert_awaited_once()
-        assert mock_async.await_args.args == ("https://github.com/owner/repo", config, True)
+        assert mock_async.await_args.args == (
+            "https://github.com/owner/repo",
+            config,
+            True,
+        )
 
 
 class TestWebsiteProbe:
@@ -802,7 +818,9 @@ class TestSecurityUpdates:
         config = _make_config(tmp_path)
         repo = _make_repo_data()
         updates = [
-            SecurityUpdate(number=1, title="Bump pkg", url="https://github.com/o/r/pull/1"),
+            SecurityUpdate(
+                number=1, title="Bump pkg", url="https://github.com/o/r/pull/1"
+            ),
         ]
 
         with (

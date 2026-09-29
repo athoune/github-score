@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import socket
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -82,7 +82,9 @@ def _to_cache_dict(info: WebsiteInfo) -> dict[str, Any]:
 def _from_cache_dict(d: dict[str, Any]) -> WebsiteInfo:
     d = dict(d)
     d["error"] = WebsiteError(d["error"]) if d.get("error") else None
-    d["checked_at"] = datetime.fromisoformat(d["checked_at"]) if d.get("checked_at") else None
+    d["checked_at"] = (
+        datetime.fromisoformat(d["checked_at"]) if d.get("checked_at") else None
+    )
     return WebsiteInfo(**d)
 
 
@@ -103,31 +105,33 @@ async def probe_website(
         if cached is not None:
             return _from_cache_dict(cached)
 
-    info = WebsiteInfo(url=url, checked_at=datetime.now(timezone.utc))
+    info = WebsiteInfo(url=url, checked_at=datetime.now(UTC))
     try:
-        async with httpx.AsyncClient(
-            timeout=_TIMEOUT,
-            follow_redirects=True,
-            max_redirects=_MAX_REDIRECTS,
-            headers={"User-Agent": _USER_AGENT},
-            transport=transport,
-        ) as client:
-            async with client.stream("GET", url) as resp:
-                chunks: list[bytes] = []
-                size = 0
-                async for chunk in resp.aiter_bytes():
-                    chunks.append(chunk)
-                    size += len(chunk)
-                    if size >= _CAPTCHA_SAMPLE_BYTES:
-                        break
-                info.status_code = resp.status_code
-                info.final_url = str(resp.url)
-                if resp.status_code >= 400:
-                    info.error = WebsiteError.HTTP
-                    info.error_detail = f"HTTP {resp.status_code}"
-                captcha, kind = _detect_captcha(resp.headers, b"".join(chunks))
-                info.captcha = captcha
-                info.captcha_type = kind
+        async with (
+            httpx.AsyncClient(
+                timeout=_TIMEOUT,
+                follow_redirects=True,
+                max_redirects=_MAX_REDIRECTS,
+                headers={"User-Agent": _USER_AGENT},
+                transport=transport,
+            ) as client,
+            client.stream("GET", url) as resp,
+        ):
+            chunks: list[bytes] = []
+            size = 0
+            async for chunk in resp.aiter_bytes():
+                chunks.append(chunk)
+                size += len(chunk)
+                if size >= _CAPTCHA_SAMPLE_BYTES:
+                    break
+            info.status_code = resp.status_code
+            info.final_url = str(resp.url)
+            if resp.status_code >= 400:
+                info.error = WebsiteError.HTTP
+                info.error_detail = f"HTTP {resp.status_code}"
+            captcha, kind = _detect_captcha(resp.headers, b"".join(chunks))
+            info.captcha = captcha
+            info.captcha_type = kind
     except httpx.TooManyRedirects as exc:
         info.error, info.error_detail = WebsiteError.REDIRECT, str(exc)
     except httpx.TimeoutException as exc:

@@ -55,9 +55,7 @@ def _current_pyproject_version() -> str:
 
 def _set_pyproject_version(version: str) -> None:
     text = PYPROJECT.read_text(encoding="utf-8")
-    new_text, count = _PYPROJECT_VERSION_RE.subn(
-        rf"\g<1>{version}\g<2>", text, count=1
-    )
+    new_text, count = _PYPROJECT_VERSION_RE.subn(rf"\g<1>{version}\g<2>", text, count=1)
     if count != 1:
         raise SystemExit("pyproject.toml: could not update the version line")
     PYPROJECT.write_text(new_text, encoding="utf-8")
@@ -70,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    version = args.version[1:] if args.version.startswith("v") else args.version
+    version = args.version.removeprefix("v")
     if not _VERSION_RE.match(version):
         raise SystemExit(f"invalid version {args.version!r}: expected e.g. 0.10.5")
 
@@ -78,8 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     status = _run("git", "status", "--porcelain", capture=True).stdout.strip()
     if status:
         raise SystemExit(
-            "working tree is not clean — commit or stash your changes first:\n"
-            + status
+            "working tree is not clean — commit or stash your changes first:\n" + status
         )
 
     # 2. Nothing to do when already at this version.
@@ -88,8 +85,13 @@ def main(argv: list[str] | None = None) -> int:
 
     # 3. The tag must not exist yet.
     tag_ok = _run(
-        "git", "rev-parse", "-q", "--verify", f"refs/tags/v{version}",
-        check=False, capture=True,
+        "git",
+        "rev-parse",
+        "-q",
+        "--verify",
+        f"refs/tags/v{version}",
+        check=False,
+        capture=True,
     ).returncode
     if tag_ok == 0:
         raise SystemExit(f"tag v{version} already exists")

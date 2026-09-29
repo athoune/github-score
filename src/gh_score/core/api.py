@@ -108,7 +108,9 @@ async def analyze_repo_async(
                     repo.languages = api_repo.languages
                     repo.community = api_repo.community
                     repo.issues = api_repo.issues
-                    repo.security_updates = await fetcher.fetch_security_updates(repo.url)
+                    repo.security_updates = await fetcher.fetch_security_updates(
+                        repo.url
+                    )
                 # Keep local commits and contributors (more complete)
             local_path = str(path)
         else:
@@ -146,12 +148,13 @@ async def analyze_repo_async(
         # this fork, so a PR-vehicle fork (soft) is not judged as an
         # independent project. Requires the still-open fetcher.
         if fetcher is not None and repo.meta.fork and repo.meta.parent_full_name:
-            repo.meta.fork_ahead, repo.meta.fork_behind = (
-                await fetcher.fetch_fork_divergence(
-                    repo.url,
-                    repo.meta.parent_full_name,
-                    repo.meta.default_branch,
-                )
+            (
+                repo.meta.fork_ahead,
+                repo.meta.fork_behind,
+            ) = await fetcher.fetch_fork_divergence(
+                repo.url,
+                repo.meta.parent_full_name,
+                repo.meta.default_branch,
             )
             repo.meta.fork_prs = await fetcher.fetch_fork_prs(
                 repo.meta.parent_full_name, repo.url.owner
@@ -186,7 +189,11 @@ async def analyze_repo_async(
     # recommendation (phase 2). Skipped entirely when the provider is
     # remote and no API key is configured.
     llm_enabled = config.llm.enabled
-    if llm_enabled and not config.llm.api_key and not _is_local_llm(config.llm.base_url):
+    if (
+        llm_enabled
+        and not config.llm.api_key
+        and not _is_local_llm(config.llm.base_url)
+    ):
         warnings.append(t("warn_llm_no_api_key"))
         llm_enabled = False
     if llm_enabled:

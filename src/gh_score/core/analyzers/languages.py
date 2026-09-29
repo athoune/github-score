@@ -76,11 +76,36 @@ def analyze_languages(
 # ---------------------------------------------------------------------------
 
 # English function words; their density is the "is this English?" signal.
-_ENGLISH_STOPWORDS = frozenset({
-    "the", "and", "of", "to", "for", "is", "in", "on", "with", "that",
-    "this", "from", "by", "as", "at", "are", "it", "or", "an", "be",
-    "you", "your", "can", "not", "has", "have",
-})
+_ENGLISH_STOPWORDS = frozenset(
+    {
+        "the",
+        "and",
+        "of",
+        "to",
+        "for",
+        "is",
+        "in",
+        "on",
+        "with",
+        "that",
+        "this",
+        "from",
+        "by",
+        "as",
+        "at",
+        "are",
+        "it",
+        "or",
+        "an",
+        "be",
+        "you",
+        "your",
+        "can",
+        "not",
+        "has",
+        "have",
+    }
+)
 
 # Minimum stopword share over the word sample to call the text English.
 _ENGLISH_STOPWORD_RATIO = 0.12
@@ -90,14 +115,14 @@ _MIN_README_WORDS = 20
 
 # Non-Latin scripts: a sample dominated by them is definitely not English.
 _NON_LATIN_RE = re.compile(
-    "[\u0370-\u03FF"    # Greek
-    "\u0400-\u04FF"     # Cyrillic
-    "\u0590-\u05FF"     # Hebrew
-    "\u0600-\u06FF"     # Arabic
-    "\u0900-\u097F"     # Devanagari
-    "\u0E00-\u0E7F"     # Thai
-    "\u3040-\u30FF"     # Hiragana / Katakana
-    "\u4E00-\u9FFF"     # CJK ideographs
+    "[\u0370-\u03ff"  # Greek
+    "\u0400-\u04ff"  # Cyrillic
+    "\u0590-\u05ff"  # Hebrew
+    "\u0600-\u06ff"  # Arabic
+    "\u0900-\u097f"  # Devanagari
+    "\u0e00-\u0e7f"  # Thai
+    "\u3040-\u30ff"  # Hiragana / Katakana
+    "\u4e00-\u9fff"  # CJK ideographs
     "]"
 )
 
@@ -108,10 +133,10 @@ _NON_LATIN_MAX_SHARE = 0.05
 def _extract_readme_sample(text: str, max_chars: int = 4000) -> str:
     """Strip markdown/URLs/code blocks and keep the leading prose."""
     text = re.sub(r"```.*?```", " ", text, flags=re.DOTALL)  # fenced code
-    text = re.sub(r"`[^`]*`", " ", text)                      # inline code
-    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)      # links → label
-    text = re.sub(r"https?://\S+", " ", text)                 # bare URLs
-    text = re.sub(r"[#>*_\-|~]", " ", text)                   # markdown marks
+    text = re.sub(r"`[^`]*`", " ", text)  # inline code
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)  # links → label
+    text = re.sub(r"https?://\S+", " ", text)  # bare URLs
+    text = re.sub(r"[#>*_\-|~]", " ", text)  # markdown marks
     return text[:max_chars]
 
 
@@ -215,9 +240,7 @@ def _build_interpretation(
         if ind.is_exotic is True:
             parts.append(t("int_language_exotic", lang=lang, language=ind.primary))
         elif ind.is_exotic is False and ind.popularity_rank is not None:
-            parts.append(
-                t("int_language_popular", lang=lang, rank=ind.popularity_rank)
-            )
+            parts.append(t("int_language_popular", lang=lang, rank=ind.popularity_rank))
 
     # Top 3 languages
     if ind.breakdown:

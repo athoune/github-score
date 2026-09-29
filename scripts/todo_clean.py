@@ -38,9 +38,7 @@ def _parse_done_date(line: str) -> date | None:
     if not m:
         return None
     try:
-        return date(
-            int(m.group("year")), int(m.group("month")), int(m.group("day"))
-        )
+        return date(int(m.group("year")), int(m.group("month")), int(m.group("day")))
     except ValueError:
         return None
 

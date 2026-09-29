@@ -43,8 +43,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_abandoned_popular": "Grand projet, mais maintenant abandonné",
         "rec_abandoned_months": "Projet abandonné — pas de commit depuis {months} mois",
         "rec_bots": (
-            "Projet uniquement maintenu par des bots qui mettent à jour "
-            "les dépendances"
+            "Projet uniquement maintenu par des bots qui mettent à jour les dépendances"
         ),
         "rec_not_stable": "Projet en développement actif mais pas encore stabilisé",
         "rec_declining": "Projet bien maintenu mais en déclin",
@@ -63,7 +62,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_mirror": "Dépôt miroir d'un projet amont",
         "rec_security_overdue": "Vulnérabilités de sécurité connues non corrigées",
         "rec_text_discontinued": "Les textes du projet annoncent son abandon",
-
         # Recommendation reasoning lines
         "reason_archived": "le dépôt est marqué comme archivé sur GitHub",
         "reason_disabled": "le dépôt est désactivé sur GitHub",
@@ -101,7 +99,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_fork_soft": "Fork aligné sur l'amont — le développement a lieu sur {parent}",
         "reason_fork_soft": "ce dépôt est un fork à usage de PR — {behind} commits de retard sur {parent}, sans développement propre",
         "reason_text_active": "le texte du projet déclare un développement actif",
-
         # ------------------------------------------------------------------
         # Comparison (multi-repo comparability)
         # ------------------------------------------------------------------
@@ -139,7 +136,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_table_today": "aujourd'hui",
         "md_section_comparability": "## Comparabilité",
         "md_section_comparison_table": "## Comparaison",
-
         # Objective facts appended to the reasoning
         "fact_stars": "{stars:,} étoiles",
         "fact_authors": "{authors} auteurs",
@@ -153,7 +149,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_funding": "financement disponible",
         "fact_corporate": "soutien d'une entreprise",
         "fact_foundation": "adossé à une fondation",
-
         # ------------------------------------------------------------------
         # Release health interpretation
         # ------------------------------------------------------------------
@@ -169,7 +164,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_semver_no": "semver : non",
         "int_prerelease": "pré-release",
         "int_no_release_data": "Aucune donnée de release",
-
         # ------------------------------------------------------------------
         # License interpretation
         # ------------------------------------------------------------------
@@ -181,7 +175,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_lic_family_unknown": "inconnue",
         "int_lic_osi_approved": "approuvée OSI",
         "int_lic_none": "Aucune licence détectée",
-
         # ------------------------------------------------------------------
         # Contributors interpretation
         # ------------------------------------------------------------------
@@ -194,7 +187,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_commits_3m": "{count} commits (3m)",
         "int_commits_12m": "{count} commits (12m)",
         "int_no_activity": "aucune activité récente",
-
         # ------------------------------------------------------------------
         # Maintenance interpretation
         # ------------------------------------------------------------------
@@ -211,7 +203,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_issues_moderate": "tickets fermés : {days:.0f} j (modéré)",
         "int_issues_slow": "tickets fermés : {days:.0f} j (lent)",
         "int_stale_issues": "{ratio:.0%} de tickets en souffrance",
-
         # ------------------------------------------------------------------
         # Website interpretation
         # ------------------------------------------------------------------
@@ -223,14 +214,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_site_redirect": "Boucle de redirection sur le site : {site}",
         "int_site_captcha": "Site protégé par un contrôle anti-robot (« I'm not a robot ») : {site}",
         "int_site_unreachable": "Site injoignable : {site}",
-
         # ------------------------------------------------------------------
         # Security updates interpretation
         # ------------------------------------------------------------------
         "int_security_none": "Aucune mise à jour de sécurité en attente",
         "int_security_pending": "{count} mise(s) à jour de sécurité en attente",
         "int_security_overdue": "{count} mise(s) à jour de sécurité en attente depuis {days} jours",
-
         # ------------------------------------------------------------------
         # Languages interpretation
         # ------------------------------------------------------------------
@@ -242,7 +231,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_breakdown": "répartition : {langs}",
         "int_ecosystem": "écosystème : {ecosystem}",
         "int_no_language": "Aucune donnée de langage",
-
         # ------------------------------------------------------------------
         # Sustainability interpretation
         # ------------------------------------------------------------------
@@ -255,7 +243,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_commercial": "support commercial : {text}",
         "int_security": "sécurité : {text}",
         "int_text_state": "état déclaré : {state}",
-
         # ------------------------------------------------------------------
         # Status / state display labels
         # ------------------------------------------------------------------
@@ -269,7 +256,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "state_unknown": "inconnu",
         "owner_type_user": "utilisateur",
         "owner_type_organization": "organisation",
-
         # ------------------------------------------------------------------
         # TUI dashboard
         # ------------------------------------------------------------------
@@ -336,7 +322,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_security": "sécurité : {text}",
         "tui_text_state": "état déclaré : {state}",
         "ui_confidence": "confiance : {conf:.0%}",
-
         # ------------------------------------------------------------------
         # Warnings
         # ------------------------------------------------------------------
@@ -364,7 +349,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         ),
         "error_repo_not_found": "Dépôt introuvable sur GitHub : {url}",
         "panel_warnings": "Avertissements",
-
         # ------------------------------------------------------------------
         # Markdown report
         # ------------------------------------------------------------------
@@ -406,7 +390,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_security": "**Sécurité :** {text}",
         "md_text_state": "**État déclaré :** {state}",
         "md_confidence": "Confiance : {conf:.0%}",
-
         # ------------------------------------------------------------------
         # CLI console messages
         # ------------------------------------------------------------------
@@ -462,7 +445,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_mirror": "Repository is a mirror of an upstream project",
         "rec_security_overdue": "Known security vulnerabilities unpatched",
         "rec_text_discontinued": "Project texts announce its discontinuation",
-
         # Recommendation reasoning lines
         "reason_archived": "repository marked as archived on GitHub",
         "reason_disabled": "repository disabled on GitHub",
@@ -479,8 +461,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_unknown_widely_used": "uncertain maintenance state but wide adoption",
         "reason_insufficient": "too little usable maintenance data",
         "reason_text_discontinued": (
-            "README/GOVERNANCE explicitly states the project is no longer "
-            "maintained"
+            "README/GOVERNANCE explicitly states the project is no longer maintained"
         ),
         "reason_site_down": "the project homepage is unreachable",
         "reason_site_dns": "the homepage domain name does not resolve",
@@ -496,7 +477,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_fork_soft": "Fork in sync with upstream — development happens on {parent}",
         "reason_fork_soft": "this repository is a fork used for pull requests — {behind} commits behind {parent}, no own development",
         "reason_text_active": "the project text declares active development",
-
         # ------------------------------------------------------------------
         # Comparison (multi-repo comparability)
         # ------------------------------------------------------------------
@@ -534,7 +514,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cmp_table_today": "today",
         "md_section_comparability": "## Comparability",
         "md_section_comparison_table": "## Comparison",
-
         # Objective facts appended to the reasoning
         "fact_stars": "{stars:,} stars",
         "fact_authors": "{authors} authors",
@@ -548,7 +527,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_funding": "funding available",
         "fact_corporate": "corporate backing",
         "fact_foundation": "foundation-backed",
-
         # ------------------------------------------------------------------
         # Release health interpretation
         # ------------------------------------------------------------------
@@ -564,7 +542,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_semver_no": "semver: no",
         "int_prerelease": "pre-release",
         "int_no_release_data": "No release data",
-
         # ------------------------------------------------------------------
         # License interpretation
         # ------------------------------------------------------------------
@@ -576,7 +553,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_lic_family_unknown": "unknown",
         "int_lic_osi_approved": "OSI-approved",
         "int_lic_none": "No license detected",
-
         # ------------------------------------------------------------------
         # Contributors interpretation
         # ------------------------------------------------------------------
@@ -589,7 +565,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_commits_3m": "{count} commits (3m)",
         "int_commits_12m": "{count} commits (12m)",
         "int_no_activity": "no recent activity",
-
         # ------------------------------------------------------------------
         # Maintenance interpretation
         # ------------------------------------------------------------------
@@ -606,7 +581,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_issues_moderate": "issues closed: {days:.0f}d (moderate)",
         "int_issues_slow": "issues closed: {days:.0f}d (slow)",
         "int_stale_issues": "{ratio:.0%} stale issues",
-
         # ------------------------------------------------------------------
         # Website interpretation
         # ------------------------------------------------------------------
@@ -616,16 +590,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_site_timeout": "Site timed out: {site}",
         "int_site_http": "Site answers HTTP {code}: {site}",
         "int_site_redirect": "Redirect loop on the site: {site}",
-        "int_site_captcha": "Site behind a bot-protection check (\"I'm not a robot\"): {site}",
+        "int_site_captcha": 'Site behind a bot-protection check ("I\'m not a robot"): {site}',
         "int_site_unreachable": "Site unreachable: {site}",
-
         # ------------------------------------------------------------------
         # Security updates interpretation
         # ------------------------------------------------------------------
         "int_security_none": "No pending security updates",
         "int_security_pending": "{count} pending security update(s)",
         "int_security_overdue": "{count} security update(s) pending for {days} days",
-
         # ------------------------------------------------------------------
         # Languages interpretation
         # ------------------------------------------------------------------
@@ -637,7 +609,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_breakdown": "breakdown: {langs}",
         "int_ecosystem": "ecosystem: {ecosystem}",
         "int_no_language": "No language data",
-
         # ------------------------------------------------------------------
         # Sustainability interpretation
         # ------------------------------------------------------------------
@@ -650,7 +621,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_commercial": "commercial support: {text}",
         "int_security": "security: {text}",
         "int_text_state": "declared state: {state}",
-
         # ------------------------------------------------------------------
         # Status / state display labels
         # ------------------------------------------------------------------
@@ -664,7 +634,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "state_unknown": "unknown",
         "owner_type_user": "user",
         "owner_type_organization": "organization",
-
         # ------------------------------------------------------------------
         # TUI dashboard
         # ------------------------------------------------------------------
@@ -731,7 +700,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_security": "security: {text}",
         "tui_text_state": "declared state: {state}",
         "ui_confidence": "confidence: {conf:.0%}",
-
         # ------------------------------------------------------------------
         # Warnings
         # ------------------------------------------------------------------
@@ -743,7 +711,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "warn_llm_no_api_key": (
             "Remote LLM configured without an API key (GH_SCORE_LLM_API_KEY)"
         ),
-"warn_llm_contradiction": (
+        "warn_llm_contradiction": (
             "The refined LLM recommendation seems to contradict the "
             "extracted signals (denies: {facts})"
         ),
@@ -757,7 +725,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         ),
         "error_repo_not_found": "Repository not found on GitHub: {url}",
         "panel_warnings": "Warnings",
-
         # ------------------------------------------------------------------
         # Markdown report
         # ------------------------------------------------------------------
@@ -799,7 +766,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_security": "**Security:** {text}",
         "md_text_state": "**Declared state:** {state}",
         "md_confidence": "Confidence: {conf:.0%}",
-
         # ------------------------------------------------------------------
         # CLI console messages
         # ------------------------------------------------------------------

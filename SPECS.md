@@ -825,10 +825,12 @@ result = analyze_repo("https://github.com/owner/repo")
 print(result.release_health.latest_version)
 print(result.contributors.bus_factor)
 
-comparison = compare_repos([
-    "https://github.com/owner/lib-a",
-    "https://github.com/other/lib-b",
-])
+comparison = compare_repos(
+    [
+        "https://github.com/owner/lib-a",
+        "https://github.com/other/lib-b",
+    ]
+)
 print(comparison.pairs[0].verdict)  # comparability warning, if any
 ```
 

@@ -70,26 +70,60 @@ class ComparisonResult:
 
 # Registry ecosystems that publish consumable code (Docker excluded: a
 # container image is an application, not a library).
-_CODE_REGISTRY_ECOSYSTEMS = frozenset({"pypi", "npm", "crates.io", "rubygems", "maven", "go"})
+_CODE_REGISTRY_ECOSYSTEMS = frozenset(
+    {"pypi", "npm", "crates.io", "rubygems", "maven", "go"}
+)
 
-_DOCKER_ROOT_FILES = frozenset({"dockerfile", "docker-compose.yml", "docker-compose.yaml"})
+_DOCKER_ROOT_FILES = frozenset(
+    {"dockerfile", "docker-compose.yml", "docker-compose.yaml"}
+)
 
-_MANIFEST_NAMES = frozenset({
-    "pyproject.toml", "setup.py", "setup.cfg", "package.json",
-    "cargo.toml", "go.mod", "pom.xml", "build.gradle", "build.gradle.kts",
-})
+_MANIFEST_NAMES = frozenset(
+    {
+        "pyproject.toml",
+        "setup.py",
+        "setup.cfg",
+        "package.json",
+        "cargo.toml",
+        "go.mod",
+        "pom.xml",
+        "build.gradle",
+        "build.gradle.kts",
+    }
+)
 
 # Description keywords. "web" is deliberately absent: a "web framework"
 # is a library, so "web" must not count as an application signal.
-_LIBRARY_KEYWORDS = frozenset({
-    "library", "framework", "sdk", "toolkit", "binding", "wrapper",
-    "client", "package", "api",
-})
+_LIBRARY_KEYWORDS = frozenset(
+    {
+        "library",
+        "framework",
+        "sdk",
+        "toolkit",
+        "binding",
+        "wrapper",
+        "client",
+        "package",
+        "api",
+    }
+)
 
-_APPLICATION_KEYWORDS = frozenset({
-    "application", "app", "cli", "command-line", "tool", "server",
-    "daemon", "bot", "website", "webapp", "service", "utility",
-})
+_APPLICATION_KEYWORDS = frozenset(
+    {
+        "application",
+        "app",
+        "cli",
+        "command-line",
+        "tool",
+        "server",
+        "daemon",
+        "bot",
+        "website",
+        "webapp",
+        "service",
+        "utility",
+    }
+)
 
 
 def _has_any_keyword(text: str, keywords: frozenset[str]) -> bool:
@@ -206,37 +240,143 @@ _SUBJECT_MIN_TOKEN_LEN = 3
 # Language names carry no subject information: a "python" topic is shared
 # by every Python project whatever its purpose. Used both to exclude
 # language topics and to filter description tokens.
-_GENERIC_LANGUAGE_NAMES = frozenset({
-    "python", "javascript", "typescript", "rust", "go", "golang", "java",
-    "ruby", "c", "c++", "cpp", "php", "swift", "kotlin", "scala",
-    "csharp", "elixir", "haskell", "clojure", "dart", "objective",
-    "perl", "lua", "shell", "bash", "gcc",
-})
+_GENERIC_LANGUAGE_NAMES = frozenset(
+    {
+        "python",
+        "javascript",
+        "typescript",
+        "rust",
+        "go",
+        "golang",
+        "java",
+        "ruby",
+        "c",
+        "c++",
+        "cpp",
+        "php",
+        "swift",
+        "kotlin",
+        "scala",
+        "csharp",
+        "elixir",
+        "haskell",
+        "clojure",
+        "dart",
+        "objective",
+        "perl",
+        "lua",
+        "shell",
+        "bash",
+        "gcc",
+    }
+)
 
 # GitHub topics that are too generic to discriminate subjects.
-_GENERIC_TOPICS = _GENERIC_LANGUAGE_NAMES | frozenset({
-    "library", "libraries", "framework", "frameworks",
-    "hacktoberfest", "awesome",
-})
+_GENERIC_TOPICS = _GENERIC_LANGUAGE_NAMES | frozenset(
+    {
+        "library",
+        "libraries",
+        "framework",
+        "frameworks",
+        "hacktoberfest",
+        "awesome",
+    }
+)
 
 # Function words, generic project words and language names: they carry no
 # subject information and would produce false positives ("a python tool"
 # vs "a python framework" share "python" and "tool").
-_SUBJECT_GENERIC_TOKENS = frozenset({
-    # function words
-    "the", "a", "an", "and", "or", "for", "with", "of", "to", "in", "on",
-    "is", "are", "was", "were", "that", "this", "these", "those", "it",
-    "as", "at", "by", "from", "into", "your", "you", "not", "be", "been",
-    # generic project words (and common plurals)
-    "project", "projects", "library", "libraries", "tool", "tools",
-    "package", "packages", "application", "applications", "app", "apps",
-    "framework", "frameworks", "sdk", "api", "apis", "module", "modules",
-    "simple", "easy", "fast", "quick", "high", "performance", "efficient",
-    "support", "supports", "supporting", "use", "using", "used", "user",
-    "users", "built", "written", "based", "make", "making", "provide",
-    "provides", "allows", "allowing", "designed", "code", "source",
-    "open", "free", "small", "lightweight", "modern", "full",
-}) | _GENERIC_LANGUAGE_NAMES
+_SUBJECT_GENERIC_TOKENS = (
+    frozenset(
+        {
+            # function words
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "for",
+            "with",
+            "of",
+            "to",
+            "in",
+            "on",
+            "is",
+            "are",
+            "was",
+            "were",
+            "that",
+            "this",
+            "these",
+            "those",
+            "it",
+            "as",
+            "at",
+            "by",
+            "from",
+            "into",
+            "your",
+            "you",
+            "not",
+            "be",
+            "been",
+            # generic project words (and common plurals)
+            "project",
+            "projects",
+            "library",
+            "libraries",
+            "tool",
+            "tools",
+            "package",
+            "packages",
+            "application",
+            "applications",
+            "app",
+            "apps",
+            "framework",
+            "frameworks",
+            "sdk",
+            "api",
+            "apis",
+            "module",
+            "modules",
+            "simple",
+            "easy",
+            "fast",
+            "quick",
+            "high",
+            "performance",
+            "efficient",
+            "support",
+            "supports",
+            "supporting",
+            "use",
+            "using",
+            "used",
+            "user",
+            "users",
+            "built",
+            "written",
+            "based",
+            "make",
+            "making",
+            "provide",
+            "provides",
+            "allows",
+            "allowing",
+            "designed",
+            "code",
+            "source",
+            "open",
+            "free",
+            "small",
+            "lightweight",
+            "modern",
+            "full",
+        }
+    )
+    | _GENERIC_LANGUAGE_NAMES
+)
 
 
 def _description_tokens(description: str | None) -> frozenset[str]:
@@ -394,9 +534,8 @@ def assess_pair(a: AnalysisResult, b: AnalysisResult) -> PairComparison:
             notes.append(t("cmp_kind_unknown", repo=str(result.url)))
 
     kind_mismatch = (
-        (kind_a == ProjectKind.LIBRARY and kind_b == ProjectKind.APPLICATION)
-        or (kind_a == ProjectKind.APPLICATION and kind_b == ProjectKind.LIBRARY)
-    )
+        kind_a == ProjectKind.LIBRARY and kind_b == ProjectKind.APPLICATION
+    ) or (kind_a == ProjectKind.APPLICATION and kind_b == ProjectKind.LIBRARY)
     if kind_mismatch:
         reasons.append(t("cmp_kind_mismatch"))
 

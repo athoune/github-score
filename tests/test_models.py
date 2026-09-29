@@ -1,16 +1,17 @@
 """Tests for core models."""
 
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
 
 from gh_score.core.models import (
+    LanguageBreakdown,
     LLMRecommendation,
     QualitativeIndicator,
     QualitativeSignals,
-    RepoUrl,
     Release,
     ReleaseHealth,
-    LanguageBreakdown,
+    RepoUrl,
     Status,
 )
 
@@ -42,8 +43,8 @@ class TestAnalysisResultWarnings:
             LicenseIndicator,
             MaintenanceIndicator,
             ReleaseHealthIndicator,
-            RepoUrl,
             RepositoryMeta,
+            RepoUrl,
             SustainabilityIndicator,
         )
 
@@ -60,7 +61,6 @@ class TestAnalysisResultWarnings:
         assert result.warnings == []
 
 
-
 class TestQualitativeSignals:
     def test_empty_is_not_available(self):
         assert QualitativeSignals().any is False
@@ -75,7 +75,6 @@ class TestQualitativeSignals:
         assert ind.available is False
         assert ind.status == Status.UNKNOWN
         assert ind.roadmap is None
-
 
 
 class TestRepoUrl:
@@ -119,9 +118,9 @@ class TestRepoUrl:
 class TestReleaseHealth:
     def test_latest_release(self):
         releases = [
-            Release(tag_name="v1.0.0", published_at=datetime(2023, 1, 1, tzinfo=timezone.utc)),
-            Release(tag_name="v2.0.0", published_at=datetime(2024, 1, 1, tzinfo=timezone.utc)),
-            Release(tag_name="v1.5.0", published_at=datetime(2023, 6, 1, tzinfo=timezone.utc)),
+            Release(tag_name="v1.0.0", published_at=datetime(2023, 1, 1, tzinfo=UTC)),
+            Release(tag_name="v2.0.0", published_at=datetime(2024, 1, 1, tzinfo=UTC)),
+            Release(tag_name="v1.5.0", published_at=datetime(2023, 6, 1, tzinfo=UTC)),
         ]
         rh = ReleaseHealth(releases=releases)
         latest = rh.latest
@@ -130,8 +129,12 @@ class TestReleaseHealth:
 
     def test_latest_release_excludes_drafts(self):
         releases = [
-            Release(tag_name="v1.0.0", published_at=datetime(2023, 1, 1, tzinfo=timezone.utc)),
-            Release(tag_name="v2.0.0-draft", published_at=datetime(2024, 1, 1, tzinfo=timezone.utc), draft=True),
+            Release(tag_name="v1.0.0", published_at=datetime(2023, 1, 1, tzinfo=UTC)),
+            Release(
+                tag_name="v2.0.0-draft",
+                published_at=datetime(2024, 1, 1, tzinfo=UTC),
+                draft=True,
+            ),
         ]
         rh = ReleaseHealth(releases=releases)
         latest = rh.latest
@@ -145,7 +148,9 @@ class TestReleaseHealth:
 
 class TestLanguageBreakdown:
     def test_primary_language(self):
-        lb = LanguageBreakdown(languages={"Python": 1000, "JavaScript": 500, "HTML": 200})
+        lb = LanguageBreakdown(
+            languages={"Python": 1000, "JavaScript": 500, "HTML": 200}
+        )
         assert lb.primary == "Python"
 
     def test_total_bytes(self):

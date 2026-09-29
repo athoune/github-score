@@ -5,7 +5,7 @@ Analyzes contributor patterns: bus factor, lead detection, bot ratio, activity t
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from gh_score.core.models import (
     Contributor,
@@ -17,13 +17,23 @@ from gh_score.core.models import (
 )
 from gh_score.i18n import t
 
-
 # Known bot patterns
-_BOT_PATTERNS = frozenset({
-    "dependabot", "renovate", "github-actions", "greenkeeper",
-    "snyk-bot", "codecov", "allcontributors", "imgbot",
-    "stale", "mergify", "pre-commit-ci", "lando",
-})
+_BOT_PATTERNS = frozenset(
+    {
+        "dependabot",
+        "renovate",
+        "github-actions",
+        "greenkeeper",
+        "snyk-bot",
+        "codecov",
+        "allcontributors",
+        "imgbot",
+        "stale",
+        "mergify",
+        "pre-commit-ci",
+        "lando",
+    }
+)
 
 
 def _is_bot(login: str) -> bool:
@@ -160,10 +170,7 @@ def _compute_activity_trend(commits: list, now: datetime) -> dict[str, int]:
     trend = {}
     for label, days in windows.items():
         cutoff = now - timedelta(days=days)
-        count = sum(
-            1 for c in commits
-            if c.author_date and c.author_date >= cutoff
-        )
+        count = sum(1 for c in commits if c.author_date and c.author_date >= cutoff)
         trend[label] = count
 
     return trend
@@ -202,7 +209,7 @@ def analyze_contributors(
     - Activity trend
     - Status and interpretation
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     contributors = repo.contributors.contributors
 
     # Filter out bots for author count

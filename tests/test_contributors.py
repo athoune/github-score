@@ -6,21 +6,32 @@ Uses recorded API response fixtures to avoid hitting rate limits.
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
 
 from gh_score.config import Config
+from gh_score.core.analyzers.contributors import (
+    _BOT_PATTERNS,
+    _is_bot,
+    analyze_contributors,
+)
 from gh_score.core.cache import Cache
-from gh_score.core.fetchers.github import GitHubFetcher, _BOT_LOGINS
-from gh_score.core.analyzers.contributors import _BOT_PATTERNS, _is_bot, analyze_contributors
-from gh_score.core.models import Commit, Contributor, ContributorStats, RepoUrl, Repository
-
+from gh_score.core.fetchers.github import _BOT_LOGINS, GitHubFetcher
+from gh_score.core.models import (
+    Commit,
+    Contributor,
+    ContributorStats,
+    Repository,
+    RepoUrl,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _load_fixture(name: str) -> dict | list:
     """Load a JSON fixture from tests/fixtures/."""
@@ -43,6 +54,7 @@ def commits_response():
 # ---------------------------------------------------------------------------
 # Bot detection
 # ---------------------------------------------------------------------------
+
 
 class TestBotDetection:
     """Known bots must be detected; normal users must not."""
@@ -73,6 +85,7 @@ class TestBotDetection:
 # fetch_contributors with mocked API calls
 # ---------------------------------------------------------------------------
 
+
 class TestFetchContributors:
     """fetch_contributors must parse the real REST response — bot flagging,
     totals and email-domain enrichment included."""
@@ -84,7 +97,9 @@ class TestFetchContributors:
         return GitHubFetcher(config, Cache(str(tmp_path)))
 
     @pytest.mark.asyncio
-    async def test_parses_fixture(self, tmp_path, contributors_response, commits_response):
+    async def test_parses_fixture(
+        self, tmp_path, contributors_response, commits_response
+    ):
         fetcher = self._make_fetcher(tmp_path)
         fetcher._get_all_pages = AsyncMock(return_value=contributors_response)
 
@@ -127,6 +142,7 @@ class TestFetchContributors:
 # analyze_contributors with mocked Repository
 # ---------------------------------------------------------------------------
 
+
 class TestAnalyzeContributors:
     """analyze_contributors must work correctly with properly parsed data."""
 
@@ -149,8 +165,7 @@ class TestAnalyzeContributors:
         """A repo with one active contributor should have bus factor 1."""
         contribs = [Contributor(login="alice", commits=100)]
         commits = [
-            Commit(sha=f"sha{i}", author_login="alice",
-                   author_date=None, message="fix")
+            Commit(sha=f"sha{i}", author_login="alice", author_date=None, message="fix")
             for i in range(10)
         ]
         repo = self._make_repo(contribs, commits)
@@ -160,16 +175,15 @@ class TestAnalyzeContributors:
 
     def test_bot_excluded_from_authors(self):
         """Bots must not count as human authors."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         contribs = [
             Contributor(login="alice", commits=50, is_bot=False),
             Contributor(login="dependabot[bot]", commits=30, is_bot=True),
         ]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         commits = [
-            Commit(sha="sha0", author_login="alice",
-                   author_date=now, message="fix"),
+            Commit(sha="sha0", author_login="alice", author_date=now, message="fix"),
         ]
         repo = self._make_repo(contribs, commits)
         result = analyze_contributors(repo)

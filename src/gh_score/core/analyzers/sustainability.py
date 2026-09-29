@@ -14,7 +14,6 @@ from gh_score.core.models import (
 )
 from gh_score.i18n import t
 
-
 # Known foundations and organizations
 _FOUNDATIONS = {
     "apache": "Apache Software Foundation",

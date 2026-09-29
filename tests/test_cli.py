@@ -29,8 +29,8 @@ from gh_score.core.models import (
     RecommendationLevel,
     RegistryInfo,
     ReleaseHealthIndicator,
-    RepoUrl,
     RepositoryMeta,
+    RepoUrl,
     SustainabilityIndicator,
 )
 
@@ -202,7 +202,7 @@ class TestDefaultGroupForwardsArgs:
         ):
             mock_cfg.return_value = _mock_config()
             mock_analyze.return_value = MagicMock(url="https://github.com/o/r")
-            mock_cwd.return_value = MagicMock(**{"__str__": lambda s: "/some/path"})
+            mock_cwd.return_value = MagicMock(__str__=lambda s: "/some/path")
             runner.invoke(cli, [])
 
         # Without a URL, the CWD must be analyzed
@@ -217,7 +217,9 @@ class TestDefaultGroupForwardsArgs:
             ("fr_FR.UTF-8", "Configuration actuelle"),
         ],
     )
-    def test_config_command_not_mistaken_for_url(self, monkeypatch, lang, expected_title):
+    def test_config_command_not_mistaken_for_url(
+        self, monkeypatch, lang, expected_title
+    ):
         """``gh-score config`` must run the config command (localized output),
         NOT treat 'config' as a URL for the analyze command.
 
@@ -237,8 +239,10 @@ class TestDefaultGroupForwardsArgs:
                 github=MagicMock(token="tok"),
                 cache=MagicMock(dir="/tmp", ttl_hours=24),
                 llm=MagicMock(
-                    enabled=False, provider="ollama",
-                    model="m", base_url="http://x",
+                    enabled=False,
+                    provider="ollama",
+                    model="m",
+                    base_url="http://x",
                 ),
                 registries=MagicMock(libraries_io_api_key=""),
             )
@@ -288,7 +292,9 @@ class TestComparisonCli:
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
             mock_cfg.return_value = _mock_config()
-            result = runner.invoke(cli, ["https://github.com/a/fastapi", "https://github.com/b/flask"])
+            result = runner.invoke(
+                cli, ["https://github.com/a/fastapi", "https://github.com/b/flask"]
+            )
 
         assert result.exit_code == 0
         assert mock_async.await_count == 2
@@ -309,10 +315,15 @@ class TestComparisonCli:
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
             mock_cfg.return_value = _mock_config()
-            result = runner.invoke(cli, [
-                "https://github.com/a/fastapi", "https://github.com/b/flask",
-                "--format", "json",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "https://github.com/a/fastapi",
+                    "https://github.com/b/flask",
+                    "--format",
+                    "json",
+                ],
+            )
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
@@ -333,10 +344,15 @@ class TestComparisonCli:
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
             mock_cfg.return_value = _mock_config()
-            result = runner.invoke(cli, [
-                "https://github.com/a/fastapi", "https://github.com/b/flask",
-                "--format", "markdown",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "https://github.com/a/fastapi",
+                    "https://github.com/b/flask",
+                    "--format",
+                    "markdown",
+                ],
+            )
 
         assert result.exit_code == 0
         assert "# GitHub Health Comparison" in result.output
@@ -369,9 +385,14 @@ class TestComparisonCli:
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
             mock_cfg.return_value = _mock_config()
-            result = runner.invoke(cli, [
-                "report", "https://github.com/a/fastapi", "https://github.com/b/flask",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "report",
+                    "https://github.com/a/fastapi",
+                    "https://github.com/b/flask",
+                ],
+            )
 
         assert result.exit_code == 0
         assert "Project comparison" in result.output
@@ -394,9 +415,13 @@ class TestComparisonCli:
                 new=AsyncMock(),
             ) as mock_refine,
         ):
-            result = runner.invoke(cli, [
-                "https://github.com/a/fastapi", "https://github.com/b/flask",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "https://github.com/a/fastapi",
+                    "https://github.com/b/flask",
+                ],
+            )
 
         assert result.exit_code == 0
         mock_refine.assert_awaited_once()
@@ -405,9 +430,13 @@ class TestComparisonCli:
         runner = CliRunner()
         with patch("gh_score.cli.main._prepare_config") as mock_cfg:
             mock_cfg.return_value = _mock_config()
-            result = runner.invoke(cli, [
-                "https://github.com/a/fastapi", "https://gitlab.com/b/flask",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "https://github.com/a/fastapi",
+                    "https://gitlab.com/b/flask",
+                ],
+            )
 
         assert result.exit_code == 1
 
@@ -438,7 +467,9 @@ class TestWarningsStderr:
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
             mock_cfg.return_value = _mock_config()
-            result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
+            result = runner.invoke(
+                cli, ["https://github.com/o/r", "--format", "markdown"]
+            )
 
         assert "warning" not in result.stderr
 
@@ -473,7 +504,9 @@ class TestMarkdownReport:
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
             mock_cfg.return_value = _mock_config()
-            result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
+            result = runner.invoke(
+                cli, ["https://github.com/o/r", "--format", "markdown"]
+            )
 
         assert result.exit_code == 0
         assert "## Website" in result.output
@@ -501,7 +534,9 @@ class TestMarkdownReport:
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
             mock_cfg.return_value = _mock_config()
-            result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
+            result = runner.invoke(
+                cli, ["https://github.com/o/r", "--format", "markdown"]
+            )
 
         assert result.exit_code == 0
         assert "## Package Registries" in result.output
@@ -523,7 +558,9 @@ class TestMarkdownReport:
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
             mock_cfg.return_value = _mock_config()
-            result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
+            result = runner.invoke(
+                cli, ["https://github.com/o/r", "--format", "markdown"]
+            )
 
         assert result.exit_code == 0
         assert "Fork in sync with upstream: livekit/sip" in result.output
@@ -537,7 +574,9 @@ class TestMarkdownReport:
         analysis.meta.is_soft_fork = True
         analysis.meta.fork_prs = [
             ForkPullRequest(
-                784, "open", "fix: bind SIP media sockets",
+                784,
+                "open",
+                "fix: bind SIP media sockets",
                 "https://github.com/livekit/sip/pull/784",
             )
         ]
@@ -547,10 +586,15 @@ class TestMarkdownReport:
             patch("gh_score.cli.main._prepare_config") as mock_cfg,
         ):
             mock_cfg.return_value = _mock_config()
-            result = runner.invoke(cli, ["https://github.com/o/r", "--format", "markdown"])
+            result = runner.invoke(
+                cli, ["https://github.com/o/r", "--format", "markdown"]
+            )
 
         assert result.exit_code == 0
-        assert "PRs from this fork: #784 (open) fix: bind SIP media sockets" in result.output
+        assert (
+            "PRs from this fork: #784 (open) fix: bind SIP media sockets"
+            in result.output
+        )
 
 
 class TestComparisonRenderers:
@@ -561,7 +605,9 @@ class TestComparisonRenderers:
     def _comparison() -> ComparisonResult:
         a = AnalysisResult(
             url=RepoUrl("owner", "fastapi"),
-            meta=RepositoryMeta(full_name="owner/fastapi", stars=76000, topics=["http"]),
+            meta=RepositoryMeta(
+                full_name="owner/fastapi", stars=76000, topics=["http"]
+            ),
             release_health=ReleaseHealthIndicator(),
             license=LicenseIndicator(spdx_id="MIT"),
             contributors=ContributorsIndicator(),
@@ -574,7 +620,9 @@ class TestComparisonRenderers:
         )
         b = AnalysisResult(
             url=RepoUrl("owner", "asyncpg"),
-            meta=RepositoryMeta(full_name="owner/asyncpg", stars=9000, topics=["database"]),
+            meta=RepositoryMeta(
+                full_name="owner/asyncpg", stars=9000, topics=["database"]
+            ),
             release_health=ReleaseHealthIndicator(),
             license=LicenseIndicator(spdx_id="MIT"),
             contributors=ContributorsIndicator(),
@@ -618,7 +666,10 @@ class TestComparisonRenderers:
         assert "🟠" in output
         # Decision-support columns and rank note
         assert "| Bus | Downloads | Release |" in output
-        assert "rows sorted by verdict, then downloads, then bus factor, then stars" in output
+        assert (
+            "rows sorted by verdict, then downloads, then bus factor, then stars"
+            in output
+        )
         # Legend under the comparability section
         assert "✓ credible comparison · ⚠ comparison may not be credible" in output
         # Decision block: starred best pick, ranked list

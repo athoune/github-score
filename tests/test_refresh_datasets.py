@@ -5,7 +5,9 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "refresh_language_datasets.py"
+_SCRIPT = (
+    Path(__file__).resolve().parents[1] / "scripts" / "refresh_language_datasets.py"
+)
 
 
 def _load_script():

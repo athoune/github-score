@@ -113,9 +113,9 @@ count; downloads are always fetched where the registry exposes them.
 from gh_score import analyze_repo
 
 result = analyze_repo("https://github.com/owner/repo")
-print(result.recommendation.level)          # RecommendationLevel.GREEN
-print(result.release_health.latest_version) # "v1.0.0"
-print(result.contributors.bus_factor)       # 3
+print(result.recommendation.level)  # RecommendationLevel.GREEN
+print(result.release_health.latest_version)  # "v1.0.0"
+print(result.contributors.bus_factor)  # 3
 ```
 
 ## Screenshot

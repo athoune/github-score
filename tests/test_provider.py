@@ -9,21 +9,21 @@ from gh_score.core.models import (
     LLMRecommendation,
     MaintenanceState,
     QualitativeSignals,
-    RepoUrl,
     Repository,
+    RepoUrl,
 )
 from gh_score.llm.provider import (
+    _TEXT_MAINTENANCE_STATES,
     LLMError,
     _build_prompt,
-    _build_report_digest,
     _build_recommendation_prompt,
+    _build_report_digest,
     _denies_fact,
     _extract_json_object,
     _parse_qualitative,
     _parse_recommendation,
     _parse_subject_verdicts,
     _subject_project_digests,
-    _TEXT_MAINTENANCE_STATES,
     analyze_qualitative_with_llm,
     analyze_recommendation_with_llm,
     assess_subjects_with_llm,
@@ -61,9 +61,7 @@ class TestWarningsPropagation:
 
         with patch(
             "gh_score.llm.provider.LLMProvider.extract_signals",
-            new=AsyncMock(
-                side_effect=LLMError("HTTP 507: Insufficient Storage")
-            ),
+            new=AsyncMock(side_effect=LLMError("HTTP 507: Insufficient Storage")),
         ):
             await analyze_qualitative_with_llm(
                 self._repo_with_readme(),
@@ -191,7 +189,9 @@ class TestExtractJsonObject:
         assert _extract_json_object(content) == {"a": 1}
 
     def test_json_embedded_in_prose(self):
-        content = "Sure! The answer is {\"level\": \"green\", \"message\": \"OK\"} hope that helps."
+        content = (
+            'Sure! The answer is {"level": "green", "message": "OK"} hope that helps.'
+        )
         assert _extract_json_object(content) == {"level": "green", "message": "OK"}
 
     def test_empty_and_invalid(self):
@@ -200,7 +200,6 @@ class TestExtractJsonObject:
 
     def test_non_dict_json_returns_empty(self):
         assert _extract_json_object("[1, 2, 3]") == {}
-
 
 
 class TestParseQualitative:
@@ -228,7 +227,12 @@ class TestParseQualitative:
         assert s.text_maintenance_state is None
 
     def test_state_values(self):
-        assert _TEXT_MAINTENANCE_STATES == {"active", "maintenance", "abandoned", "unknown"}
+        assert _TEXT_MAINTENANCE_STATES == {
+            "active",
+            "maintenance",
+            "abandoned",
+            "unknown",
+        }
 
     def test_blank_strings_become_none(self):
         s = _parse_qualitative({"roadmap": "  ", "commercial_support": ""})
@@ -253,12 +257,14 @@ class TestPromptScope:
 
 class TestParseRecommendation:
     def test_full(self):
-        rec = _parse_recommendation({
-            "level": "orange",
-            "message": "Promising but young",
-            "explanation": "Active but small community.",
-            "confidence": "0.7",
-        })
+        rec = _parse_recommendation(
+            {
+                "level": "orange",
+                "message": "Promising but young",
+                "explanation": "Active but small community.",
+                "confidence": "0.7",
+            }
+        )
         assert rec == LLMRecommendation(
             level="orange",
             message="Promising but young",
@@ -290,8 +296,8 @@ class TestReportDigest:
             LicenseIndicator,
             MaintenanceIndicator,
             ReleaseHealthIndicator,
-            RepoUrl,
             RepositoryMeta,
+            RepoUrl,
             SustainabilityIndicator,
         )
 
@@ -354,7 +360,9 @@ class TestDeniesFact:
         )
 
     def test_negation_without_keyword(self):
-        assert not _denies_fact("there is no doubt about it", self._COMMERCIAL, self._NEGATIONS)
+        assert not _denies_fact(
+            "there is no doubt about it", self._COMMERCIAL, self._NEGATIONS
+        )
 
 
 class TestContradictionGuard:
@@ -575,10 +583,12 @@ class TestSubjectVerdicts:
             {"pairs": [{"a": 1, "b": 2, "same_subject": True}]}, results
         )
         assert verdicts == {
-            frozenset({
-                "https://github.com/owner/lib-a",
-                "https://github.com/owner/lib-b",
-            }): True
+            frozenset(
+                {
+                    "https://github.com/owner/lib-a",
+                    "https://github.com/owner/lib-b",
+                }
+            ): True
         }
 
     def test_accepts_string_indexes(self):
@@ -593,10 +603,10 @@ class TestSubjectVerdicts:
         verdicts = _parse_subject_verdicts(
             {
                 "pairs": [
-                    {"a": 1, "b": 9, "same_subject": True},      # unknown index
-                    {"a": 1, "b": 1, "same_subject": True},      # self-comparison
-                    {"a": 1, "b": 2, "same_subject": "yes"},     # non-boolean
-                    {"a": 1, "b": 2},                            # missing verdict
+                    {"a": 1, "b": 9, "same_subject": True},  # unknown index
+                    {"a": 1, "b": 1, "same_subject": True},  # self-comparison
+                    {"a": 1, "b": 2, "same_subject": "yes"},  # non-boolean
+                    {"a": 1, "b": 2},  # missing verdict
                     "not a dict",
                 ]
             },

@@ -1,26 +1,26 @@
 """Tests for the recommendation analyzer."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from gh_score.core.analyzers.recommendation import analyze_recommendation
 from gh_score.core.models import (
     AnalysisResult,
     ContributorsIndicator,
-    LicenseIndicator,
+    ForkPullRequest,
     LanguagesIndicator,
+    LicenseIndicator,
     MaintenanceIndicator,
     MaintenanceState,
-    ForkPullRequest,
     QualitativeIndicator,
     Recommendation,
     RecommendationLevel,
     RegistryInfo,
     ReleaseHealthIndicator,
-    RepoUrl,
     RepositoryMeta,
+    RepoUrl,
+    SecurityIndicator,
     Status,
     SustainabilityIndicator,
-    SecurityIndicator,
     WebsiteIndicator,
 )
 
@@ -56,7 +56,7 @@ def _make_result(
 ) -> AnalysisResult:
     """Build an AnalysisResult with only the fields the recommendation
     analyzer reads, defaults for everything else."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if created_at is None:
         created_at = now - timedelta(days=2 * 365)  # old enough to not be ephemeral
 
@@ -297,7 +297,7 @@ class TestEphemeral:
             state=MaintenanceState.ACTIVE,
             stars=10,
             total_authors=1,
-            created_at=datetime.now(timezone.utc) - timedelta(days=20),
+            created_at=datetime.now(UTC) - timedelta(days=20),
         )
         rec = _recommend(result)
         assert rec.level == RecommendationLevel.ORANGE
@@ -308,7 +308,7 @@ class TestEphemeral:
             state=MaintenanceState.ACTIVE,
             stars=5_000,
             total_authors=10,
-            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+            created_at=datetime.now(UTC) - timedelta(days=60),
         )
         rec = _recommend(result)
         assert rec.message != "Projet éphémère accompagnant un article"
@@ -322,7 +322,7 @@ class TestEphemeral:
             stars=10,
             total_authors=1,
             latest_version="v1.0.0",
-            created_at=datetime.now(timezone.utc) - timedelta(days=20),
+            created_at=datetime.now(UTC) - timedelta(days=20),
         )
         rec = _recommend(result)
         assert rec.level == RecommendationLevel.GREEN
@@ -334,7 +334,7 @@ class TestEphemeral:
             owner_type="organization",
             stars=200,
             total_authors=2,
-            created_at=datetime.now(timezone.utc) - timedelta(days=300),
+            created_at=datetime.now(UTC) - timedelta(days=300),
         )
         rec = _recommend(result)
         assert any("propriétaire : organisation" in r for r in rec.reasoning)
@@ -582,7 +582,9 @@ class TestWebsiteRecommendation:
             stars=200,
             total_authors=5,
             latest_version="v1.0.0",
-            website=WebsiteIndicator(status=Status.CRITICAL, error="http", status_code=500),
+            website=WebsiteIndicator(
+                status=Status.CRITICAL, error="http", status_code=500
+            ),
         )
         rec = _recommend(result)
         assert rec.level == RecommendationLevel.RED
@@ -861,7 +863,9 @@ class TestForkRecommendation:
         result.meta.is_soft_fork = True
         result.meta.fork_prs = [
             ForkPullRequest(
-                784, "open", "fix: bind SIP media sockets",
+                784,
+                "open",
+                "fix: bind SIP media sockets",
                 "https://github.com/livekit/sip/pull/784",
             )
         ]

@@ -28,7 +28,6 @@ from gh_score.core.models import (
 )
 from gh_score.i18n import t
 
-
 # Traffic-light glyphs and colors for the recommendation verdict.
 _TRAFFIC_LIGHT = {
     RecommendationLevel.GREEN: ("🟢", "green"),
@@ -183,9 +182,7 @@ def _render_contributors(result: AnalysisResult) -> Panel:
         content.append("\n")
 
     if contrib.historical_lead:
-        content.append(
-            f"{t('tui_historical', login=contrib.historical_lead.login)}\n"
-        )
+        content.append(f"{t('tui_historical', login=contrib.historical_lead.login)}\n")
 
     if contrib.minor_count > 0:
         content.append(f"{t('tui_minor', count=contrib.minor_count)}\n")
@@ -232,9 +229,7 @@ def _render_maintenance(result: AnalysisResult) -> Panel:
         elif maint.last_commit_days_ago == 1:
             content.append(f"{t('int_last_commit_yesterday')}\n")
         else:
-            content.append(
-                f"{t('tui_last_commit', days=maint.last_commit_days_ago)}\n"
-            )
+            content.append(f"{t('tui_last_commit', days=maint.last_commit_days_ago)}\n")
 
     if maint.commits_per_month is not None:
         content.append(f"{t('tui_frequency', rate=maint.commits_per_month)}\n")
@@ -274,7 +269,9 @@ def _render_languages(result: AnalysisResult) -> Panel:
             content.append(f"{lang_name:12} {pct:5.1f}% {progress_bar}\n")
 
     if lang.ecosystem:
-        content.append(f"\n{t('tui_ecosystem', ecosystem=lang.ecosystem)}\n", style="dim")
+        content.append(
+            f"\n{t('tui_ecosystem', ecosystem=lang.ecosystem)}\n", style="dim"
+        )
 
     if lang.interpretation:
         content.append(f"\n{lang.interpretation}", style="dim")
@@ -397,11 +394,17 @@ def _render_registries(result: AnalysisResult) -> Panel | None:
 
             # Download stats
             if reg.downloads is not None:
-                content.append(f"  {t('tui_downloads', count=reg.downloads)}\n", style="dim")
+                content.append(
+                    f"  {t('tui_downloads', count=reg.downloads)}\n", style="dim"
+                )
             if reg.recent_downloads is not None:
-                content.append(f"  {t('tui_recent', count=reg.recent_downloads)}\n", style="dim")
+                content.append(
+                    f"  {t('tui_recent', count=reg.recent_downloads)}\n", style="dim"
+                )
             if reg.dependents is not None:
-                content.append(f"  {t('tui_dependents', count=reg.dependents)}\n", style="dim")
+                content.append(
+                    f"  {t('tui_dependents', count=reg.dependents)}\n", style="dim"
+                )
 
             # License info
             if reg.registry_license:
@@ -410,7 +413,11 @@ def _render_registries(result: AnalysisResult) -> Panel | None:
                     style="dim",
                 )
                 if reg.license_matches_github is not None:
-                    key = "tui_gh_license_match" if reg.license_matches_github else "tui_gh_license_diff"
+                    key = (
+                        "tui_gh_license_match"
+                        if reg.license_matches_github
+                        else "tui_gh_license_diff"
+                    )
                     content.append(f"  {t(key)}\n", style="dim")
 
             # Deprecated flag
@@ -422,9 +429,7 @@ def _render_registries(result: AnalysisResult) -> Panel | None:
                 content.append(f"  {t('tui_heuristic')}\n", style="dim")
         else:
             content.append(f"{reg.ecosystem}: ", style="bold")
-            content.append(
-                f"✗ {reg.package_name} {t('tui_not_found')}\n", style="dim"
-            )
+            content.append(f"✗ {reg.package_name} {t('tui_not_found')}\n", style="dim")
 
     return Panel(content, title=t("panel_registries"), border_style="blue")
 
@@ -468,10 +473,10 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
     summary.add_row(t("tui_stars", count=result.meta.stars))
     summary.add_row(t("tui_forks", count=result.meta.forks))
     if result.meta.owner_type:
-        summary.add_row(
-            t("tui_owner", type=t(f"owner_type_{result.meta.owner_type}"))
-        )
-    created = result.meta.created_at.strftime("%Y-%m-%d") if result.meta.created_at else "N/A"
+        summary.add_row(t("tui_owner", type=t(f"owner_type_{result.meta.owner_type}")))
+    created = (
+        result.meta.created_at.strftime("%Y-%m-%d") if result.meta.created_at else "N/A"
+    )
     summary.add_row(t("tui_created", date=created))
     console.print(summary)
     console.print()
@@ -575,8 +580,7 @@ def _release_cell(result) -> str:
 def _pair_label(pair) -> str:
     """Short 'owner/repo vs owner/repo' label for a pair."""
     return (
-        f"{pair.url_a.owner}/{pair.url_a.repo} "
-        f"vs {pair.url_b.owner}/{pair.url_b.repo}"
+        f"{pair.url_a.owner}/{pair.url_a.repo} vs {pair.url_b.owner}/{pair.url_b.repo}"
     )
 
 
@@ -642,7 +646,9 @@ def _render_pick_list(comparison: ComparisonResult) -> Panel:
     )
 
 
-def render_comparison(comparison: ComparisonResult, console: Console | None = None) -> None:
+def render_comparison(
+    comparison: ComparisonResult, console: Console | None = None
+) -> None:
     """Render the condensed comparison view: comparability block + one
     line per project. Everything fits in a terminal window."""
     if console is None:
@@ -687,8 +693,16 @@ def render_comparison(comparison: ComparisonResult, console: Console | None = No
         lang = result.languages.primary or "—"
         state = t(f"state_{result.maintenance.state.value}")
         commit = _compact_days(result.maintenance.last_commit_days_ago)
-        bus = str(result.contributors.bus_factor) if result.contributors.bus_factor else "—"
-        downloads = _compact_number(project_downloads(result)) if project_downloads(result) else "—"
+        bus = (
+            str(result.contributors.bus_factor)
+            if result.contributors.bus_factor
+            else "—"
+        )
+        downloads = (
+            _compact_number(project_downloads(result))
+            if project_downloads(result)
+            else "—"
+        )
         release = _release_cell(result)
         glyph, _ = _TRAFFIC_LIGHT.get(result.recommendation.level, ("❓", "dim"))
         table.add_row(

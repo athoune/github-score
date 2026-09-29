@@ -13,9 +13,14 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from gh_score.cli.tui import render_comparison, render_dashboard
 from gh_score.config import Config
-from gh_score.core.api import analyze_repo, analyze_repo_async, refine_comparison_subjects
 from gh_score.core.analyzers.license_analyzer import license_family_label
+from gh_score.core.api import (
+    analyze_repo,
+    analyze_repo_async,
+    refine_comparison_subjects,
+)
 from gh_score.core.cache import Cache
 from gh_score.core.comparison import (
     ComparisonResult,
@@ -26,15 +31,15 @@ from gh_score.core.comparison import (
 )
 from gh_score.core.models import AnalysisResult, RecommendationLevel, RepoUrl
 from gh_score.i18n import t
-from gh_score.cli.tui import render_comparison, render_dashboard
-
 
 # ---------------------------------------------------------------------------
 # URL / path resolution
 # ---------------------------------------------------------------------------
 
 
-def _resolve_target(url_or_path: str | None, force_remote: bool = False) -> tuple[str | None, bool]:
+def _resolve_target(
+    url_or_path: str | None, force_remote: bool = False
+) -> tuple[str | None, bool]:
     """Determine what to analyze and whether to use local mode.
 
     Returns:
@@ -74,7 +79,9 @@ def _validate_url(url_or_path: str, local: bool, console: Console) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _prepare_config(config_path: str | None, refresh: bool, no_llm: bool, console: Console) -> Config:
+def _prepare_config(
+    config_path: str | None, refresh: bool, no_llm: bool, console: Console
+) -> Config:
     """Load config and apply CLI overrides."""
     config = Config.load(config_path)
 
@@ -178,9 +185,7 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
         f"{t('md_header_forks', count=result.meta.forks)}"
     )
     if result.meta.owner_type:
-        console.print(
-            t("md_owner", type=t(f"owner_type_{result.meta.owner_type}"))
-        )
+        console.print(t("md_owner", type=t(f"owner_type_{result.meta.owner_type}")))
     console.print()
 
     _md_recommendation(result, console)
@@ -251,7 +256,9 @@ def _md_languages(result: AnalysisResult, console: Console) -> None:
         console.print(f"- {t('md_primary', language=lang.primary)}")
     if lang.breakdown:
         console.print(f"- {t('md_breakdown')}")
-        sorted_langs = sorted(lang.breakdown.items(), key=lambda x: x[1], reverse=True)[:5]
+        sorted_langs = sorted(lang.breakdown.items(), key=lambda x: x[1], reverse=True)[
+            :5
+        ]
         for lang_name, pct in sorted_langs:
             console.print(f"  - {lang_name}: {pct:.1f}%\n")
     if lang.interpretation:
@@ -290,11 +297,15 @@ def _md_registries(result: AnalysisResult, console: Console) -> None:
             if reg.dependents is not None:
                 console.print(f"  - {t('tui_dependents', count=reg.dependents)}")
             if reg.registry_license:
-                console.print(f"  - {t('tui_registry_license', license=reg.registry_license)}")
+                console.print(
+                    f"  - {t('tui_registry_license', license=reg.registry_license)}"
+                )
             if reg.deprecated:
                 console.print(f"  - {t('tui_deprecated')}")
         else:
-            console.print(f"- **{reg.ecosystem}**: {reg.package_name} {t('tui_not_found')}")
+            console.print(
+                f"- **{reg.ecosystem}**: {reg.package_name} {t('tui_not_found')}"
+            )
     console.print()
 
 
@@ -418,7 +429,11 @@ def _render_comparison_markdown(comparison: ComparisonResult, console: Console) 
         lang = result.languages.primary or "—"
         state = t(f"state_{result.maintenance.state.value}")
         commit = _md_commit_cell(result.maintenance.last_commit_days_ago)
-        bus = str(result.contributors.bus_factor) if result.contributors.bus_factor else "—"
+        bus = (
+            str(result.contributors.bus_factor)
+            if result.contributors.bus_factor
+            else "—"
+        )
         downloads = (
             f"{project_downloads(result):,}" if project_downloads(result) else "—"
         )
@@ -705,7 +720,9 @@ def config() -> None:
     libraries_io = cfg.registries.libraries_io_api_key
     table.add_row(
         t("cli_cfg_libraries_io"),
-        (t("cli_cfg_set") + " " + libraries_io[-4:]) if libraries_io else t("cli_cfg_not_set"),
+        (t("cli_cfg_set") + " " + libraries_io[-4:])
+        if libraries_io
+        else t("cli_cfg_not_set"),
     )
 
     console.print(table)

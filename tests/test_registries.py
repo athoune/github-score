@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -46,7 +46,7 @@ from gh_score.core.fetchers.registries import (
     _parse_rubygems_response,
     fetch_registry_info,
 )
-from gh_score.core.models import LicenseInfo, RegistryInfo, RepoUrl, Repository
+from gh_score.core.models import LicenseInfo, RegistryInfo, Repository, RepoUrl
 
 
 def _mock_http_response(status_code: int, payload: Any) -> MagicMock:
@@ -78,6 +78,7 @@ def _make_repo(owner: str = "acme", repo: str = "widgets") -> Repository:
 # ---------------------------------------------------------------------------
 # Manifest stores
 # ---------------------------------------------------------------------------
+
 
 class TestManifestStores:
     def test_local_store_lists_root_files(self, tmp_path):
@@ -123,6 +124,7 @@ class TestManifestStores:
 # Ecosystem detection
 # ---------------------------------------------------------------------------
 
+
 class TestDetectEcosystems:
     """_detect_ecosystems works on a root file list (local or remote)."""
 
@@ -159,11 +161,15 @@ class TestDetectEcosystems:
 # Package name extraction from manifest content
 # ---------------------------------------------------------------------------
 
+
 class TestExtractPackageName:
     """Package names must come from config files, NOT from the repo name."""
 
     def test_npm_from_package_json(self):
-        assert _extract_npm_package_name(json.dumps({"name": "@scope/my-lib"})) == "@scope/my-lib"
+        assert (
+            _extract_npm_package_name(json.dumps({"name": "@scope/my-lib"}))
+            == "@scope/my-lib"
+        )
 
     def test_npm_missing(self):
         assert _extract_npm_package_name("{}") is None
@@ -187,7 +193,10 @@ class TestExtractPackageName:
         assert _extract_crate_name('[package]\nname = "mycrate"') == "mycrate"
 
     def test_go_module_path(self):
-        assert _extract_go_module_path("module github.com/acme/widgets\n") == "github.com/acme/widgets"
+        assert (
+            _extract_go_module_path("module github.com/acme/widgets\n")
+            == "github.com/acme/widgets"
+        )
 
     def test_gem_from_gemspec(self):
         assert _extract_gem_name('spec.name = "mygem"') == "mygem"
@@ -232,6 +241,7 @@ class TestExtractPackageName:
 # ---------------------------------------------------------------------------
 # Language fallback (remote listing unavailable)
 # ---------------------------------------------------------------------------
+
 
 class TestLanguageFallback:
     @pytest.mark.asyncio
@@ -283,6 +293,7 @@ class TestLanguageFallback:
 # Registry info fetching — no inference from repo name
 # ---------------------------------------------------------------------------
 
+
 class TestFetchRegistryInfo:
     """fetch_registry_info must only use names from config files, never infer
     from the repository name.  When no manifest is found the ecosystem must
@@ -312,7 +323,9 @@ class TestFetchRegistryInfo:
             "versions": {"1.3.0": {}},
         }
 
-        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_client:
+        with patch(
+            "gh_score.core.fetchers.registries.httpx.AsyncClient"
+        ) as mock_client:
             instance = AsyncMock()
             instance.get = AsyncMock(return_value=mock_response)
             instance.__aenter__ = AsyncMock(return_value=instance)
@@ -339,12 +352,15 @@ class TestFetchRegistryInfo:
         async def reader(name: str):
             return json.dumps({"name": "left-pad"})
 
-        mock_response = _mock_http_response(200, {
-            "name": "left-pad",
-            "dist-tags": {"latest": "1.3.0"},
-            "time": {},
-            "versions": {},
-        })
+        mock_response = _mock_http_response(
+            200,
+            {
+                "name": "left-pad",
+                "dist-tags": {"latest": "1.3.0"},
+                "time": {},
+                "versions": {},
+            },
+        )
 
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value = _mock_async_client(mock_response, mock_response)
@@ -360,7 +376,9 @@ class TestFetchRegistryInfo:
     async def test_no_heuristic_inference(self, tmp_path):
         """When package.json exists but has a DIFFERENT name from the repo,
         the package name from config must be used — NOT the repo name."""
-        (tmp_path / "package.json").write_text(json.dumps({"name": "completely-different-name"}))
+        (tmp_path / "package.json").write_text(
+            json.dumps({"name": "completely-different-name"})
+        )
         repo = _make_repo(owner="acme", repo="widgets")
         cache = Cache(str(tmp_path))
 
@@ -368,7 +386,9 @@ class TestFetchRegistryInfo:
         mock_response.status_code = 404
         mock_response.json.return_value = {}
 
-        with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_client:
+        with patch(
+            "gh_score.core.fetchers.registries.httpx.AsyncClient"
+        ) as mock_client:
             instance = AsyncMock()
             instance.get = AsyncMock(return_value=mock_response)
             instance.__aenter__ = AsyncMock(return_value=instance)
@@ -392,9 +412,7 @@ class TestFetchRegistryInfo:
         repo = _make_repo(owner="acme", repo="widgets")
         cache = Cache(str(tmp_path))
 
-        result = await fetch_registry_info(
-            repo, local_path=str(tmp_path), cache=cache
-        )
+        result = await fetch_registry_info(repo, local_path=str(tmp_path), cache=cache)
         assert result == []
 
     @pytest.mark.asyncio
@@ -406,9 +424,7 @@ class TestFetchRegistryInfo:
         repo = _make_repo(owner="acme", repo="widgets")
         cache = Cache(str(tmp_path))
 
-        result = await fetch_registry_info(
-            repo, local_path=str(tmp_path), cache=cache
-        )
+        result = await fetch_registry_info(repo, local_path=str(tmp_path), cache=cache)
 
         assert result == []
 
@@ -417,13 +433,16 @@ class TestFetchRegistryInfo:
 # Response parsers (pure, edge cases)
 # ---------------------------------------------------------------------------
 
+
 class TestParsers:
     def test_pypi_yanked_is_deprecated(self):
         data = {
             "info": {"version": "1.0.0"},
             "releases": {"1.0.0": [{"yanked": True}]},
         }
-        info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
+        info = _parse_pypi_response(
+            data, RegistryInfo(ecosystem="pypi", package_name="x")
+        )
         assert info.deprecated is True
 
     def test_pypi_invalid_date_ignored(self):
@@ -431,7 +450,9 @@ class TestParsers:
             "info": {"version": "1.0.0"},
             "releases": {"1.0.0": [{"upload_time_iso_8601": "garbage"}]},
         }
-        info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
+        info = _parse_pypi_response(
+            data, RegistryInfo(ecosystem="pypi", package_name="x")
+        )
         assert info.latest_date is None
 
     def test_pypi_license_full_text_reduced_to_first_line(self):
@@ -448,7 +469,9 @@ class TestParsers:
             },
             "releases": {},
         }
-        info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
+        info = _parse_pypi_response(
+            data, RegistryInfo(ecosystem="pypi", package_name="x")
+        )
         assert info.registry_license == "MIT License"
 
     def test_pypi_license_expression_preferred(self):
@@ -460,7 +483,9 @@ class TestParsers:
             },
             "releases": {},
         }
-        info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
+        info = _parse_pypi_response(
+            data, RegistryInfo(ecosystem="pypi", package_name="x")
+        )
         assert info.registry_license == "MIT"
 
     def test_pypi_license_from_classifier(self):
@@ -475,12 +500,16 @@ class TestParsers:
             },
             "releases": {},
         }
-        info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
+        info = _parse_pypi_response(
+            data, RegistryInfo(ecosystem="pypi", package_name="x")
+        )
         assert info.registry_license == "Apache Software License"
 
     def test_pypi_no_license(self):
         data = {"info": {"version": "1.0.0"}, "releases": {}}
-        info = _parse_pypi_response(data, RegistryInfo(ecosystem="pypi", package_name="x"))
+        info = _parse_pypi_response(
+            data, RegistryInfo(ecosystem="pypi", package_name="x")
+        )
         assert info.registry_license is None
 
     def test_go_license_dict_type_extracted(self):
@@ -500,7 +529,9 @@ class TestParsers:
             "time": {},
             "versions": {"1.0.0": {"deprecated": "use v2"}},
         }
-        info = _parse_npm_response(data, RegistryInfo(ecosystem="npm", package_name="x"))
+        info = _parse_npm_response(
+            data, RegistryInfo(ecosystem="npm", package_name="x")
+        )
         assert info.deprecated is True
 
     def test_npm_not_deprecated(self):
@@ -509,7 +540,9 @@ class TestParsers:
             "time": {},
             "versions": {"1.0.0": {}},
         }
-        info = _parse_npm_response(data, RegistryInfo(ecosystem="npm", package_name="x"))
+        info = _parse_npm_response(
+            data, RegistryInfo(ecosystem="npm", package_name="x")
+        )
         assert info.deprecated is False
 
     def test_rubygems_license_list_joined(self):
@@ -521,7 +554,8 @@ class TestParsers:
 
     def test_maven_empty_docs_not_found(self):
         info = _parse_maven_response(
-            {"response": {"docs": []}}, RegistryInfo(ecosystem="maven", package_name="x")
+            {"response": {"docs": []}},
+            RegistryInfo(ecosystem="maven", package_name="x"),
         )
         assert info.exists is False
 
@@ -537,14 +571,20 @@ class TestParsers:
 # Fetchers (HTTP mocked away)
 # ---------------------------------------------------------------------------
 
+
 class TestFetchers:
     @pytest.mark.asyncio
     async def test_pypi_success(self, tmp_path):
         cache = Cache(str(tmp_path))
-        resp = _mock_http_response(200, {
-            "info": {"version": "1.2.3", "license": "MIT"},
-            "releases": {"1.2.3": [{"upload_time_iso_8601": "2023-01-15T10:00:00Z"}]},
-        })
+        resp = _mock_http_response(
+            200,
+            {
+                "info": {"version": "1.2.3", "license": "MIT"},
+                "releases": {
+                    "1.2.3": [{"upload_time_iso_8601": "2023-01-15T10:00:00Z"}]
+                },
+            },
+        )
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value = _mock_async_client(resp)
             info = await _fetch_pypi("mypkg", cache)
@@ -552,7 +592,7 @@ class TestFetchers:
         assert info.exists is True
         assert info.latest_version == "1.2.3"
         assert info.registry_license == "MIT"
-        assert info.latest_date == datetime(2023, 1, 15, 10, 0, tzinfo=timezone.utc)
+        assert info.latest_date == datetime(2023, 1, 15, 10, 0, tzinfo=UTC)
 
     @pytest.mark.asyncio
     async def test_pypi_not_found(self, tmp_path):
@@ -597,15 +637,18 @@ class TestFetchers:
     @pytest.mark.asyncio
     async def test_crates_success(self, tmp_path):
         cache = Cache(str(tmp_path))
-        resp = _mock_http_response(200, {
-            "crate": {
-                "newest_version": "2.0.0",
-                "downloads": 1000,
-                "recent_downloads": 50,
-                "license": "MIT",
-                "updated_at": "2023-01-01T00:00:00Z",
+        resp = _mock_http_response(
+            200,
+            {
+                "crate": {
+                    "newest_version": "2.0.0",
+                    "downloads": 1000,
+                    "recent_downloads": 50,
+                    "license": "MIT",
+                    "updated_at": "2023-01-01T00:00:00Z",
+                },
             },
-        })
+        )
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value = _mock_async_client(resp)
             info = await _fetch_crates("mycrate", cache)
@@ -632,13 +675,16 @@ class TestFetchers:
     @pytest.mark.asyncio
     async def test_go_success(self, tmp_path):
         cache = Cache(str(tmp_path))
-        resp = _mock_http_response(200, {
-            "module": {
-                "latestVersion": "v1.0.0",
-                "license": "BSD-3-Clause",
-                "updatedAt": "2023-01-01T00:00:00Z",
+        resp = _mock_http_response(
+            200,
+            {
+                "module": {
+                    "latestVersion": "v1.0.0",
+                    "license": "BSD-3-Clause",
+                    "updatedAt": "2023-01-01T00:00:00Z",
+                },
             },
-        })
+        )
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value = _mock_async_client(resp)
             info = await _fetch_go("example.com/mod", cache)
@@ -651,10 +697,13 @@ class TestFetchers:
     async def test_go_imported_by_total(self, tmp_path):
         """The pkg.go.dev response nests items and carries the exact total."""
         cache = Cache(str(tmp_path))
-        resp = _mock_http_response(200, {
-            "modulePath": "github.com/gorilla/mux",
-            "importedBy": {"items": ["a"], "total": 99459},
-        })
+        resp = _mock_http_response(
+            200,
+            {
+                "modulePath": "github.com/gorilla/mux",
+                "importedBy": {"items": ["a"], "total": 99459},
+            },
+        )
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value = _mock_async_client(resp)
             count = await _fetch_go_imported_by("github.com/gorilla/mux", cache)
@@ -673,14 +722,17 @@ class TestFetchers:
     @pytest.mark.asyncio
     async def test_rubygems_success(self, tmp_path):
         cache = Cache(str(tmp_path))
-        resp = _mock_http_response(200, {
-            "name": "rails",
-            "version": "7.0.0",
-            "downloads": 5000,
-            "version_downloads": 100,
-            "license": "MIT",
-            "updated_at": "2023-01-01T00:00:00Z",
-        })
+        resp = _mock_http_response(
+            200,
+            {
+                "name": "rails",
+                "version": "7.0.0",
+                "downloads": 5000,
+                "version_downloads": 100,
+                "license": "MIT",
+                "updated_at": "2023-01-01T00:00:00Z",
+            },
+        )
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value = _mock_async_client(resp)
             info = await _fetch_rubygems("rails", cache)
@@ -711,15 +763,20 @@ class TestFetchers:
     @pytest.mark.asyncio
     async def test_maven_success(self, tmp_path):
         cache = Cache(str(tmp_path))
-        resp = _mock_http_response(200, {
-            "response": {
-                "docs": [{
-                    "latestVersion": "1.0.0",
-                    "downloadCount": 999,
-                    "timestamp": 1672531200000,  # 2023-01-01T00:00:00Z
-                }],
+        resp = _mock_http_response(
+            200,
+            {
+                "response": {
+                    "docs": [
+                        {
+                            "latestVersion": "1.0.0",
+                            "downloadCount": 999,
+                            "timestamp": 1672531200000,  # 2023-01-01T00:00:00Z
+                        }
+                    ],
+                },
             },
-        })
+        )
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value = _mock_async_client(resp)
             info = await _fetch_maven("com.acme:widgets", cache)
@@ -729,7 +786,7 @@ class TestFetchers:
         assert info.downloads == 999
         # Maven timestamps are epoch ms; parsed as aware UTC
         assert info.latest_date is not None
-        assert info.latest_date == datetime(2023, 1, 1, tzinfo=timezone.utc)
+        assert info.latest_date == datetime(2023, 1, 1, tzinfo=UTC)
         assert info.latest_date.timestamp() == 1672531200.0
 
     @pytest.mark.asyncio
@@ -746,12 +803,15 @@ class TestFetchers:
     @pytest.mark.asyncio
     async def test_docker_official_image_uses_library(self, tmp_path):
         cache = Cache(str(tmp_path))
-        resp = _mock_http_response(200, {
-            "name": "nginx",
-            "pull_count": 1000,
-            "last_updated": "2023-01-01T00:00:00Z",
-            "is_private": False,
-        })
+        resp = _mock_http_response(
+            200,
+            {
+                "name": "nginx",
+                "pull_count": 1000,
+                "last_updated": "2023-01-01T00:00:00Z",
+                "is_private": False,
+            },
+        )
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             instance = _mock_async_client(resp)
             mock_cls.return_value = instance
@@ -766,6 +826,7 @@ class TestFetchers:
 # ---------------------------------------------------------------------------
 # libraries.io dependents
 # ---------------------------------------------------------------------------
+
 
 class TestLibrariesIODependents:
     @pytest.mark.asyncio
@@ -789,7 +850,9 @@ class TestLibrariesIODependents:
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             instance = _mock_async_client(resp)
             mock_cls.return_value = instance
-            count = await _fetch_libraries_io_dependents("pypi", "requests", "key", cache)
+            count = await _fetch_libraries_io_dependents(
+                "pypi", "requests", "key", cache
+            )
 
         assert count == 7
         url = instance.get.await_args.args[0]
@@ -804,7 +867,9 @@ class TestLibrariesIODependents:
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             instance = _mock_async_client(resp)
             mock_cls.return_value = instance
-            count = await _fetch_libraries_io_dependents("npm", "@babel/core", "key", cache)
+            count = await _fetch_libraries_io_dependents(
+                "npm", "@babel/core", "key", cache
+            )
 
         assert count == 3
         url = instance.get.await_args.args[0]
@@ -839,6 +904,7 @@ class TestLibrariesIODependents:
 # Orchestration
 # ---------------------------------------------------------------------------
 
+
 class TestOrchestration:
     @pytest.mark.asyncio
     async def test_multiple_ecosystems(self, tmp_path):
@@ -849,19 +915,28 @@ class TestOrchestration:
         cache = Cache(str(tmp_path))
 
         # Ecosystems are detected in pattern order: pypi first, then npm.
-        pypi_resp = _mock_http_response(200, {"info": {"version": "2.0.0"}, "releases": {}})
+        pypi_resp = _mock_http_response(
+            200, {"info": {"version": "2.0.0"}, "releases": {}}
+        )
         pypi_dl = _mock_http_response(200, {"data": {"last_month": 20}})
-        npm_resp = _mock_http_response(200, {
-            "name": "web-lib",
-            "dist-tags": {"latest": "1.0.0"},
-            "time": {},
-            "versions": {},
-        })
+        npm_resp = _mock_http_response(
+            200,
+            {
+                "name": "web-lib",
+                "dist-tags": {"latest": "1.0.0"},
+                "time": {},
+                "versions": {},
+            },
+        )
         npm_dl = _mock_http_response(200, {"downloads": 10})
 
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value = _mock_async_client(pypi_resp, pypi_dl, npm_resp, npm_dl)
-            result = await fetch_registry_info(repo, local_path=str(tmp_path), cache=cache)
+            mock_cls.return_value = _mock_async_client(
+                pypi_resp, pypi_dl, npm_resp, npm_dl
+            )
+            result = await fetch_registry_info(
+                repo, local_path=str(tmp_path), cache=cache
+            )
 
         assert {r.ecosystem for r in result} == {"pypi", "npm"}
         by_eco = {r.ecosystem: r for r in result}
@@ -877,16 +952,24 @@ class TestOrchestration:
         repo = _make_repo()
         cache = Cache(str(tmp_path))
 
-        module_resp = _mock_http_response(200, {
-            "module": {"latestVersion": "v1.0.0", "license": "MIT"},
-        })
-        imported_resp = _mock_http_response(200, {
-            "importedBy": {"items": ["a"], "total": 99},
-        })
+        module_resp = _mock_http_response(
+            200,
+            {
+                "module": {"latestVersion": "v1.0.0", "license": "MIT"},
+            },
+        )
+        imported_resp = _mock_http_response(
+            200,
+            {
+                "importedBy": {"items": ["a"], "total": 99},
+            },
+        )
 
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value = _mock_async_client(module_resp, imported_resp)
-            result = await fetch_registry_info(repo, local_path=str(tmp_path), cache=cache)
+            result = await fetch_registry_info(
+                repo, local_path=str(tmp_path), cache=cache
+            )
 
         assert len(result) == 1
         assert result[0].ecosystem == "go"
@@ -899,7 +982,9 @@ class TestOrchestration:
         repo = _make_repo()
         cache = Cache(str(tmp_path))
 
-        pypi_resp = _mock_http_response(200, {"info": {"version": "2.0.0"}, "releases": {}})
+        pypi_resp = _mock_http_response(
+            200, {"info": {"version": "2.0.0"}, "releases": {}}
+        )
         pypi_dl = _mock_http_response(200, {"data": {"last_month": 20}})
         libio_resp = _mock_http_response(200, {"dependents_count": 5})
 
@@ -922,12 +1007,16 @@ class TestOrchestration:
         repo = _make_repo()
         cache = Cache(str(tmp_path))
 
-        pypi_resp = _mock_http_response(200, {"info": {"version": "2.0.0"}, "releases": {}})
+        pypi_resp = _mock_http_response(
+            200, {"info": {"version": "2.0.0"}, "releases": {}}
+        )
         pypi_dl = _mock_http_response(200, {"data": {"last_month": 20}})
 
         with patch("gh_score.core.fetchers.registries.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value = _mock_async_client(pypi_resp, pypi_dl)
-            result = await fetch_registry_info(repo, local_path=str(tmp_path), cache=cache)
+            result = await fetch_registry_info(
+                repo, local_path=str(tmp_path), cache=cache
+            )
 
         assert len(result) == 1
         assert result[0].dependents is None

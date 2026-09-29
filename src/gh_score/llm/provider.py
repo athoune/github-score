@@ -19,7 +19,6 @@ from gh_score.config import LLMConfig
 from gh_score.core.models import LLMRecommendation, QualitativeSignals
 from gh_score.i18n import t
 
-
 # Allowed values for the self-declared maintenance state the LLM may report.
 _TEXT_MAINTENANCE_STATES = frozenset({"active", "maintenance", "abandoned", "unknown"})
 
@@ -40,8 +39,7 @@ class LLMError(Exception):
 # (see analyzers/sustainability.py). The LLM only extracts facts that
 # cannot be derived from APIs or local files.
 _SIGNAL_FIELDS = (
-    "roadmap: brief summary of any roadmap or future plans mentioned "
-    "(or null)",
+    "roadmap: brief summary of any roadmap or future plans mentioned (or null)",
     "security_policy: brief summary of any security policy or vulnerability "
     "handling mentioned (or null)",
     "commercial_support: brief summary of any commercial support / paid "
@@ -210,9 +208,9 @@ def _build_recommendation_prompt() -> str:
         "explain why, but do not deny it.\n\n"
         "An absent or null qualitative field means the signal was NOT "
         "found in the project's texts — it does not prove the project "
-        "lacks it. Never state an absolute absence (\"no roadmap\", \"no "
-        "funding\", \"no commercial support\"); if you must mention it, "
-        "phrase it as \"no X announced in the project texts\" or stay "
+        'lacks it. Never state an absolute absence ("no roadmap", "no '
+        'funding", "no commercial support"); if you must mention it, '
+        'phrase it as "no X announced in the project texts" or stay '
         "silent about it.\n\n"
         "Return a JSON object with:\n"
         '- level: one of "green", "orange", "red"\n'
@@ -276,9 +274,7 @@ def _subject_project_digests(results: list) -> str:
         topics = ", ".join(meta.topics) or "none"
         description = (meta.description or "")[:200]
         lines.append(
-            f"{index}. {full_name}\n"
-            f"   topics: {topics}\n"
-            f"   description: {description}"
+            f"{index}. {full_name}\n   topics: {topics}\n   description: {description}"
         )
     return "\n".join(lines)
 
@@ -589,9 +585,7 @@ def _denies_fact(
     for kw in keywords:
         escaped_kw = re.escape(kw)
         for neg in negations:
-            if re.search(
-                rf"\b{re.escape(neg)}\b[^.!?\n]{{0,30}}{escaped_kw}", text
-            ):
+            if re.search(rf"\b{re.escape(neg)}\b[^.!?\n]{{0,30}}{escaped_kw}", text):
                 return True
         if re.search(
             rf"{escaped_kw}[^.!?\n]{{0,15}}\b(absent|missing|lacking)\b", text
@@ -626,8 +620,7 @@ def _check_contradictions(result, rec: LLMRecommendation, warnings) -> None:
         "roadmap": bool(result.qualitative.roadmap),
         "security_policy": bool(result.qualitative.security_policy),
         "has_funding": bool(
-            result.sustainability.has_funding
-            or result.sustainability.funding_platforms
+            result.sustainability.has_funding or result.sustainability.funding_platforms
         ),
         "corporate_backing": bool(result.sustainability.corporate_backing),
         "foundation": bool(result.sustainability.foundation),

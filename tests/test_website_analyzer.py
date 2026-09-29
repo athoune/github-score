@@ -52,7 +52,9 @@ class TestAnalyzeWebsite:
         assert ind.status == Status.CRITICAL
 
     def test_captcha(self):
-        ind = analyze_website(_info(status_code=403, captcha=True, captcha_type="cloudflare"))
+        ind = analyze_website(
+            _info(status_code=403, captcha=True, captcha_type="cloudflare")
+        )
         assert ind.status == Status.WARNING
         assert ind.captcha is True
         assert ind.captcha_type == "cloudflare"

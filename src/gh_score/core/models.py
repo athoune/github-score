@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
-
 # ---------------------------------------------------------------------------
 # URL parsing
 # ---------------------------------------------------------------------------
@@ -35,8 +34,7 @@ class RepoUrl:
 
         Raises ValueError if the URL is not a valid GitHub repository URL.
         """
-        if url.endswith(".git"):
-            url = url[:-4]
+        url = url.removesuffix(".git")
         m = _GITHUB_URL_RE.match(url.strip())
         if not m:
             raise ValueError(f"Not a valid GitHub repository URL: {url!r}")
@@ -57,6 +55,7 @@ class RepoUrl:
 # ---------------------------------------------------------------------------
 # License
 # ---------------------------------------------------------------------------
+
 
 class LicenseFamily(Enum):
     PERMISSIVE = "permissive"
@@ -79,6 +78,7 @@ class LicenseInfo:
 # Releases
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Release:
     tag_name: str
@@ -92,6 +92,7 @@ class Release:
 @dataclass
 class ReleaseHealth:
     """Raw release data for analysis."""
+
     releases: list[Release] = field(default_factory=list)
 
     @property
@@ -105,6 +106,7 @@ class ReleaseHealth:
 # ---------------------------------------------------------------------------
 # Contributors
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Contributor:
@@ -121,6 +123,7 @@ class Contributor:
 @dataclass
 class ContributorStats:
     """Raw contributor data for analysis."""
+
     contributors: list[Contributor] = field(default_factory=list)
     total_commit_count: int = 0  # may differ from sum of contributor commits
 
@@ -128,6 +131,7 @@ class ContributorStats:
 # ---------------------------------------------------------------------------
 # Issues
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Issue:
@@ -144,6 +148,7 @@ class Issue:
 # Commits
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Commit:
     sha: str
@@ -159,9 +164,11 @@ class Commit:
 # Languages
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class LanguageBreakdown:
     """Language breakdown from GitHub Linguist. Values are bytes."""
+
     languages: dict[str, int] = field(default_factory=dict)
 
     @property
@@ -178,16 +185,21 @@ class LanguageBreakdown:
         total = self.total_bytes
         if total == 0:
             return {}
-        return {lang: (bytes_count / total) * 100 for lang, bytes_count in self.languages.items()}
+        return {
+            lang: (bytes_count / total) * 100
+            for lang, bytes_count in self.languages.items()
+        }
 
 
 # ---------------------------------------------------------------------------
 # Repository metadata
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RepositoryMeta:
     """Core metadata from the GitHub API."""
+
     name: str = ""
     full_name: str = ""
     owner: str = ""
@@ -207,25 +219,31 @@ class RepositoryMeta:
     has_wiki: bool = False
     homepage: str | None = None
     size_kb: int = 0
-    mirror_url: str | None = None       # GitHub mirroring feature URL (raw API)
-    is_mirror: bool = False             # computed: mirror_url OR text heuristic
+    mirror_url: str | None = None  # GitHub mirroring feature URL (raw API)
+    is_mirror: bool = False  # computed: mirror_url OR text heuristic
     mirror_upstream: str | None = None  # upstream URL when known
-    fork: bool = False                  # GitHub API "fork" flag (raw API)
+    fork: bool = False  # GitHub API "fork" flag (raw API)
     parent_full_name: str | None = None  # "owner/repo" of the direct parent
     source_full_name: str | None = None  # "owner/repo" of the original source
-    fork_ahead: int | None = None        # commits ahead of the parent's default branch
-    fork_behind: int | None = None       # commits behind the parent's default branch
-    is_soft_fork: bool | None = None     # computed: PR-vehicle (synced) vs hard fork (diverged)
-    fork_prs: list[ForkPullRequest] = field(default_factory=list)  # PRs opened from this fork against its parent
+    fork_ahead: int | None = None  # commits ahead of the parent's default branch
+    fork_behind: int | None = None  # commits behind the parent's default branch
+    is_soft_fork: bool | None = (
+        None  # computed: PR-vehicle (synced) vs hard fork (diverged)
+    )
+    fork_prs: list[ForkPullRequest] = field(
+        default_factory=list
+    )  # PRs opened from this fork against its parent
 
 
 # ---------------------------------------------------------------------------
 # Community files
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CommunityFiles:
     """Presence of community/health files."""
+
     has_readme: bool = False
     has_license: bool = False
     has_contributing: bool = False
@@ -245,9 +263,11 @@ class CommunityFiles:
 # Pull requests opened from a fork
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ForkPullRequest:
     """A pull request opened from a fork against its parent repository."""
+
     number: int
     state: str  # "open" | "closed" | "merged"
     title: str
@@ -258,20 +278,28 @@ class ForkPullRequest:
 # Package registry
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RegistryInfo:
     """Information about a package on a registry."""
+
     ecosystem: str  # "pypi", "npm", "crates.io", "go", "maven", "rubygems", "docker"
     package_name: str | None = None
     exists: bool = False
     latest_version: str | None = None
     latest_date: datetime | None = None
-    downloads: int | None = None  # approximate total downloads (per-ecosystem window, see SPECS §6.3.9)
+    downloads: int | None = (
+        None  # approximate total downloads (per-ecosystem window, see SPECS §6.3.9)
+    )
     recent_downloads: int | None = None  # recent downloads (last 30/90 days or similar)
-    dependents: int | None = None  # number of packages depending on this one (reverse dependencies)
+    dependents: int | None = (
+        None  # number of packages depending on this one (reverse dependencies)
+    )
     deprecated: bool = False  # whether the package is marked deprecated
     registry_license: str | None = None  # license declared on the registry (SPDX)
-    license_matches_github: bool | None = None  # comparison with GitHub-detected license
+    license_matches_github: bool | None = (
+        None  # comparison with GitHub-detected license
+    )
     is_heuristic: bool = False  # kept for backward compat; always False now
 
 
@@ -279,25 +307,30 @@ class RegistryInfo:
 # Website availability
 # ---------------------------------------------------------------------------
 
+
 class WebsiteError(Enum):
     """Why a homepage probe failed."""
-    DNS = "dns"            # domain name resolution failed
-    TIMEOUT = "timeout"    # connect/read timed out
-    HTTP = "http"          # server answered a non-2xx status
+
+    DNS = "dns"  # domain name resolution failed
+    TIMEOUT = "timeout"  # connect/read timed out
+    HTTP = "http"  # server answered a non-2xx status
     REDIRECT = "redirect"  # redirect loop
-    OTHER = "other"        # any other failure
+    OTHER = "other"  # any other failure
 
 
 @dataclass
 class WebsiteInfo:
     """Raw homepage probe result."""
+
     url: str
     status_code: int | None = None
     final_url: str | None = None
     error: WebsiteError | None = None
     error_detail: str | None = None
     captcha: bool = False
-    captcha_type: str | None = None  # "recaptcha" | "hcaptcha" | "cloudflare" | "turnstile" | "generic"
+    captcha_type: str | None = (
+        None  # "recaptcha" | "hcaptcha" | "cloudflare" | "turnstile" | "generic"
+    )
     checked_at: datetime | None = None
 
 
@@ -315,6 +348,7 @@ class QualitativeSignals:
     *self-declared* state as written in README/GOVERNANCE/SECURITY, one of
     "active", "maintenance", "abandoned", "unknown".
     """
+
     roadmap: str | None = None
     security_policy: str | None = None
     commercial_support: str | None = None
@@ -338,9 +372,11 @@ class QualitativeSignals:
 # Repository: aggregate of all raw data
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Repository:
     """Aggregate model containing all fetched data for a repository."""
+
     url: RepoUrl
     meta: RepositoryMeta = field(default_factory=RepositoryMeta)
     license: LicenseInfo = field(default_factory=LicenseInfo)
@@ -362,6 +398,7 @@ class Repository:
 # ---------------------------------------------------------------------------
 # Indicator results (output of analyzers)
 # ---------------------------------------------------------------------------
+
 
 class Status(Enum):
     HEALTHY = "healthy"
@@ -392,9 +429,9 @@ class LicenseIndicator:
 
 
 class ContributorArchetype(Enum):
-    LEAD = "lead"                    # dominant over last 12 months
+    LEAD = "lead"  # dominant over last 12 months
     HISTORICAL_LEAD = "historical_lead"  # dominant historically, no longer active
-    MINOR = "minor"                  # few commits, drive-by
+    MINOR = "minor"  # few commits, drive-by
 
 
 @dataclass
@@ -444,9 +481,11 @@ class LanguagesIndicator:
     primary: str | None = None
     breakdown: dict[str, float] = field(default_factory=dict)  # percentages
     ecosystem: str | None = None  # inferred from manifest files
-    is_exotic: bool | None = None          # True = main language outside the popularity datasets
-    popularity_rank: int | None = None     # best (lowest) rank across datasets
-    popularity_source: str | None = None   # "pypl" | "github" | None
+    is_exotic: bool | None = (
+        None  # True = main language outside the popularity datasets
+    )
+    popularity_rank: int | None = None  # best (lowest) rank across datasets
+    popularity_source: str | None = None  # "pypl" | "github" | None
     readme_is_english: bool | None = None  # None = unknown (no/too-short README)
     interpretation: str = ""
 
@@ -465,10 +504,11 @@ class SustainabilityIndicator:
 @dataclass
 class WebsiteIndicator:
     """Analyzed homepage availability (shown in the report)."""
+
     url: str | None = None
     status_code: int | None = None
     final_url: str | None = None
-    error: str | None = None          # WebsiteError.value, for JSON serialization
+    error: str | None = None  # WebsiteError.value, for JSON serialization
     error_detail: str | None = None
     captcha: bool = False
     captcha_type: str | None = None
@@ -480,9 +520,11 @@ class WebsiteIndicator:
 # Security updates
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SecurityUpdate:
     """An open Dependabot pull request fixing a security advisory."""
+
     number: int
     title: str
     url: str = ""
@@ -492,8 +534,9 @@ class SecurityUpdate:
 @dataclass
 class SecurityIndicator:
     """Pending security-update indicator (open Dependabot security PRs)."""
+
     pending_count: int = 0
-    oldest_days: int | None = None    # age in days of the oldest pending update
+    oldest_days: int | None = None  # age in days of the oldest pending update
     updates: list[SecurityUpdate] = field(default_factory=list)
     status: Status = Status.UNKNOWN
     interpretation: str = ""
@@ -512,6 +555,7 @@ class QualitativeIndicator:
     it drives confidence accounting and gates the qualitative branches of the
     recommendation.
     """
+
     roadmap: str | None = None
     security_policy: str | None = None
     commercial_support: str | None = None
@@ -523,14 +567,18 @@ class QualitativeIndicator:
 
 class RecommendationLevel(Enum):
     """Traffic-light verdict for the whole repository."""
-    GREEN = "green"    # active project, safe to bet on
-    ORANGE = "orange"  # potential but not stable, or widely used despite low maintenance
-    RED = "red"        # risky: lack of maintenance
+
+    GREEN = "green"  # active project, safe to bet on
+    ORANGE = (
+        "orange"  # potential but not stable, or widely used despite low maintenance
+    )
+    RED = "red"  # risky: lack of maintenance
 
 
 @dataclass
 class Recommendation:
     """Synthesized recommendation crossing all indicator families."""
+
     level: RecommendationLevel = RecommendationLevel.ORANGE
     message: str = ""  # e.g. "Projet actif avec une grande communauté"
     confidence: float = 0.0  # 0.0 to 1.0, based on data completeness
@@ -547,6 +595,7 @@ class LLMRecommendation:
     ``level`` is the raw LLM answer: "green", "orange" or "red" (empty
     string when the LLM returned something invalid).
     """
+
     level: str = ""
     message: str = ""
     explanation: str = ""
@@ -557,9 +606,11 @@ class LLMRecommendation:
 # Analysis result: the full dashboard data
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AnalysisResult:
     """Complete analysis result for a repository."""
+
     url: RepoUrl
     meta: RepositoryMeta
     release_health: ReleaseHealthIndicator
@@ -575,4 +626,6 @@ class AnalysisResult:
     warnings: list[str] = field(default_factory=list)  # human-readable, localized
     website: WebsiteIndicator = field(default_factory=WebsiteIndicator)
     security: SecurityIndicator = field(default_factory=SecurityIndicator)
-    root_files: list[str] = field(default_factory=list)  # root listing, used for comparison
+    root_files: list[str] = field(
+        default_factory=list
+    )  # root listing, used for comparison

@@ -6,7 +6,7 @@ Extracts data from a local git clone using gitpython.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from git import Repo
@@ -17,16 +17,18 @@ from gh_score.core.models import (
     Contributor,
     ContributorStats,
     LanguageBreakdown,
-    RepoUrl,
     Repository,
     RepositoryMeta,
+    RepoUrl,
 )
 
 
 def _parse_github_remote(remote_url: str) -> RepoUrl | None:
     """Parse a GitHub URL from a git remote (supports SSH and HTTPS)."""
     # SSH: git@github.com:owner/repo.git
-    ssh_match = re.match(r"git@github\.com:(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$", remote_url)
+    ssh_match = re.match(
+        r"git@github\.com:(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$", remote_url
+    )
     if ssh_match:
         return RepoUrl(owner=ssh_match.group("owner"), repo=ssh_match.group("repo"))
 
@@ -89,18 +91,20 @@ def fetch_local_repo(path: str) -> Repository:
             # Use author name as login (email is protected/masked by GitHub);
             # fall back to a stable label when git reports no name.
             author_login = commit.author.name or "unknown"
-            author_date = datetime.fromtimestamp(commit.committed_date, tz=timezone.utc)
+            author_date = datetime.fromtimestamp(commit.committed_date, tz=UTC)
 
             raw_message = commit.message
-            commits.append(Commit(
-                sha=commit.hexsha,
-                author_login=author_login,
-                author_email=commit.author.email,
-                author_date=author_date,
-                message=raw_message.decode(errors="replace")
-                if isinstance(raw_message, bytes)
-                else raw_message,
-            ))
+            commits.append(
+                Commit(
+                    sha=commit.hexsha,
+                    author_login=author_login,
+                    author_email=commit.author.email,
+                    author_date=author_date,
+                    message=raw_message.decode(errors="replace")
+                    if isinstance(raw_message, bytes)
+                    else raw_message,
+                )
+            )
 
             # Track contributor commits by name (not email)
             contributor_commits[author_login] = (
@@ -122,11 +126,13 @@ def fetch_local_repo(path: str) -> Repository:
             if c.author_login == login and c.author_email and "@" in c.author_email:
                 email_domain = c.author_email.split("@")[-1].lower()
                 break
-        contributors.append(Contributor(
-            login=login,
-            commits=count,
-            email_domain=email_domain,
-        ))
+        contributors.append(
+            Contributor(
+                login=login,
+                commits=count,
+                email_domain=email_domain,
+            )
+        )
     repo.contributors = ContributorStats(
         contributors=contributors,
         total_commit_count=len(commits),
@@ -173,9 +179,7 @@ def fetch_local_repo(path: str) -> Repository:
     # classification and binding detection.
     try:
         community.root_files = sorted(
-            entry.name.lower()
-            for entry in repo_path.iterdir()
-            if entry.name != ".git"
+            entry.name.lower() for entry in repo_path.iterdir() if entry.name != ".git"
         )
     except Exception:
         pass
@@ -222,8 +226,10 @@ def fetch_local_repo(path: str) -> Repository:
             name=remote_url.repo,
             full_name=f"{remote_url.owner}/{remote_url.repo}",
             owner=remote_url.owner,
-            default_branch=git_repo.active_branch.name if not git_repo.head.is_detached else "main",
-            pushed_at=datetime.fromtimestamp(head_commit.committed_date, tz=timezone.utc),
+            default_branch=git_repo.active_branch.name
+            if not git_repo.head.is_detached
+            else "main",
+            pushed_at=datetime.fromtimestamp(head_commit.committed_date, tz=UTC),
         )
     except Exception:
         repo.meta = RepositoryMeta(
@@ -269,7 +275,15 @@ def _estimate_languages(repo_path: Path) -> LanguageBreakdown:
     }
 
     counts: dict[str, int] = {}
-    skip_dirs = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build"}
+    skip_dirs = {
+        ".git",
+        "node_modules",
+        "__pycache__",
+        ".venv",
+        "venv",
+        "dist",
+        "build",
+    }
 
     try:
         for file_path in repo_path.rglob("*"):

@@ -20,10 +20,11 @@ from __future__ import annotations
 import json
 import re
 import tomllib
-from datetime import datetime, timezone
+from collections.abc import Awaitable, Callable, Iterable
+from datetime import UTC, datetime
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Iterable, Protocol
+from typing import Any, Protocol
 from urllib.parse import quote
 
 import httpx
@@ -31,7 +32,6 @@ from platformdirs import user_cache_dir
 
 from gh_score.core.cache import Cache
 from gh_score.core.models import RegistryInfo, Repository
-
 
 # Ecosystem detection patterns
 _ECOSYSTEM_PATTERNS = {
@@ -282,6 +282,7 @@ async def _extract_package_name(store: ManifestStore, ecosystem: str) -> str | N
 # PyPI
 # ---------------------------------------------------------------------------
 
+
 async def _fetch_pypi(package_name: str, cache: Cache) -> RegistryInfo:
     """Fetch package info from PyPI including download stats."""
     info = RegistryInfo(ecosystem="pypi", package_name=package_name)
@@ -385,6 +386,7 @@ async def _fetch_pypi_downloads(package_name: str, cache: Cache) -> int | None:
 # npm
 # ---------------------------------------------------------------------------
 
+
 async def _fetch_npm(package_name: str, cache: Cache) -> RegistryInfo:
     """Fetch package info from npm including download stats."""
     info = RegistryInfo(ecosystem="npm", package_name=package_name)
@@ -420,9 +422,7 @@ def _parse_npm_response(data: dict[str, Any], info: RegistryInfo) -> RegistryInf
     if info.latest_version and info.latest_version in times:
         try:
             time_str = times[info.latest_version]
-            info.latest_date = datetime.fromisoformat(
-                time_str.replace("Z", "+00:00")
-            )
+            info.latest_date = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
         except ValueError:
             pass
 
@@ -462,6 +462,7 @@ async def _fetch_npm_downloads(package_name: str, cache: Cache) -> int | None:
 # ---------------------------------------------------------------------------
 # crates.io
 # ---------------------------------------------------------------------------
+
 
 async def _fetch_crates(package_name: str, cache: Cache) -> RegistryInfo:
     """Fetch crate info from crates.io."""
@@ -544,6 +545,7 @@ async def _fetch_crates_dependents(crate_name: str, cache: Cache) -> int | None:
 # Go (pkg.go.dev)
 # ---------------------------------------------------------------------------
 
+
 async def _fetch_go(module_path: str, cache: Cache) -> RegistryInfo:
     """Fetch module info from pkg.go.dev."""
     info = RegistryInfo(ecosystem="go", package_name=module_path)
@@ -555,9 +557,7 @@ async def _fetch_go(module_path: str, cache: Cache) -> RegistryInfo:
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                f"https://pkg.go.dev/v1beta/module/{module_path}"
-            )
+            resp = await client.get(f"https://pkg.go.dev/v1beta/module/{module_path}")
             if resp.status_code == 200:
                 data = resp.json()
                 cache.set_json(cache_key, data, ttl_seconds=7 * 86400)
@@ -623,7 +623,11 @@ async def _fetch_go_imported_by(module_path: str, cache: Cache) -> int | None:
                 imported = data.get("importedBy", {}) if isinstance(data, dict) else {}
                 if isinstance(imported, dict):
                     total = imported.get("total")
-                    count = total if isinstance(total, int) else len(imported.get("items", []))
+                    count = (
+                        total
+                        if isinstance(total, int)
+                        else len(imported.get("items", []))
+                    )
                 elif isinstance(imported, list):
                     count = len(imported)
                 else:
@@ -640,6 +644,7 @@ async def _fetch_go_imported_by(module_path: str, cache: Cache) -> int | None:
 # RubyGems
 # ---------------------------------------------------------------------------
 
+
 async def _fetch_rubygems(gem_name: str, cache: Cache) -> RegistryInfo:
     """Fetch gem info from RubyGems."""
     info = RegistryInfo(ecosystem="rubygems", package_name=gem_name)
@@ -651,9 +656,7 @@ async def _fetch_rubygems(gem_name: str, cache: Cache) -> RegistryInfo:
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                f"https://rubygems.org/api/v1/gems/{gem_name}.json"
-            )
+            resp = await client.get(f"https://rubygems.org/api/v1/gems/{gem_name}.json")
             if resp.status_code == 200:
                 data = resp.json()
                 cache.set_json(cache_key, data, ttl_seconds=7 * 86400)
@@ -730,6 +733,7 @@ async def _fetch_rubygems_dependents(gem_name: str, cache: Cache) -> int | None:
 # Maven Central
 # ---------------------------------------------------------------------------
 
+
 async def _fetch_maven(group_artifact: str, cache: Cache) -> RegistryInfo:
     """Fetch artifact info from Maven Central."""
     info = RegistryInfo(ecosystem="maven", package_name=group_artifact)
@@ -776,7 +780,7 @@ def _parse_maven_response(data: dict[str, Any], info: RegistryInfo) -> RegistryI
         timestamp = doc.get("timestamp")
         if timestamp:
             try:
-                info.latest_date = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+                info.latest_date = datetime.fromtimestamp(timestamp / 1000, tz=UTC)
             except (ValueError, OSError):
                 pass
 
@@ -786,6 +790,7 @@ def _parse_maven_response(data: dict[str, Any], info: RegistryInfo) -> RegistryI
 # ---------------------------------------------------------------------------
 # Docker Hub
 # ---------------------------------------------------------------------------
+
 
 async def _fetch_docker(image_name: str, cache: Cache) -> RegistryInfo:
     """Fetch image info from Docker Hub."""
@@ -897,6 +902,7 @@ async def _fetch_libraries_io_dependents(
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
 
 # pylint: disable=too-many-branches
 # mccabe: MC0001

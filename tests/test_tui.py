@@ -8,7 +8,7 @@ output of the full dashboard. Locale is pinned so assertions match.
 from __future__ import annotations
 
 import io
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from rich.console import Console
@@ -34,23 +34,23 @@ from gh_score.cli.tui import (
 from gh_score.core.comparison import compare_results
 from gh_score.core.models import (
     AnalysisResult,
+    ContributorArchetype,
     ContributorDetail,
     ContributorsIndicator,
-    ContributorArchetype,
+    ForkPullRequest,
     LanguagesIndicator,
-    LicenseIndicator,
     LicenseFamily,
+    LicenseIndicator,
     LLMRecommendation,
     MaintenanceIndicator,
     MaintenanceState,
-    ForkPullRequest,
     QualitativeIndicator,
     Recommendation,
     RecommendationLevel,
     RegistryInfo,
     ReleaseHealthIndicator,
-    RepoUrl,
     RepositoryMeta,
+    RepoUrl,
     Status,
     SustainabilityIndicator,
     WebsiteIndicator,
@@ -69,7 +69,7 @@ def en_locale(monkeypatch):
 @pytest.fixture
 def result() -> AnalysisResult:
     """A fully-populated AnalysisResult exercising every renderer branch."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return AnalysisResult(
         url=RepoUrl("owner", "repo"),
         meta=RepositoryMeta(
@@ -460,7 +460,9 @@ class TestRenderDashboard:
         result.meta.is_soft_fork = True
         result.meta.fork_prs = [
             ForkPullRequest(
-                784, "open", "fix: bind SIP media sockets",
+                784,
+                "open",
+                "fix: bind SIP media sockets",
                 "https://github.com/livekit/sip/pull/784",
             )
         ]

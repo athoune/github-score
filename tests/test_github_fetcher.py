@@ -1,6 +1,6 @@
 """Tests for the GitHub API fetcher (no network: HTTP is mocked)."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -35,7 +35,7 @@ URL = RepoUrl(owner="owner", repo="repo")
 class TestParseDatetime:
     def test_zulu_format(self):
         parsed = _parse_datetime("2024-01-15T10:30:00Z")
-        assert parsed == datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)
+        assert parsed == datetime(2024, 1, 15, 10, 30, tzinfo=UTC)
 
     def test_none(self):
         assert _parse_datetime(None) is None
@@ -58,7 +58,7 @@ class TestRollingSince:
 
     def test_is_in_the_past(self):
         since = datetime.fromisoformat(_rolling_since(12))
-        assert since < datetime.now(timezone.utc)
+        assert since < datetime.now(UTC)
 
 
 class TestClassifyLicense:
@@ -141,9 +141,7 @@ class TestGetAllPages:
         full_page = [{"login": "u"} for _ in range(100)]
         fetcher._get = AsyncMock(return_value=full_page)
 
-        result = await fetcher._get_all_pages(
-            f"{URL.api_url}/releases", max_pages=3
-        )
+        result = await fetcher._get_all_pages(f"{URL.api_url}/releases", max_pages=3)
 
         assert len(result) == 300
         # Page 1 alone, then one parallel batch of pages 2-3.
@@ -154,23 +152,25 @@ class TestFetchMeta:
     @pytest.mark.asyncio
     async def test_parses_metadata(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "name": "repo",
-            "full_name": "owner/repo",
-            "owner": {"login": "owner", "type": "Organization"},
-            "description": "A repo",
-            "created_at": "2024-01-15T10:30:00Z",
-            "default_branch": "main",
-            "archived": True,
-            "stargazers_count": 1234,
-            "forks_count": 56,
-            "subscribers_count": 7,
-            "open_issues_count": 9,
-            "topics": ["python", "cli"],
-            "has_wiki": False,
-            "homepage": "https://example.com",
-            "size": 42,
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "name": "repo",
+                "full_name": "owner/repo",
+                "owner": {"login": "owner", "type": "Organization"},
+                "description": "A repo",
+                "created_at": "2024-01-15T10:30:00Z",
+                "default_branch": "main",
+                "archived": True,
+                "stargazers_count": 1234,
+                "forks_count": 56,
+                "subscribers_count": 7,
+                "open_issues_count": 9,
+                "topics": ["python", "cli"],
+                "has_wiki": False,
+                "homepage": "https://example.com",
+                "size": 42,
+            }
+        )
 
         meta = await fetcher.fetch_meta(URL)
 
@@ -180,16 +180,18 @@ class TestFetchMeta:
         assert meta.archived is True
         assert meta.topics == ["python", "cli"]
         assert meta.owner_type == "organization"
-        assert meta.created_at == datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)
+        assert meta.created_at == datetime(2024, 1, 15, 10, 30, tzinfo=UTC)
 
     @pytest.mark.asyncio
     async def test_user_owner_type_normalized(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "name": "repo",
-            "full_name": "owner/repo",
-            "owner": {"login": "owner", "type": "User"},
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "name": "repo",
+                "full_name": "owner/repo",
+                "owner": {"login": "owner", "type": "User"},
+            }
+        )
 
         meta = await fetcher.fetch_meta(URL)
 
@@ -199,11 +201,13 @@ class TestFetchMeta:
     @pytest.mark.asyncio
     async def test_unknown_owner_type_is_empty(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "name": "repo",
-            "full_name": "owner/repo",
-            "owner": {"login": "owner", "type": "SomethingElse"},
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "name": "repo",
+                "full_name": "owner/repo",
+                "owner": {"login": "owner", "type": "SomethingElse"},
+            }
+        )
 
         meta = await fetcher.fetch_meta(URL)
 
@@ -212,14 +216,16 @@ class TestFetchMeta:
     @pytest.mark.asyncio
     async def test_fork_fields_parsed(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "name": "sip",
-            "full_name": "suitenumerique/livekit-sip",
-            "owner": {"login": "suitenumerique", "type": "Organization"},
-            "fork": True,
-            "parent": {"full_name": "livekit/sip"},
-            "source": {"full_name": "livekit/sip"},
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "name": "sip",
+                "full_name": "suitenumerique/livekit-sip",
+                "owner": {"login": "suitenumerique", "type": "Organization"},
+                "fork": True,
+                "parent": {"full_name": "livekit/sip"},
+                "source": {"full_name": "livekit/sip"},
+            }
+        )
 
         meta = await fetcher.fetch_meta(URL)
 
@@ -246,14 +252,14 @@ class TestFetchForkDivergence:
     @pytest.mark.asyncio
     async def test_ahead_behind(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(side_effect=[
-            {"default_branch": "main"},          # parent meta
-            {"ahead_by": 0, "behind_by": 35},    # compare
-        ])
-
-        ahead, behind = await fetcher.fetch_fork_divergence(
-            URL, "livekit/sip", "main"
+        fetcher._get = AsyncMock(
+            side_effect=[
+                {"default_branch": "main"},  # parent meta
+                {"ahead_by": 0, "behind_by": 35},  # compare
+            ]
         )
+
+        ahead, behind = await fetcher.fetch_fork_divergence(URL, "livekit/sip", "main")
 
         assert ahead == 0
         assert behind == 35
@@ -284,10 +290,12 @@ class TestFetchForkDivergence:
     @pytest.mark.asyncio
     async def test_compare_unreachable(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(side_effect=[
-            {"default_branch": "main"},
-            None,
-        ])
+        fetcher._get = AsyncMock(
+            side_effect=[
+                {"default_branch": "main"},
+                None,
+            ]
+        )
 
         ahead, behind = await fetcher.fetch_fork_divergence(URL, "livekit/sip", "main")
 
@@ -301,15 +309,19 @@ class TestFetchForkPrs:
     @pytest.mark.asyncio
     async def test_parses_search_items(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "total_count": 1,
-            "items": [{
-                "number": 784,
-                "state": "open",
-                "title": "fix: bind SIP media sockets",
-                "html_url": "https://github.com/livekit/sip/pull/784",
-            }],
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "total_count": 1,
+                "items": [
+                    {
+                        "number": 784,
+                        "state": "open",
+                        "title": "fix: bind SIP media sockets",
+                        "html_url": "https://github.com/livekit/sip/pull/784",
+                    }
+                ],
+            }
+        )
 
         prs = await fetcher.fetch_fork_prs("livekit/sip", "AlexanderMatveev")
 
@@ -328,15 +340,19 @@ class TestFetchForkPrs:
     @pytest.mark.asyncio
     async def test_merged_detected(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "items": [{
-                "number": 1,
-                "state": "closed",
-                "title": "old fix",
-                "html_url": "https://github.com/p/r/pull/1",
-                "pull_request": {"merged_at": "2024-01-01T00:00:00Z"},
-            }],
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "items": [
+                    {
+                        "number": 1,
+                        "state": "closed",
+                        "title": "old fix",
+                        "html_url": "https://github.com/p/r/pull/1",
+                        "pull_request": {"merged_at": "2024-01-01T00:00:00Z"},
+                    }
+                ],
+            }
+        )
 
         prs = await fetcher.fetch_fork_prs("owner/parent", "forker")
 
@@ -345,15 +361,19 @@ class TestFetchForkPrs:
     @pytest.mark.asyncio
     async def test_closed_not_merged(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "items": [{
-                "number": 2,
-                "state": "closed",
-                "title": "rejected",
-                "html_url": "https://github.com/p/r/pull/2",
-                "pull_request": {"merged_at": None},
-            }],
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "items": [
+                    {
+                        "number": 2,
+                        "state": "closed",
+                        "title": "rejected",
+                        "html_url": "https://github.com/p/r/pull/2",
+                        "pull_request": {"merged_at": None},
+                    }
+                ],
+            }
+        )
 
         prs = await fetcher.fetch_fork_prs("owner/parent", "forker")
 
@@ -391,9 +411,11 @@ class TestFetchLicense:
     @pytest.mark.asyncio
     async def test_mit_license(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "license": {"spdx_id": "MIT", "name": "MIT License"},
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "license": {"spdx_id": "MIT", "name": "MIT License"},
+            }
+        )
 
         lic = await fetcher.fetch_license(URL)
 
@@ -404,9 +426,11 @@ class TestFetchLicense:
     @pytest.mark.asyncio
     async def test_noassertment_becomes_none(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "license": {"spdx_id": "NOASSERTMENT", "name": "No license"},
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "license": {"spdx_id": "NOASSERTMENT", "name": "No license"},
+            }
+        )
 
         lic = await fetcher.fetch_license(URL)
 
@@ -428,22 +452,24 @@ class TestFetchReleases:
     @pytest.mark.asyncio
     async def test_parses_releases(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get_all_pages = AsyncMock(return_value=[
-            {
-                "tag_name": "v2.0.0",
-                "name": "Release 2",
-                "published_at": "2025-01-01T00:00:00Z",
-                "prerelease": False,
-                "draft": False,
-                "html_url": "https://github.com/owner/repo/releases/tag/v2.0.0",
-            },
-            {
-                "tag_name": "v3.0.0-beta",
-                "published_at": "2025-06-01T00:00:00Z",
-                "prerelease": True,
-                "draft": True,
-            },
-        ])
+        fetcher._get_all_pages = AsyncMock(
+            return_value=[
+                {
+                    "tag_name": "v2.0.0",
+                    "name": "Release 2",
+                    "published_at": "2025-01-01T00:00:00Z",
+                    "prerelease": False,
+                    "draft": False,
+                    "html_url": "https://github.com/owner/repo/releases/tag/v2.0.0",
+                },
+                {
+                    "tag_name": "v3.0.0-beta",
+                    "published_at": "2025-06-01T00:00:00Z",
+                    "prerelease": True,
+                    "draft": True,
+                },
+            ]
+        )
 
         rh = await fetcher.fetch_releases(URL)
 
@@ -458,25 +484,27 @@ class TestFetchIssues:
     @pytest.mark.asyncio
     async def test_parses_issues_and_prs(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get_all_pages = AsyncMock(return_value=[
-            {
-                "number": 42,
-                "title": "Bug",
-                "state": "closed",
-                "created_at": "2025-01-01T00:00:00Z",
-                "closed_at": "2025-01-05T00:00:00Z",
-                "labels": [{"name": "bug"}, {"name": "priority"}],
-            },
-            {
-                "number": 43,
-                "title": "PR",
-                "state": "open",
-                "created_at": "2025-02-01T00:00:00Z",
-                "closed_at": None,
-                "pull_request": {"url": "https://github.com/owner/repo/pull/43"},
-                "labels": [],
-            },
-        ])
+        fetcher._get_all_pages = AsyncMock(
+            return_value=[
+                {
+                    "number": 42,
+                    "title": "Bug",
+                    "state": "closed",
+                    "created_at": "2025-01-01T00:00:00Z",
+                    "closed_at": "2025-01-05T00:00:00Z",
+                    "labels": [{"name": "bug"}, {"name": "priority"}],
+                },
+                {
+                    "number": 43,
+                    "title": "PR",
+                    "state": "open",
+                    "created_at": "2025-02-01T00:00:00Z",
+                    "closed_at": None,
+                    "pull_request": {"url": "https://github.com/owner/repo/pull/43"},
+                    "labels": [],
+                },
+            ]
+        )
 
         issues = await fetcher.fetch_issues(URL)
 
@@ -491,11 +519,13 @@ class TestFetchLanguages:
     @pytest.mark.asyncio
     async def test_parses_languages(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "Python": 1000,
-            "HTML": 200,
-            "NonInt": "ignored",
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "Python": 1000,
+                "HTML": 200,
+                "NonInt": "ignored",
+            }
+        )
 
         langs = await fetcher.fetch_languages(URL)
 
@@ -507,16 +537,18 @@ class TestFetchCommunityFiles:
     @pytest.mark.asyncio
     async def test_root_files_listing(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(side_effect=[
-            [
-                {"name": "README.md"},
-                {"name": "pyproject.toml"},
-                {"name": "Dockerfile"},
-                {"name": "LICENSE"},
-                {"name": ".github"},
-            ],
-            None,  # no FUNDING.yml
-        ])
+        fetcher._get = AsyncMock(
+            side_effect=[
+                [
+                    {"name": "README.md"},
+                    {"name": "pyproject.toml"},
+                    {"name": "Dockerfile"},
+                    {"name": "LICENSE"},
+                    {"name": ".github"},
+                ],
+                None,  # no FUNDING.yml
+            ]
+        )
 
         community = await fetcher.fetch_community_files(URL)
 
@@ -524,7 +556,11 @@ class TestFetchCommunityFiles:
         assert community.has_license is True
         # Lowercased and sorted, kept for library/application classification.
         assert community.root_files == [
-            ".github", "dockerfile", "license", "pyproject.toml", "readme.md",
+            ".github",
+            "dockerfile",
+            "license",
+            "pyproject.toml",
+            "readme.md",
         ]
 
     @pytest.mark.asyncio
@@ -546,10 +582,12 @@ class TestFetchFileContent:
         import base64
 
         fetcher = _make_fetcher(tmp_path)
-        mock_get = AsyncMock(return_value={
-            "content": base64.b64encode(b'[project]\nname = "pyproj"').decode(),
-            "encoding": "base64",
-        })
+        mock_get = AsyncMock(
+            return_value={
+                "content": base64.b64encode(b'[project]\nname = "pyproj"').decode(),
+                "encoding": "base64",
+            }
+        )
         fetcher._get = mock_get  # type: ignore[method-assign]
 
         content = await fetcher.fetch_file_content(URL, "pyproject.toml")
@@ -570,10 +608,12 @@ class TestFetchFileContent:
     @pytest.mark.asyncio
     async def test_bad_encoding_returns_none(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
-        fetcher._get = AsyncMock(return_value={
-            "content": "not base64!",
-            "encoding": "utf-8",
-        })
+        fetcher._get = AsyncMock(
+            return_value={
+                "content": "not base64!",
+                "encoding": "utf-8",
+            }
+        )
 
         assert await fetcher.fetch_file_content(URL, "package.json") is None
 
@@ -607,9 +647,7 @@ class TestSecurityUpdateMarkers:
         )
 
     def test_security_marker_plural(self):
-        assert _is_security_update(
-            "**This update includes security fixes.**"
-        )
+        assert _is_security_update("**This update includes security fixes.**")
 
     def test_regular_version_bump_is_not_security(self):
         # The changelog mentions SECURITY ISSUE/CVE, but the PR is a plain bump.
@@ -629,7 +667,7 @@ class TestFetchSecurityUpdates:
         non-Dependabot bot (e.g. dotnet-updater[bot]) or a human PR
         carrying the marker still counts."""
         fetcher = _make_fetcher(tmp_path)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         prs = [
             {
                 "number": 1,

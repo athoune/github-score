@@ -114,8 +114,15 @@ class TestFetchLocalRepo:
         (repo_path / "utils.py").write_text("def helper():\n    pass\n")
         (repo_path / "cli.py").write_text("import sys\n")
         repo.index.add(
-            ["README.md", "pyproject.toml", "CONTRIBUTING.md",
-             ".github/FUNDING.yml", "main.py", "utils.py", "cli.py"]
+            [
+                "README.md",
+                "pyproject.toml",
+                "CONTRIBUTING.md",
+                ".github/FUNDING.yml",
+                "main.py",
+                "utils.py",
+                "cli.py",
+            ]
         )
         repo.index.commit("init")
 
@@ -144,8 +151,13 @@ class TestFetchLocalRepo:
 
         # Root listing: lowercased, .git excluded, sorted
         assert result.community.root_files == [
-            ".github", "cli.py", "contributing.md", "main.py",
-            "pyproject.toml", "readme.md", "utils.py",
+            ".github",
+            "cli.py",
+            "contributing.md",
+            "main.py",
+            "pyproject.toml",
+            "readme.md",
+            "utils.py",
         ]
 
         # README content read from disk

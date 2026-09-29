@@ -1,34 +1,34 @@
 """Tests for analyzers."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from gh_score.core.models import (
-    Repository,
-    RepoUrl,
-    Release,
-    ReleaseHealth,
-    LicenseInfo,
-    LicenseFamily,
-    Contributor,
-    ContributorStats,
-    Commit,
-    LanguageBreakdown,
-    CommunityFiles,
-    SecurityUpdate,
-    Status,
-    MaintenanceState,
-)
-from gh_score.core.analyzers.mirror import detect_mirror
 from gh_score.core.analyzers import (
-    analyze_release_health,
-    analyze_license,
     analyze_contributors,
-    analyze_maintenance,
     analyze_languages,
+    analyze_license,
+    analyze_maintenance,
+    analyze_release_health,
     analyze_security,
     analyze_sustainability,
 )
+from gh_score.core.analyzers.mirror import detect_mirror
 from gh_score.core.analyzers.sustainability import _detect_corporate_backing
+from gh_score.core.models import (
+    Commit,
+    CommunityFiles,
+    Contributor,
+    ContributorStats,
+    LanguageBreakdown,
+    LicenseFamily,
+    LicenseInfo,
+    MaintenanceState,
+    Release,
+    ReleaseHealth,
+    Repository,
+    RepoUrl,
+    SecurityUpdate,
+    Status,
+)
 
 
 class TestReleaseHealthAnalyzer:
@@ -39,7 +39,7 @@ class TestReleaseHealthAnalyzer:
         assert result.latest_version is None
 
     def test_recent_release(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         releases = [
             Release(
                 tag_name="v1.0.0",
@@ -56,7 +56,7 @@ class TestReleaseHealthAnalyzer:
         assert result.status == Status.HEALTHY
 
     def test_old_release(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         releases = [
             Release(
                 tag_name="v1.0.0",
@@ -73,9 +73,9 @@ class TestReleaseHealthAnalyzer:
 
     def test_semver_compliance(self):
         releases = [
-            Release(tag_name="v1.0.0", published_at=datetime.now(timezone.utc)),
-            Release(tag_name="v1.1.0", published_at=datetime.now(timezone.utc)),
-            Release(tag_name="v2.0.0", published_at=datetime.now(timezone.utc)),
+            Release(tag_name="v1.0.0", published_at=datetime.now(UTC)),
+            Release(tag_name="v1.1.0", published_at=datetime.now(UTC)),
+            Release(tag_name="v2.0.0", published_at=datetime.now(UTC)),
         ]
         repo = Repository(
             url=RepoUrl("owner", "repo"),
@@ -88,7 +88,7 @@ class TestReleaseHealthAnalyzer:
         releases = [
             Release(
                 tag_name="v2.0.0-beta",
-                published_at=datetime.now(timezone.utc),
+                published_at=datetime.now(UTC),
                 prerelease=True,
             )
         ]
@@ -143,7 +143,9 @@ class TestContributorsAnalyzer:
         ]
         repo = Repository(
             url=RepoUrl("owner", "repo"),
-            contributors=ContributorStats(contributors=contributors, total_commit_count=100),
+            contributors=ContributorStats(
+                contributors=contributors, total_commit_count=100
+            ),
         )
         result = analyze_contributors(repo)
         assert result.total_authors == 1
@@ -158,7 +160,9 @@ class TestContributorsAnalyzer:
         ]
         repo = Repository(
             url=RepoUrl("owner", "repo"),
-            contributors=ContributorStats(contributors=contributors, total_commit_count=100),
+            contributors=ContributorStats(
+                contributors=contributors, total_commit_count=100
+            ),
         )
         result = analyze_contributors(repo)
         assert result.total_authors == 3
@@ -172,7 +176,9 @@ class TestContributorsAnalyzer:
         ]
         repo = Repository(
             url=RepoUrl("owner", "repo"),
-            contributors=ContributorStats(contributors=contributors, total_commit_count=100),
+            contributors=ContributorStats(
+                contributors=contributors, total_commit_count=100
+            ),
         )
         result = analyze_contributors(repo)
         assert result.total_authors == 1  # Only alice
@@ -181,13 +187,15 @@ class TestContributorsAnalyzer:
 
 class TestMaintenanceAnalyzer:
     def test_active_maintenance(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Create enough commits to be considered active (>= 2 commits/month)
         # Over 12 months, we need at least 24 commits
         commits = []
         for i in range(30):
-            commits.append(Commit(sha=f"commit{i}", author_date=now - timedelta(days=i)))
-        
+            commits.append(
+                Commit(sha=f"commit{i}", author_date=now - timedelta(days=i))
+            )
+
         repo = Repository(
             url=RepoUrl("owner", "repo"),
             commits=commits,
@@ -198,7 +206,7 @@ class TestMaintenanceAnalyzer:
         assert result.last_commit_days_ago <= 5
 
     def test_abandoned(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         commits = [
             Commit(sha="abc", author_date=now - timedelta(days=200)),
         ]
@@ -358,8 +366,7 @@ class TestCorporateBacking:
         # analyze_sustainability surfaces the noun-phrase backing in the report.
         repo = self._repo("warpdotdev", "warp")
         repo.readme_content = (
-            "> OpenAI is the founding sponsor of the new, open-source Warp "
-            "repository."
+            "> OpenAI is the founding sponsor of the new, open-source Warp repository."
         )
         result = analyze_sustainability(repo, lang="en")
         assert result.corporate_backing == "OpenAI"
@@ -371,7 +378,7 @@ class TestSecurityAnalyzer:
 
     def _repo(self, *days_ago: int) -> Repository:
         repo = Repository(url=RepoUrl("owner", "repo"))
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for i, days in enumerate(days_ago, start=1):
             repo.security_updates.append(
                 SecurityUpdate(
@@ -475,8 +482,7 @@ class TestReadmeLanguage:
     def test_markdown_noise_stripped(self):
         noisy = (
             "[![build](https://ci.example.com/badge.svg)](https://ci.example.com)\n"
-            "# My Tool\n\n"
-            + _ENGLISH_README
+            "# My Tool\n\n" + _ENGLISH_README
         )
         repo = Repository(url=RepoUrl("owner", "repo"), readme_content=noisy)
         result = analyze_languages(repo)

@@ -8,7 +8,7 @@ vulnerability is being ignored.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from gh_score.core.models import (
     Repository,
@@ -46,16 +46,15 @@ def analyze_security(
         indicator.interpretation = t("int_security_none", lang=lang)
         return indicator
 
-    now = datetime.now(timezone.utc)
-    ages = [
-        (now - u.created_at).days
-        for u in updates
-        if u.created_at is not None
-    ]
+    now = datetime.now(UTC)
+    ages = [(now - u.created_at).days for u in updates if u.created_at is not None]
     if ages:
         indicator.oldest_days = max(ages)
 
-    if indicator.oldest_days is not None and indicator.oldest_days >= _PENDING_LIMIT_DAYS:
+    if (
+        indicator.oldest_days is not None
+        and indicator.oldest_days >= _PENDING_LIMIT_DAYS
+    ):
         indicator.status = Status.CRITICAL
         indicator.interpretation = t(
             "int_security_overdue",

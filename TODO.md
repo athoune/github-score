@@ -60,6 +60,14 @@ Remaining actions after the comparison feature
       Wiring: `core/url_resolver.py`, `RepoUrl.parse`, CLI validation
       defers http(s) non-forge URLs to the async resolver, `api.py`
       resolves before `fetch_all` (SPECS §10.2, §11).
+- [x] (done 2026-09-29) **git.new short links as candidates** — project
+      pages that hide every GitHub link behind the `git.new` shortener
+      (e.g. flipt.io) now resolve: short URLs are extracted, followed to
+      their redirect target (allowlisted `git.new` host only, capped at
+      10/page, body never downloaded) and kept as candidates only when
+      the target lands on `github.com/owner/repo`. The back-link and
+      uniqueness gates are unchanged; generic shorteners are never
+      followed.
 
 Feature ideas carried over from the maintainer's notes (`TODO.txt`),
 described cleanly. Scope and acceptance criteria still to be defined per

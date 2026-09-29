@@ -196,7 +196,8 @@ item.
 
 ## Workflow
 
-- Never `git push` — pushing is the maintainer's responsibility.
+- Never `git push`, unless the maintainer explicitly asked for a PR
+  (global AGENTS.md push policy: feature branch only, never `main`).
 - Commit author: `OpenCode {model} <opencode@garambrogne.net>`.
 - One task per commit.
 - When an item is done, tick `[x]` and add its completion date:

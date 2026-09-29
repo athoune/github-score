@@ -20,6 +20,14 @@ _GITHUB_URL_RE = re.compile(
     r"^https?://(?:www\.)?github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/?$"
 )
 
+# Project sites served by GitHub Pages: https://<owner>.github.io/<repo>/
+# maps deterministically to github.com/<owner>/<repo>. A bare
+# https://<owner>.github.io/ (no path) is the user site, whose repository
+# is <owner>/<owner>.github.io by GitHub convention.
+_GITHUB_IO_RE = re.compile(
+    r"^https?://(?P<owner>[A-Za-z0-9-]+)\.github\.io(?P<path>/[^?#]*)?/?(?:[?#].*)?$"
+)
+
 
 @dataclass(frozen=True)
 class RepoUrl:
@@ -29,16 +37,52 @@ class RepoUrl:
     repo: str
 
     @classmethod
+    def from_github_io(cls, url: str) -> RepoUrl:
+        """Parse a GitHub Pages project URL into owner/repo.
+
+        ``https://<owner>.github.io/<repo>/...`` maps to
+        ``<owner>/<repo>``; a bare ``https://<owner>.github.io/`` is the
+        user site, whose repository is ``<owner>/<owner>.github.io``.
+
+        Raises ValueError if the URL is not a *.github.io URL.
+        """
+        text = url.strip().removesuffix(".git")
+        m = _GITHUB_IO_RE.match(text)
+        if not m:
+            raise ValueError(f"Not a GitHub Pages URL: {url!r}")
+        owner = m.group("owner")
+        path = (m.group("path") or "").strip("/")
+        if not owner:
+            raise ValueError(f"Not a GitHub Pages URL: {url!r}")
+        if not path:
+            return cls(owner=owner, repo=f"{owner}.github.io")
+        repo = path.split("/", 1)[0].removesuffix(".git")
+        if not repo:
+            raise ValueError(f"Not a GitHub Pages URL: {url!r}")
+        return cls(owner=owner, repo=repo)
+
+    @classmethod
     def parse(cls, url: str) -> RepoUrl:
         """Parse a GitHub URL into owner/repo.
 
+        Accepts ``https://github.com/owner/repo`` and GitHub Pages
+        project URLs (``https://owner.github.io/repo``).
+
         Raises ValueError if the URL is not a valid GitHub repository URL.
         """
-        url = url.removesuffix(".git")
-        m = _GITHUB_URL_RE.match(url.strip())
-        if not m:
-            raise ValueError(f"Not a valid GitHub repository URL: {url!r}")
-        return cls(owner=m.group("owner"), repo=m.group("repo"))
+        text = url.strip().removesuffix(".git")
+        m = _GITHUB_URL_RE.match(text)
+        if m:
+            return cls(owner=m.group("owner"), repo=m.group("repo"))
+        try:
+            return cls.from_github_io(text)
+        except ValueError:
+            pass
+        raise ValueError(
+            "Not a valid GitHub repository URL "
+            "(expected https://github.com/owner/repo "
+            f"or https://owner.github.io/project): {url!r}"
+        )
 
     @property
     def api_url(self) -> str:

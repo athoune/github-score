@@ -48,6 +48,19 @@ Remaining actions after the comparison feature
 
 ## Planned features
 
+- [x] (done 2026-09-29) **Project site URLs as input** — `*.github.io`
+      project pages resolve deterministically to `owner/repo`
+      (`RepoUrl.from_github_io`; bare user sites map to
+      `owner/owner.github.io`); custom project domains resolve only on a
+      bidirectional link (page links to `github.com` candidates AND
+      exactly one candidate declares the page as its GitHub `homepage`).
+      Ambiguous, unclaimed or unfetchable pages are refused with an error
+      telling the user to pass the `github.com` URL directly — never
+      guessed. Forge URLs (GitLab, Bitbucket, …) still fail fast.
+      Wiring: `core/url_resolver.py`, `RepoUrl.parse`, CLI validation
+      defers http(s) non-forge URLs to the async resolver, `api.py`
+      resolves before `fetch_all` (SPECS §10.2, §11).
+
 Feature ideas carried over from the maintainer's notes (`TODO.txt`),
 described cleanly. Scope and acceptance criteria still to be defined per
 item.

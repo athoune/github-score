@@ -115,6 +115,36 @@ class TestRepoUrl:
         assert url.html_url == "https://github.com/owner/repo"
 
 
+class TestRepoUrlGithubIo:
+    def test_parse_project_site(self):
+        url = RepoUrl.parse("https://erha19.github.io/ping-island/")
+        assert (url.owner, url.repo) == ("erha19", "ping-island")
+
+    def test_parse_project_site_no_trailing_slash(self):
+        url = RepoUrl.parse("https://erha19.github.io/ping-island")
+        assert (url.owner, url.repo) == ("erha19", "ping-island")
+
+    def test_parse_project_site_subpath(self):
+        url = RepoUrl.parse("https://erha19.github.io/ping-island/docs/intro?q=1#top")
+        assert (url.owner, url.repo) == ("erha19", "ping-island")
+
+    def test_parse_user_site(self):
+        url = RepoUrl.parse("https://erha19.github.io/")
+        assert (url.owner, url.repo) == ("erha19", "erha19.github.io")
+
+    def test_parse_user_site_no_trailing_slash(self):
+        url = RepoUrl.parse("https://erha19.github.io")
+        assert (url.owner, url.repo) == ("erha19", "erha19.github.io")
+
+    def test_from_github_io_rejects_other_hosts(self):
+        with pytest.raises(ValueError):
+            RepoUrl.from_github_io("https://example.com/project")
+
+    def test_parse_rejects_lookalike_host(self):
+        with pytest.raises(ValueError):
+            RepoUrl.parse("https://erha19.github.io.evil.com/ping-island")
+
+
 class TestReleaseHealth:
     def test_latest_release(self):
         releases = [

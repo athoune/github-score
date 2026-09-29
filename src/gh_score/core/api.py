@@ -114,15 +114,52 @@ async def analyze_repo_async(
                 # Keep local commits and contributors (more complete)
             local_path = str(path)
         else:
-            # Remote analysis
-            repo_url = RepoUrl.parse(url_or_path)
-            if not _token_available(config):
-                warnings.append(t("warn_no_token"))
-            fetcher = GitHubFetcher(config, cache)
-            repo = await fetcher.fetch_all(repo_url)
-            repo.security_updates = await fetcher.fetch_security_updates(repo_url)
-            api_meta_ok = bool(repo.meta.full_name)
-            local_path = None
+            # Remote analysis: github.com and *.github.io URLs resolve
+            # synchronously; custom project domains resolve via the
+            # bidirectional link (page -> repo candidates, repo homepage
+            # -> page), refusing to guess on ambiguity.
+            try:
+                repo_url = RepoUrl.parse(url_or_path)
+            except ValueError:
+                from gh_score.core.url_resolver import (
+                    is_forge_url,
+                    resolve_custom_domain,
+                )
+
+                if is_forge_url(url_or_path) or not url_or_path.lower().startswith(
+                    ("http://", "https://")
+                ):
+                    raise
+
+                if not _token_available(config):
+                    warnings.append(t("warn_no_token"))
+                fetcher = GitHubFetcher(config, cache)
+                try:
+
+                    async def _candidate_homepage(
+                        candidate: RepoUrl,
+                    ) -> str | None:
+                        return (await fetcher.fetch_meta(candidate)).homepage
+
+                    repo_url = await resolve_custom_domain(
+                        url_or_path, fetch_homepage=_candidate_homepage
+                    )
+                except ValueError:
+                    await fetcher.close()
+                    fetcher = None
+                    raise
+                repo = await fetcher.fetch_all(repo_url)
+                repo.security_updates = await fetcher.fetch_security_updates(repo_url)
+                api_meta_ok = bool(repo.meta.full_name)
+                local_path = None
+            else:
+                if not _token_available(config):
+                    warnings.append(t("warn_no_token"))
+                fetcher = GitHubFetcher(config, cache)
+                repo = await fetcher.fetch_all(repo_url)
+                repo.security_updates = await fetcher.fetch_security_updates(repo_url)
+                api_meta_ok = bool(repo.meta.full_name)
+                local_path = None
 
         # Fetch registry information. Remote mode reuses the still-open
         # fetcher to read manifests through the GitHub contents API, so

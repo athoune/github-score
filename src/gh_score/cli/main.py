@@ -70,6 +70,16 @@ def _validate_url(url_or_path: str, local: bool, console: Console) -> None:
     try:
         RepoUrl.parse(url_or_path)
     except ValueError as exc:
+        # Custom project domains (non-forge http URLs) are resolved
+        # asynchronously with a back-link check — let them through here so
+        # the pipeline can raise the precise error (ambiguous / unclaimed).
+        # Forge URLs (gitlab.com/owner/repo, ...) are unambiguously "not
+        # GitHub" and fail fast like before.
+        from gh_score.core.url_resolver import is_forge_url
+
+        scheme = url_or_path.lower().split("://", 1)[0]
+        if scheme in ("http", "https") and not is_forge_url(url_or_path):
+            return
         console.print(f"[red]{t('cli_error')}[/red] {exc}")
         sys.exit(1)
 

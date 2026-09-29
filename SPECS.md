@@ -733,7 +733,13 @@ gh-score config
 ### 10.2 Modes
 
 - No arguments: inspect the current directory if it is a git clone with a GitHub remote.
-- `URL`: analyze the repository remotely.
+- `URL`: analyze the repository remotely. Accepted forms:
+  `https://github.com/owner/repo`, GitHub Pages project sites
+  (`https://<owner>.github.io/<repo>`, resolved deterministically), and
+  custom project domains — resolved only when the page links to
+  `github.com` candidates and exactly one candidate declares the page as
+  its GitHub `homepage` (back-link; ambiguous or unclaimed pages are
+  refused with an error instead of guessed).
 - `URL1 URL2 [URL3…]`: comparison mode — every URL is analyzed (in
   parallel, sharing the cache), then a comparison with a comparability
   assessment is rendered (see §8).
@@ -836,7 +842,9 @@ print(comparison.pairs[0].verdict)  # comparability warning, if any
 
 Core abstractions:
 
-- `RepoUrl`: parses and validates GitHub URLs.
+- `RepoUrl`: parses and validates GitHub URLs (`github.com` and
+  `*.github.io` synchronously; custom project domains asynchronously via
+  the bidirectional back-link check in `core/url_resolver.py`).
 - `Repository`: aggregate model containing all indicator families.
 - `Fetcher` protocol: implemented for GitHub API, local git, and package registries.
 - `Analyzer` protocol: each indicator family is an analyzer operating on `Repository`.

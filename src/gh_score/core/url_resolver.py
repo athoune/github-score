@@ -10,6 +10,13 @@ Two cases:
    Anything else (no candidate, no back-link, several matches) raises a
    ``ValueError`` telling the user to pass the ``github.com`` URL directly.
    Guessing is worse than refusing: a wrong repo means a wrong verdict.
+
+GitHub links hidden behind the ``git.new`` shortener (Dub's GitHub link
+shortener, common on devtool marketing pages) are followed to their
+redirect target — but only that allowlisted host, and only targets
+landing on ``github.com/<owner>/<repo>`` become candidates. Following a
+short link notifies the shortener's analytics; generic shorteners
+(bit.ly, …) have no GitHub-specific semantics and are never followed.
 """
 
 from __future__ import annotations
@@ -33,6 +40,19 @@ _USER_AGENT = "gh-score/0.1.0"
 _PAGE_TIMEOUT = httpx.Timeout(connect=10.0, read=15.0, write=15.0, pool=10.0)
 _MAX_REDIRECTS = 10
 _MAX_BODY_BYTES = 512 * 1024
+
+# Short-link hosts with documented GitHub-only semantics whose redirects we
+# follow to recover hidden candidates. Generic shorteners are excluded: only
+# hosts whose whole purpose is github.com redirection qualify.
+_SHORTENER_HOSTS = ("git.new", "www.git.new")
+# Upper bound on short links followed per page: each is one HTTP request.
+_MAX_SHORT_LINKS = 10
+
+# Matches git.new short links inside page HTML (slug is one or more path
+# segments, e.g. https://git.new/flipt).
+_GITNEW_LINK_RE = re.compile(
+    r"https?://(?:www\.)?git\.new/(?P<slug>[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)"
+)
 
 # Hosts that are code forges (or their Pages hosting), never custom project
 # domains: a gitlab.com/owner/repo URL is unambiguously "not GitHub", not a
@@ -100,6 +120,61 @@ def extract_github_candidates(html: str) -> list[RepoUrl]:
     return candidates
 
 
+def extract_short_link_urls(html: str) -> list[str]:
+    """Extract unique git.new short-link URLs from page HTML (capped)."""
+    urls: list[str] = []
+    seen: set[str] = set()
+    for m in _GITNEW_LINK_RE.finditer(html):
+        url = m.group(0).rstrip(").,;:'\"!")
+        if url in seen:
+            continue
+        seen.add(url)
+        urls.append(url)
+        if len(urls) >= _MAX_SHORT_LINKS:
+            break
+    return urls
+
+
+def _github_repo_from_url(url: str) -> RepoUrl | None:
+    """Parse a final URL into owner/repo when it is a github.com repo page."""
+    parsed = urlparse(url)
+    if (parsed.hostname or "").lower() not in ("github.com", "www.github.com"):
+        return None
+    segments = [s for s in parsed.path.split("/") if s]
+    if len(segments) < 2:
+        return None
+    owner, repo = segments[0], segments[1].removesuffix(".git")
+    if not owner or not repo:
+        return None
+    return RepoUrl(owner=owner, repo=repo)
+
+
+FollowShortLink = Callable[[str], Awaitable[RepoUrl | None]]
+
+
+async def follow_gitnew_link(url: str) -> RepoUrl | None:
+    """Follow a git.new short link to its GitHub repository, if any.
+
+    Only redirect targets landing on ``github.com/<owner>/<repo>`` are
+    kept; anything else (parked slug, dead link, non-GitHub target,
+    unreachable shortener) yields ``None``. The response body is never
+    downloaded — only the final URL after redirects is used.
+    """
+    try:
+        async with httpx.AsyncClient(
+            timeout=_PAGE_TIMEOUT,
+            follow_redirects=True,
+            max_redirects=_MAX_REDIRECTS,
+            headers={"User-Agent": _USER_AGENT},
+        ) as client:
+            async with client.stream("GET", url) as resp:
+                if resp.status_code >= 400:
+                    return None
+                return _github_repo_from_url(str(resp.url))
+    except httpx.RequestError:
+        return None
+
+
 FetchPage = Callable[[str], Awaitable[tuple[str, str] | None]]
 FetchHomepage = Callable[[RepoUrl], Awaitable[str | None]]
 
@@ -127,11 +202,14 @@ async def resolve_custom_domain(
     *,
     fetch_page: FetchPage = fetch_page_http,
     fetch_homepage: FetchHomepage,
+    follow_short_link: FollowShortLink = follow_gitnew_link,
 ) -> RepoUrl:
     """Resolve a custom-domain project page to its GitHub repository.
 
-    Requires exactly one linked candidate whose GitHub ``homepage``
-    points back at the page. Raises ``ValueError`` otherwise.
+    Candidates come from direct ``github.com`` links plus ``git.new``
+    short links followed to their redirect target. Requires exactly one
+    candidate whose GitHub ``homepage`` points back at the page. Raises
+    ``ValueError`` otherwise.
     """
     page = await fetch_page(site_url)
     if page is None:
@@ -141,6 +219,16 @@ async def resolve_custom_domain(
         )
     final_url, html = page
     candidates = extract_github_candidates(html)
+    seen = {(c.owner.lower(), c.repo.lower()) for c in candidates}
+    for short_url in extract_short_link_urls(html):
+        resolved = await follow_short_link(short_url)
+        if resolved is None:
+            continue
+        key = (resolved.owner.lower(), resolved.repo.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        candidates.append(resolved)
     if not candidates:
         raise ValueError(
             f"No GitHub repository link found on {site_url!r} — pass the "

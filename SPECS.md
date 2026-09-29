@@ -739,7 +739,9 @@ gh-score config
   custom project domains — resolved only when the page links to
   `github.com` candidates and exactly one candidate declares the page as
   its GitHub `homepage` (back-link; ambiguous or unclaimed pages are
-  refused with an error instead of guessed).
+  refused with an error instead of guessed). `github.com` links hidden
+  behind the `git.new` shortener are followed to their redirect target
+  (allowlisted host only; generic shorteners never followed).
 - `URL1 URL2 [URL3…]`: comparison mode — every URL is analyzed (in
   parallel, sharing the cache), then a comparison with a comparability
   assessment is rendered (see §8).

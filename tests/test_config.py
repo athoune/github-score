@@ -6,9 +6,8 @@ from pathlib import Path
 
 from gh_score.config import Config
 
-
 _ENV_OVERRIDES = (
-    "GITHUB_TOKEN",
+    "GH_SCORE_GITHUB_TOKEN",
     "GH_SCORE_CONFIG",
     "GH_SCORE_CACHE_DIR",
     "GH_SCORE_CACHE_TTL_HOURS",
@@ -32,7 +31,7 @@ class TestConfig:
         assert config.registries.libraries_io_api_key == ""
 
     def test_load_from_toml(self, monkeypatch):
-        # Hermetic: GitHub Actions always sets GITHUB_TOKEN, and local shells
+        # Hermetic: GitHub Actions always sets GH_SCORE_GITHUB_TOKEN, and local shells
         # may set GH_SCORE_* vars — all of them override the TOML file.
         for var in _ENV_OVERRIDES:
             monkeypatch.delenv(var, raising=False)
@@ -101,13 +100,13 @@ libraries_io_api_key = "lio_secret"
             config_path.write_text("[github]\ntoken = \"file_token\"\n")
 
             # Set env var
-            os.environ["GITHUB_TOKEN"] = "env_token"
+            os.environ["GH_SCORE_GITHUB_TOKEN"] = "env_token"
             try:
                 config = Config.load(str(config_path))
                 # Env should override file
                 assert config.github.token == "env_token"
             finally:
-                del os.environ["GITHUB_TOKEN"]
+                del os.environ["GH_SCORE_GITHUB_TOKEN"]
 
     def test_missing_config_file(self, monkeypatch):
         # Should not raise, just use defaults.

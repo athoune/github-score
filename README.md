@@ -85,7 +85,7 @@ llama.cpp-style servers, plus the OpenAI-compatible
 
 ### Configuration
 
-Set a `GITHUB_TOKEN` to raise API rate limits. LLM settings can also live
+Set a `GH_SCORE_GITHUB_TOKEN` to raise API rate limits. LLM settings can also live
 in a `config.toml` (see `gh-score config`). Everything stays optional:
 the tool works fully offline with local clones and no token.
 

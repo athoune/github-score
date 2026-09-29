@@ -128,7 +128,7 @@ class Config:
                 self.registries.libraries_io_api_key = regs["libraries_io_api_key"]
 
     def _apply_env(self) -> None:
-        if token := os.environ.get("GITHUB_TOKEN"):
+        if token := os.environ.get("GH_SCORE_GITHUB_TOKEN"):
             self.github.token = token
         if val := os.environ.get("GH_SCORE_CACHE_DIR"):
             self.cache.dir = val

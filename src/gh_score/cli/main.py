@@ -489,7 +489,7 @@ _COMPARISON_RENDERERS = {
 _ENV_VARS_HELP = textwrap.dedent(
     """\
     Environment variables:
-      GITHUB_TOKEN                 GitHub API token (raises API rate limits)
+      GH_SCORE_GITHUB_TOKEN                 GitHub API token (raises API rate limits)
       GH_SCORE_CONFIG              Path to the TOML config file
       GH_SCORE_CACHE_DIR           Cache directory
       GH_SCORE_CACHE_TTL_HOURS     Cache TTL in hours

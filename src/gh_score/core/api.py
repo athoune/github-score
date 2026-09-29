@@ -46,7 +46,7 @@ from gh_score.llm.provider import (
 
 def _token_available(config: Config) -> bool:
     """True when a GitHub token is configured (file, config or env)."""
-    return bool(config.github.token or os.environ.get("GITHUB_TOKEN", ""))
+    return bool(config.github.token or os.environ.get("GH_SCORE_GITHUB_TOKEN", ""))
 
 
 def _is_local_llm(base_url: str) -> bool:

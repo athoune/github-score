@@ -71,7 +71,7 @@ Used whenever a repository URL is provided. The following fields are fetched:
 - Root directory listing (`GET /contents`) — file and directory names at the repository root, used for library/application classification and binding detection.
 
 Authentication:
-- If `GITHUB_TOKEN` is present, use it.
+- If `GH_SCORE_GITHUB_TOKEN` is present, use it.
 - Otherwise, warn the user and fall back to anonymous requests, displaying the remaining unauthenticated rate limit.
 
 ### 6.2 Optional source: local git clone
@@ -857,7 +857,7 @@ All network calls are cached locally.
 Configuration is read from:
 
 1. Command-line flags.
-2. Environment variables (`GITHUB_TOKEN`, `GH_SCORE_*`).
+2. Environment variables (`GH_SCORE_GITHUB_TOKEN`, `GH_SCORE_*`).
 3. User config file: `~/.config/gh-score/config.toml`.
 
 Example config:

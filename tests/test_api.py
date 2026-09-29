@@ -505,7 +505,7 @@ class TestWarnings:
     @pytest.mark.asyncio
     async def test_token_missing_warning(self, tmp_path, monkeypatch):
         self._pin_fr(monkeypatch)
-        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_SCORE_GITHUB_TOKEN", raising=False)
         config = _make_config(tmp_path)
         config.github.token = ""
         repo = _make_repo_data()

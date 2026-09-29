@@ -110,7 +110,7 @@ class GitHubFetcher:
     def __init__(self, config: Config, cache: Cache):
         self.config = config
         self.cache = cache
-        self.token = config.github.token or os.environ.get("GITHUB_TOKEN", "")
+        self.token = config.github.token or os.environ.get("GH_SCORE_GITHUB_TOKEN", "")
 
         headers = {
             "Accept": "application/vnd.github.v3+json",

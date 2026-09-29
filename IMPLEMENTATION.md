@@ -65,7 +65,7 @@ gh-score report [URL]        # Generate detailed report
 
 ### 5. Configuration
 - TOML config file support (`~/.config/gh-score/config.toml`)
-- Environment variables (`GITHUB_TOKEN`, `GH_SCORE_*`)
+- Environment variables (`GH_SCORE_GITHUB_TOKEN`, `GH_SCORE_*`)
 - CLI flags override config file
 
 ### 6. Internationalization

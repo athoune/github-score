@@ -450,7 +450,7 @@ class TestHelpEnvVars:
         runner = CliRunner()
         result = runner.invoke(cli, ["--help"])
         assert result.exit_code == 0
-        assert "GITHUB_TOKEN" in result.output
+        assert "GH_SCORE_GITHUB_TOKEN" in result.output
         assert "GH_SCORE_LLM_BASE_URL" in result.output
         assert "GH_SCORE_LLM_API_KEY" in result.output
 
@@ -458,7 +458,7 @@ class TestHelpEnvVars:
         runner = CliRunner()
         result = runner.invoke(cli, ["analyze", "--help"])
         assert result.exit_code == 0
-        assert "GITHUB_TOKEN" in result.output
+        assert "GH_SCORE_GITHUB_TOKEN" in result.output
 
 
 class TestMarkdownReport:

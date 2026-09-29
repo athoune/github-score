@@ -48,7 +48,7 @@ htmlcov/
 coverage.xml
 
 # Session files
-session-ses_*.md
+session-*.md
 
 .env
 TODO.txt

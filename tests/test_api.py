@@ -176,6 +176,70 @@ class TestRemotePath:
             await analyze_repo_async("https://gitlab.com/owner/repo", config)
 
     @pytest.mark.asyncio
+    async def test_github_io_url_resolves(self, tmp_path):
+        """A *.github.io project URL resolves without custom-domain lookup."""
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            instance = _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://owner.github.io/repo", config)
+
+        assert result.url == RepoUrl("owner", "repo")
+        instance.fetch_all.assert_awaited_once()
+        called_url = instance.fetch_all.await_args.args[0]
+        assert (called_url.owner, called_url.repo) == ("owner", "repo")
+
+    @pytest.mark.asyncio
+    async def test_custom_domain_resolves_via_backlink(self, tmp_path):
+        """A custom project domain resolves through the back-link check."""
+        config = _make_config(tmp_path)
+        repo = _make_repo_data()
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.api.fetch_registry_info",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "gh_score.core.url_resolver.resolve_custom_domain",
+                new=AsyncMock(return_value=RepoUrl("owner", "repo")),
+            ) as mock_resolve,
+        ):
+            instance = _mock_fetcher(mock_fetcher_cls, repo)
+            result = await analyze_repo_async("https://example.com/", config)
+
+        assert result.url == RepoUrl("owner", "repo")
+        mock_resolve.assert_awaited_once()
+        instance.fetch_all.assert_awaited_once()
+        instance.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_custom_domain_failure_closes_fetcher(self, tmp_path):
+        config = _make_config(tmp_path)
+
+        with (
+            patch("gh_score.core.api.GitHubFetcher") as mock_fetcher_cls,
+            patch(
+                "gh_score.core.url_resolver.resolve_custom_domain",
+                new=AsyncMock(
+                    side_effect=ValueError("No GitHub repository link found")
+                ),
+            ),
+        ):
+            instance = _mock_fetcher(mock_fetcher_cls, _make_repo_data())
+            with pytest.raises(ValueError, match="No GitHub repository link"):
+                await analyze_repo_async("https://example.com/", config)
+            instance.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_fork_divergence_fetched_and_classified(self, tmp_path):
         """A fork's ahead/behind counts are measured and classified."""
         config = _make_config(tmp_path)

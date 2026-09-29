@@ -110,6 +110,16 @@ class TestValidateUrl:
         console = Console(file=open("/dev/null", "w"))
         _validate_url("https://github.com/owner/repo", local=False, console=console)
 
+    def test_github_io_url(self):
+        console = Console(file=open("/dev/null", "w"))
+        _validate_url("https://owner.github.io/repo", local=False, console=console)
+
+    def test_custom_domain_deferred_to_async_resolver(self):
+        # Custom project domains are checked asynchronously (back-link);
+        # validation must let them through instead of exiting.
+        console = Console(file=open("/dev/null", "w"))
+        _validate_url("https://example.com/project", local=False, console=console)
+
     def test_invalid_url_exits(self, capsys):
         console = Console()
         with pytest.raises(SystemExit) as exc_info:

@@ -95,7 +95,7 @@ def _rolling_since(months: int = 12) -> str:
 
 def _classify_license(spdx_id: str | None) -> LicenseFamily:
     """Classify a license into a family based on SPDX ID."""
-    if not spdx_id or spdx_id == "NOASSERTMENT":
+    if not spdx_id or spdx_id == "NOASSERTION":
         return LicenseFamily.OTHER
 
     spdx = spdx_id.upper()
@@ -356,10 +356,11 @@ class GitHubFetcher:
         )
 
         return LicenseInfo(
-            spdx_id=spdx_id if spdx_id != "NOASSERTMENT" else None,
+            spdx_id=spdx_id if spdx_id != "NOASSERTION" else None,
             name=license_data.get("name"),
             osi_approved=osi,
             family=_classify_license(spdx_id),
+            source="github" if spdx_id and spdx_id != "NOASSERTION" else None,
         )
 
     async def fetch_releases(self, url: RepoUrl) -> ReleaseHealth:

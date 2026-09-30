@@ -60,7 +60,15 @@ The library exposes a function-based API returning typed models. The CLI is a th
 Used whenever a repository URL is provided. The following fields are fetched:
 
 - Repository metadata: name, owner, creation date, default branch, archived/disabled status.
-- License: `license.spdx_id`, fallback to local `LICENSE` file parsing.
+- License: `license.spdx_id` from the GitHub Licensee endpoint
+  (`GET /repos/{owner}/{repo}/license`; `NOASSERTION` means undetected).
+  When GitHub reports nothing, the SPDX declaration is taken from the
+  package manifest first (`pyproject.toml` PEP 621/639, `package.json`,
+  `Cargo.toml`, `.gemspec`, `pom.xml` — already read for registry
+  detection, zero extra network), then from the registry metadata (what
+  users actually consume). The winning source is tracked in
+  `license.source` (`github` | `manifest:<file>` | `registry:<ecosystem>`)
+  and shown in the report (`via …`).
 - Releases: latest release, pre-release flag, published date, list of recent releases for cadence analysis.
 - Stars, forks, watchers.
 - Issues: open and closed counts, average time to close over the last 12 months.

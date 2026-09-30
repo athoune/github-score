@@ -65,8 +65,8 @@ class TestClassifyLicense:
     def test_none(self):
         assert _classify_license(None) == LicenseFamily.OTHER
 
-    def test_noassertment(self):
-        assert _classify_license("NOASSERTMENT") == LicenseFamily.OTHER
+    def test_noassertion(self):
+        assert _classify_license("NOASSERTION") == LicenseFamily.OTHER
 
     def test_mit(self):
         assert _classify_license("MIT") == LicenseFamily.PERMISSIVE
@@ -424,11 +424,11 @@ class TestFetchLicense:
         assert lic.family == LicenseFamily.PERMISSIVE
 
     @pytest.mark.asyncio
-    async def test_noassertment_becomes_none(self, tmp_path):
+    async def test_noassertion_becomes_none(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
         fetcher._get = AsyncMock(
             return_value={
-                "license": {"spdx_id": "NOASSERTMENT", "name": "No license"},
+                "license": {"spdx_id": "NOASSERTION", "name": "No license"},
             }
         )
 

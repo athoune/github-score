@@ -399,6 +399,35 @@ state). Example:
   • commercial support available
 ```
 
+## License source hierarchy (informational, never affects the verdict)
+
+The displayed license is resolved by
+`gh_score.core.fetchers.registries._apply_license_fallback` (SPECS §6.1).
+First match wins; the winning source is shown in the report (`via …`):
+
+1. GitHub Licensee (`LICENSE` file content via `GET …/license`) —
+   `source: "github"`, no `via` suffix.
+2. Manifest SPDX declaration (`pyproject.toml` PEP 621/639, `package.json`,
+   `Cargo.toml`, `.gemspec`, `pom.xml` — already read for registry
+   detection) — `source: "manifest:<file>"` (e.g. `via manifest:pyproject.toml`).
+3. Registry metadata (PyPI `license_expression`, npm `license`, crates.io
+   `license`, … — what users actually consume) —
+   `source: "registry:<ecosystem>"` (e.g. `via registry:pypi`).
+
+Rationale: the manifest is the declaration closest to the code (and feeds
+the registry via the build backend — e.g. `pyproject.toml` `license` →
+PyPI `license_expression`), while the registry reflects the published
+artifact. GitHub Licensee can fail on valid licenses (e.g. `pybind11`,
+whose `LICENSE` carries an extra paragraph referencing CONTRIBUTING and
+scores `NOASSERTION`), hence the fallbacks. `NOASSERTION` (GitHub's
+"undetected" marker) is normalized to "no license" before the fallback
+runs.
+
+| Key | French | English |
+|-----|--------|---------|
+| `tui_license_via` | via {source} | via {source} |
+| `md_license_via` | via {source} | via {source} |
+
 ## Message catalog
 
 | Key | French | English |

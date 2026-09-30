@@ -228,9 +228,14 @@ def _md_license(result: AnalysisResult, console: Console) -> None:
     lic = result.license
     console.print(f"{t('md_section_license')}\n")
     if lic.spdx_id:
-        console.print(
-            f"- {t('md_license_label', spdx=lic.spdx_id, family=license_family_label(lic.family))}"
+        label = t(
+            "md_license_label",
+            spdx=lic.spdx_id,
+            family=license_family_label(lic.family),
         )
+        if lic.source and lic.source != "github":
+            label += f" {t('md_license_via', source=lic.source)}"
+        console.print(f"- {label}")
     else:
         console.print(f"- {t('md_license_none')}")
     console.print(f"- {t('md_status', status=t(f'status_{lic.status.value}'))}\n")

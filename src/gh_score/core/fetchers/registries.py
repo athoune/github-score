@@ -31,7 +31,7 @@ import httpx
 from platformdirs import user_cache_dir
 
 from gh_score.core.cache import Cache
-from gh_score.core.models import RegistryInfo, Repository
+from gh_score.core.models import LicenseFamily, LicenseInfo, RegistryInfo, Repository
 
 # Ecosystem detection patterns
 _ECOSYSTEM_PATTERNS = {
@@ -276,6 +276,196 @@ async def _extract_package_name(store: ManifestStore, ecosystem: str) -> str | N
         if name:
             return name
     return None
+
+
+def _extract_pyproject_license(content: str) -> str | None:
+    """Extract an SPDX license expression from pyproject.toml (PEP 621/639)."""
+    try:
+        data = tomllib.loads(content)
+    except tomllib.TOMLDecodeError:
+        return None
+    project = data.get("project", {})
+    lic = project.get("license")
+    # PEP 639: ``license = "MIT"`` (plain SPDX expression string).
+    if isinstance(lic, str) and lic.strip():
+        return lic.strip()
+    # PEP 621: ``license = {text = "MIT"}`` — free text, keep first line.
+    if isinstance(lic, dict):
+        text = lic.get("text")
+        if isinstance(text, str) and text.strip():
+            return text.splitlines()[0].strip()
+    # Poetry: ``[tool.poetry] license = "MIT"``.
+    poetry = data.get("tool", {}).get("poetry", {})
+    if isinstance(poetry, dict):
+        poetic = poetry.get("license")
+        if isinstance(poetic, str) and poetic.strip():
+            return poetic.strip()
+    # Fallback: Trove classifiers (``License :: OSI Approved :: BSD License``).
+    for classifier in project.get("classifiers", []):
+        match = re.search(r"^License :: OSI Approved :: (.+)$", str(classifier))
+        if match:
+            return match.group(1).strip()
+    return None
+
+
+def _extract_npm_license(content: str) -> str | None:
+    """Extract the SPDX license from package.json."""
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        return None
+    lic = data.get("license")
+    if isinstance(lic, str) and lic.strip():
+        # "SEE LICENSE IN <file>" is not an SPDX id — skip it.
+        if lic.upper().startswith("SEE LICENSE"):
+            return None
+        return lic.strip()
+    if isinstance(lic, dict):
+        lic_type = lic.get("type")
+        if isinstance(lic_type, str) and lic_type.strip():
+            return lic_type.strip()
+    return None
+
+
+def _extract_cargo_license(content: str) -> str | None:
+    """Extract the SPDX license expression from Cargo.toml."""
+    try:
+        data = tomllib.loads(content)
+    except tomllib.TOMLDecodeError:
+        return None
+    lic = data.get("package", {}).get("license")
+    if isinstance(lic, str) and lic.strip():
+        return lic.strip()
+    return None
+
+
+def _extract_gemspec_license(content: str) -> str | None:
+    """Extract the license from a .gemspec file."""
+    match = re.search(r"\.licenses?\s*=\s*\[([^\]]+)\]", content)
+    if match:
+        first = re.search(r'["\']([^"\']+)["\']', match.group(1))
+        if first:
+            return first.group(1).strip()
+    match = re.search(r'\.licenses?\s*=\s*["\']([^"\']+)["\']', content)
+    return match.group(1).strip() if match else None
+
+
+def _extract_maven_license(content: str) -> str | None:
+    """Extract the license name from pom.xml (<licenses><license><name>)."""
+    match = re.search(
+        r"<license>.*?<name>([^<]+)</name>", content, re.DOTALL | re.IGNORECASE
+    )
+    return match.group(1).strip() if match else None
+
+
+# Manifest pattern → license extractor, in probe order per ecosystem.
+# go.mod and setup.py carry no reliable SPDX field and are omitted.
+_MANIFEST_LICENSE_EXTRACTORS: dict[str, dict[str, Callable[[str], str | None]]] = {
+    "pypi": {"pyproject.toml": _extract_pyproject_license},
+    "npm": {"package.json": _extract_npm_license},
+    "crates.io": {"Cargo.toml": _extract_cargo_license},
+    "rubygems": {"*.gemspec": _extract_gemspec_license},
+    "maven": {"pom.xml": _extract_maven_license},
+}
+
+
+async def _extract_manifest_license(
+    store: ManifestStore, ecosystem: str
+) -> tuple[str | None, str | None]:
+    """Return (license, manifest filename) from the first matching manifest."""
+    extractors = _MANIFEST_LICENSE_EXTRACTORS.get(ecosystem)
+    if not extractors:
+        return None, None
+    files = store.files()
+    for pattern, extractor in extractors.items():
+        candidates = [name for name in files if _name_matches(name, pattern)]
+        if not candidates:
+            continue
+        content = await store.read(candidates[0])
+        if content is None:
+            continue
+        try:
+            lic = extractor(content)
+        except Exception:
+            continue
+        if lic:
+            return lic, candidates[0]
+    return None, None
+
+
+_OSI_APPROVED_IDS = frozenset(
+    {
+        "MIT",
+        "Apache-2.0",
+        "GPL-2.0",
+        "GPL-3.0",
+        "LGPL-2.1",
+        "LGPL-3.0",
+        "MPL-2.0",
+        "BSD-2-Clause",
+        "BSD-3-Clause",
+        "ISC",
+        "Unlicense",
+        "AGPL-3.0",
+        "AGPL-2.0",
+        "ECL-2.0",
+    }
+)
+
+
+def _classify_manifest_license(spdx_id: str | None) -> LicenseFamily:
+    """Classify a manifest-declared SPDX id (mirrors github._classify_license)."""
+    if not spdx_id:
+        return LicenseFamily.OTHER
+    spdx = spdx_id.upper()
+    if spdx in ("UNLICENSE", "CC0-1.0", "WTFPL", "0BSD"):
+        return LicenseFamily.PUBLIC_DOMAIN
+    if spdx.startswith(("GPL", "AGPL", "LGPL", "EUPL", "CECILL")):
+        return LicenseFamily.COPYLEFT
+    if spdx.startswith(("MIT", "APACHE", "BSD", "ISC", "ZLIB", "PSF", "MPL")):
+        return LicenseFamily.PERMISSIVE
+    return LicenseFamily.OTHER
+
+
+def _apply_license_fallback(
+    repo: Repository,
+    manifest_licenses: dict[str, tuple[str | None, str | None]],
+    registries: list[RegistryInfo],
+) -> None:
+    """Fill a missing GitHub license from manifest, then registry.
+
+    Priority (user-validated): GitHub Licensee (LICENSE file content) wins
+    when it detects something; otherwise the manifest SPDX declaration
+    (pyproject.toml, package.json, … — already read for the package name,
+    zero extra network) then the registry metadata (what users consume).
+    Sets ``repo.license.source`` to ``manifest:<file>`` or
+    ``registry:<ecosystem>`` for provenance in the report.
+    """
+    if repo.license.spdx_id:
+        if not repo.license.source:
+            repo.license.source = "github"
+        return
+    for _ecosystem, (lic, filename) in manifest_licenses.items():
+        if lic:
+            repo.license = LicenseInfo(
+                spdx_id=lic,
+                name=lic,
+                osi_approved=lic in _OSI_APPROVED_IDS,
+                family=_classify_manifest_license(lic),
+                source=f"manifest:{filename}" if filename else "manifest",
+            )
+            return
+    for reg in registries:
+        if reg.registry_license and reg.exists:
+            lic = reg.registry_license
+            repo.license = LicenseInfo(
+                spdx_id=lic,
+                name=lic,
+                osi_approved=lic in _OSI_APPROVED_IDS,
+                family=_classify_manifest_license(lic),
+                source=f"registry:{reg.ecosystem}",
+            )
+            return
 
 
 # ---------------------------------------------------------------------------
@@ -981,6 +1171,14 @@ async def fetch_registry_info(
     if not ecosystems:
         return []
 
+    # Manifest SPDX declarations (already on disk / cached contents API —
+    # zero extra network): fallback source when GitHub Licensee fails.
+    manifest_licenses: dict[str, tuple[str | None, str | None]] = {}
+    for ecosystem in ecosystems:
+        manifest_licenses[ecosystem] = await _extract_manifest_license(
+            store, ecosystem
+        )
+
     results: list[RegistryInfo] = []
     for ecosystem in ecosystems:
         package_name = await _extract_package_name(store, ecosystem)
@@ -992,7 +1190,8 @@ async def fetch_registry_info(
             await _fetch_ecosystem(cache, ecosystem, package_name, libraries_io_key)
         )
 
-    # Compare registry licenses with GitHub license
+    # License fallback (GitHub > manifest > registry) then comparison.
+    _apply_license_fallback(repo, manifest_licenses, results)
     _compare_licenses(results, repo)
 
     return results

@@ -152,6 +152,8 @@ def _render_license(result: AnalysisResult) -> Panel:
         if lic.osi_approved:
             content.append(", OSI")
         content.append(")\n")
+        if lic.source and lic.source != "github":
+            content.append(f"{t('tui_license_via', source=lic.source)}\n", style="dim")
     else:
         content.append(f"{t('tui_no_license')}\n", style="red")
 

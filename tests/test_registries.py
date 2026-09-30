@@ -14,16 +14,23 @@ from gh_score.core.cache import Cache
 from gh_score.core.fetchers.registries import (
     LocalManifestStore,
     RemoteManifestStore,
+    _apply_license_fallback,
     _collect_ecosystems,
     _compare_licenses,
     _detect_ecosystems,
+    _extract_cargo_license,
     _extract_crate_name,
     _extract_docker_image_name,
     _extract_gem_name,
+    _extract_gemspec_license,
     _extract_go_module_path,
+    _extract_manifest_license,
     _extract_maven_coordinates,
+    _extract_maven_license,
+    _extract_npm_license,
     _extract_npm_package_name,
     _extract_package_name,
+    _extract_pyproject_license,
     _extract_pyproject_name,
     _extract_setup_cfg_name,
     _fetch_crates,
@@ -1055,3 +1062,92 @@ class TestCompareLicenses:
         repo = _make_repo()  # no license
         _compare_licenses([reg], repo)
         assert reg.license_matches_github is None
+
+
+class TestManifestLicense:
+    def test_pyproject_pep639_string(self):
+        content = '[project]\nname = "pybind11"\nlicense = "BSD-3-Clause"\n'
+        assert _extract_pyproject_license(content) == "BSD-3-Clause"
+
+    def test_pyproject_pep621_text_dict(self):
+        content = '[project]\nname = "x"\nlicense = {text = "MIT"}\n'
+        assert _extract_pyproject_license(content) == "MIT"
+
+    def test_pyproject_poetry(self):
+        content = '[project]\nname = "x"\n[tool.poetry]\nlicense = "Apache-2.0"\n'
+        assert _extract_pyproject_license(content) == "Apache-2.0"
+
+    def test_pyproject_no_license(self):
+        assert _extract_pyproject_license('[project]\nname = "x"\n') is None
+
+    def test_pyproject_invalid_toml(self):
+        assert _extract_pyproject_license("not [toml") is None
+
+    def test_npm_spdx(self):
+        assert _extract_npm_license('{"license": "MIT"}') == "MIT"
+
+    def test_npm_see_license_skipped(self):
+        assert _extract_npm_license('{"license": "SEE LICENSE IN LICENSE"}') is None
+
+    def test_cargo_license(self):
+        assert _extract_cargo_license('[package]\nlicense = "MIT OR Apache-2.0"') == (
+            "MIT OR Apache-2.0"
+        )
+
+    def test_gemspec_license(self):
+        assert _extract_gemspec_license('spec.license = "MIT"') == "MIT"
+
+    def test_maven_license(self):
+        content = "<licenses><license><name>Apache License 2.0</name></license></licenses>"
+        assert _extract_maven_license(content) == "Apache License 2.0"
+
+    @pytest.mark.asyncio
+    async def test_manifest_license_dispatcher(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "pybind11"\nlicense = "BSD-3-Clause"\n'
+        )
+        store = LocalManifestStore(tmp_path)
+        lic, filename = await _extract_manifest_license(store, "pypi")
+        assert lic == "BSD-3-Clause"
+        assert filename == "pyproject.toml"
+
+    @pytest.mark.asyncio
+    async def test_fallback_prefers_manifest_over_registry(self, tmp_path):
+        """pybind11 case: GitHub NOASSERTION → manifest BSD-3-Clause wins."""
+        repo = _make_repo()
+        assert repo.license.spdx_id is None
+        reg = RegistryInfo(
+            ecosystem="pypi",
+            package_name="pybind11",
+            exists=True,
+            registry_license="BSD-3-Clause",
+        )
+        _apply_license_fallback(
+            repo, {"pypi": ("BSD-3-Clause", "pyproject.toml")}, [reg]
+        )
+        assert repo.license.spdx_id == "BSD-3-Clause"
+        assert repo.license.source == "manifest:pyproject.toml"
+        assert repo.license.osi_approved is True
+
+    @pytest.mark.asyncio
+    async def test_fallback_uses_registry_when_no_manifest(self):
+        repo = _make_repo()
+        reg = RegistryInfo(
+            ecosystem="pypi",
+            package_name="x",
+            exists=True,
+            registry_license="MIT",
+        )
+        _apply_license_fallback(repo, {"pypi": (None, None)}, [reg])
+        assert repo.license.spdx_id == "MIT"
+        assert repo.license.source == "registry:pypi"
+
+    def test_github_license_wins_over_fallback(self):
+        repo = _make_repo()
+        repo.license = LicenseInfo(spdx_id="MIT", source="github")
+        reg = RegistryInfo(
+            ecosystem="pypi", package_name="x", exists=True, registry_license="GPL-3.0"
+        )
+        _apply_license_fallback(repo, {"pypi": ("GPL-3.0", "pyproject.toml")}, [reg])
+        assert repo.license.spdx_id == "MIT"
+        assert repo.license.source == "github"

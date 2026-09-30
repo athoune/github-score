@@ -116,6 +116,7 @@ class LicenseInfo:
     osi_approved: bool = False
     family: LicenseFamily = LicenseFamily.OTHER
     detected_from_file: str | None = None  # fallback detection from LICENSE text
+    source: str | None = None  # "github" | "manifest:<file>" | "registry:<ecosystem>"
 
 
 # ---------------------------------------------------------------------------
@@ -470,6 +471,7 @@ class LicenseIndicator:
     osi_approved: bool = False
     status: Status = Status.UNKNOWN
     interpretation: str = ""
+    source: str | None = None  # provenance shown in the report
 
 
 class ContributorArchetype(Enum):

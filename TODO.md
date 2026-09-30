@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 89% coverage, 564 tests). Last updated: 2026-09-13.
+(suite at 90% coverage, 638 tests). Last updated: 2026-09-30.
 
 ## Tests / coverage
 
@@ -29,6 +29,17 @@ Remaining actions after the comparison feature
 
 ## Code smells (spotted while writing tests)
 
+- [x] (done 2026-09-30) License fallback when GitHub Licensee fails —
+      `pybind11` reports `NOASSERTION` (its `LICENSE` carries an extra
+      paragraph referencing CONTRIBUTING, defeating Licensee) while
+      `pyproject.toml` (`license = "BSD-3-Clause"`, PEP 639) and PyPI
+      `license_expression` agree on BSD-3-Clause. Hierarchy now:
+      GitHub > manifest (`pyproject.toml`, `package.json`, `Cargo.toml`,
+      `.gemspec`, `pom.xml`) > registry, with `license.source`
+      provenance (`github` | `manifest:<file>` | `registry:<ecosystem>`)
+      shown as `via …` (TUI/Markdown). Also fixed the `NOASSERTMENT`
+      typo (GitHub spells it `NOASSERTION`) in `github.py` + tests.
+      (SPECS §6.1, RULES license hierarchy; `TestManifestLicense`.)
 - [x] (done 2026-08-09) PyPI `info.license` full-text spill — the legacy
       field sometimes carries the whole license text (e.g. the `oikb`
       package); `_parse_pypi_response` now prefers `license_expression`

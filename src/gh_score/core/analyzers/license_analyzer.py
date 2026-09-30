@@ -33,6 +33,7 @@ def analyze_license(repo: Repository, lang: str | None = None) -> LicenseIndicat
         spdx_id=lic.spdx_id,
         family=lic.family,
         osi_approved=lic.osi_approved,
+        source=lic.source,
     )
 
     indicator.status = _compute_status(indicator)

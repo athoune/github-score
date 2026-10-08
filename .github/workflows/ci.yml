@@ -4,10 +4,41 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  # Allow a manual run from the Actions tab.
+  workflow_dispatch:
+
+# One run per ref: a new push cancels the previous, in-progress run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: the workflow only reads the repository.
+permissions:
+  contents: read
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        # setup-uv publishes only full tags (v9.0.0), no major-only "v9".
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Lint
+        run: uv run ruff check src tests
+
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       # Run every supported interpreter even if one fails: the matrix is the
       # point, a single-version failure must not mask the others.
@@ -19,7 +50,6 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install uv
-        # setup-uv publishes only full tags (v9.0.0), no major-only "v9".
         uses: astral-sh/setup-uv@v9.0.0
         with:
           python-version: ${{ matrix.python-version }}
@@ -27,10 +57,7 @@ jobs:
       - name: Sync dependencies
         run: uv sync
 
-      - name: Lint
-        run: uv run ruff check src tests
-
-      - name: Test
+      - name: Test (Python ${{ matrix.python-version }})
         # Functional LLM tests are skipped automatically when
         # GH_SCORE_LLM_ENABLED is not set.
         run: uv run pytest tests/ -q

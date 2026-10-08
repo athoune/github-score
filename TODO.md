@@ -223,8 +223,15 @@ item.
       - medium GHSA-p538-c434-8v24 — arbitrary file truncation via
         `git rev-list --output`, patched in 3.1.56
       (installed: 3.1.54; constraint is already `>=3.1`)
+- [ ] **Refresh `uv.lock` after the Python 3.11 floor** — `requires-python`
+      is now `>=3.11` but the committed `uv.lock` still declares `>=3.12`:
+      regenerating it offline was impossible (the resolver needs the
+      conditional `tomli` metadata, absent from the local cache). CI has
+      network and re-locks before testing, but the committed lock should be
+      refreshed once with `uv lock` on a networked machine.
 - [x] (done 2026-08-06) Set up CI — `.github/workflows/ci.yml` (pytest + ruff + coverage)
       and `publish.yml` (PyPI on version tags) landed 2026-08-06.
+      CI now runs a Python 3.11/3.12/3.13/3.14 matrix.
 - [ ] Run prospector in CI — `ci.yml` only runs ruff + pytest today;
       pylint/pyright/pycodestyle via prospector run only locally.
 - [x] (done 2026-08-07) Decide the fate of `toto.json` — removed; nothing in the codebase

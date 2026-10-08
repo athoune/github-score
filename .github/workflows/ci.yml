@@ -8,6 +8,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      # Run every supported interpreter even if one fails: the matrix is the
+      # point, a single-version failure must not mask the others.
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -16,7 +22,7 @@ jobs:
         # setup-uv publishes only full tags (v9.0.0), no major-only "v9".
         uses: astral-sh/setup-uv@v9.0.0
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Sync dependencies
         run: uv sync

@@ -9,6 +9,7 @@ import asyncio
 import base64
 import json
 import os
+import re
 import sys
 from datetime import UTC, datetime, timedelta
 
@@ -91,6 +92,36 @@ def _rolling_since(months: int = 12) -> str:
     """
     cutoff = datetime.now(UTC) - timedelta(days=months * 30)
     return cutoff.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+
+def _last_page_from_link(link_header: str | None) -> int | None:
+    """Extract the ``rel="last"`` page number from a GitHub ``Link`` header.
+
+    With ``per_page=1`` this equals the total number of commits on the
+    branch. Returns ``None`` when the header has no last page (single page).
+    """
+    if not link_header:
+        return None
+    for part in link_header.split(","):
+        if 'rel="last"' not in part:
+            continue
+        match = re.search(r"[?&]page=(\d+)", part)
+        if match:
+            return int(match.group(1))
+    return None
+
+
+def _commit_author_date(item: object) -> datetime | None:
+    """Author date of a commit object from the GitHub commits endpoint."""
+    if not isinstance(item, dict):
+        return None
+    commit = item.get("commit")
+    if not isinstance(commit, dict):
+        return None
+    author = commit.get("author")
+    if not isinstance(author, dict):
+        return None
+    return _parse_datetime(author.get("date"))
 
 
 def _classify_license(spdx_id: str | None) -> LicenseFamily:
@@ -455,6 +486,62 @@ class GitHubFetcher:
 
         return commits
 
+    async def fetch_first_commit(
+        self, url: RepoUrl
+    ) -> tuple[datetime | None, int | None]:
+        """Root-commit date and total commit count on the default branch.
+
+        Uses the commits endpoint with ``per_page=1``: the ``Link`` header's
+        ``rel="last"`` page number equals the total commit count and that
+        page holds the oldest (root) commit. Both are cached together; a
+        failed lookup is not cached so the next run retries. Returns
+        ``(None, None)`` when the history cannot be read (empty repository,
+        API failure).
+        """
+        cache_key = f"github:first_commit:{url.owner}/{url.repo}"
+        cached = self.cache.get_json(cache_key)
+        if isinstance(cached, dict):
+            return _parse_datetime(cached.get("date")), cached.get("count")
+
+        try:
+            resp = await self.client.get(
+                f"{url.api_url}/commits", params={"per_page": "1", "sha": "HEAD"}
+            )
+            if resp.status_code != 200:
+                return None, None
+            data = resp.json()
+        except (httpx.RequestError, ValueError):
+            return None, None
+
+        if not isinstance(data, list) or not data:
+            return None, None
+
+        last_page = _last_page_from_link(resp.headers.get("Link"))
+        if last_page is None or last_page <= 1:
+            # A single commit: it is both the root and the tip.
+            date = _commit_author_date(data[0])
+            count = len(data)
+        else:
+            oldest = await self._get(
+                f"{url.api_url}/commits",
+                {"per_page": "1", "sha": "HEAD", "page": str(last_page)},
+            )
+            if not isinstance(oldest, list) or not oldest:
+                return None, None
+            date = _commit_author_date(oldest[-1])
+            count = last_page
+
+        if date is None:
+            return None, None
+
+        ttl = self.config.cache.ttl_hours * 3600
+        self.cache.set_json(
+            cache_key,
+            {"date": date.isoformat(), "count": count},
+            ttl,
+        )
+        return date, count
+
     async def fetch_issues(self, url: RepoUrl, months: int = 12) -> list[Issue]:
         """Fetch issues (including PRs) for the last N months."""
         since = _rolling_since(months)
@@ -633,6 +720,10 @@ class GitHubFetcher:
         repo.commits = await self.fetch_commits(url)
         repo.issues = await self.fetch_issues(url)
         repo.readme_content = await self.fetch_readme(url)
+        (
+            repo.meta.first_commit_at,
+            repo.meta.total_commits,
+        ) = await self.fetch_first_commit(url)
 
         return repo
 

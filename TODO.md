@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 90% coverage, 638 tests). Last updated: 2026-09-30.
+(suite at 90% coverage, 649 tests). Last updated: 2026-10-08.
 
 ## Tests / coverage
 
@@ -83,6 +83,24 @@ Remaining actions after the comparison feature
 Feature ideas carried over from the maintainer's notes (`TODO.txt`),
 described cleanly. Scope and acceptance criteria still to be defined per
 item.
+
+- [ ] **AI authorship / "vibe coding" signal** — model AI agents as a
+      third author class (human / automation bot / AI agent), detected
+      from commit trailers (`Co-Authored-By: Claude <noreply@anthropic.com>`,
+      `Claude-Session:`, Copilot/Cursor/Codex/Devin/Aider), author email
+      domains and known logins (a bare `claude` login is weak evidence).
+      Exclude AI authors from the human count and bus factor, surface the
+      agents as a fact, and flag orange when AI dominates with no human
+      lead.
+- [ ] **Context guards for text-derived sustainability facts** — a match
+      in prose is a mention, not a relationship. Require full-name
+      affiliation phrases and structured signals (topic / owner) for
+      foundation membership, add negation / trademark / competitor /
+      license-context guards, drop the case-insensitive company capture in
+      the corporate-backing regex, and record provenance/confidence.
+      Regression cases: an `Apache-2.0` README must not yield "Apache
+      Software Foundation"; "not affiliated with, sponsored by or endorsed
+      by Adobe Inc." must not yield corporate backing.
 
 - [x] (done 2026-08-10) **Broken repository URLs** — malformed URLs are
       already rejected by `RepoUrl.parse`; repositories that do not exist

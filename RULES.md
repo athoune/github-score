@@ -73,28 +73,37 @@ The rules are evaluated **in order**; the first matching branch wins.
      not create a repo merely to accompany an article, so the "weekend
      demo" heuristic does not apply.
 
-7. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
+7. **Too young** (recorded history shorter than `_TOO_YOUNG_AGE_DAYS`,
+   measured from the root commit, falling back to the repository creation
+   date) → 🟠 "Project too recent — only N days of history"
+   - A general caution, not the "weekend demo" judgment: it fires whatever
+     the star count, the author count or the owner type.
+   - The git history is a **lower bound** on the project's real age (work
+     can predate version control), so the message stays factual and the
+     commit count is surfaced as a substance signal.
+
+8. **Abandoned** (no commit for 6+ months, i.e. `MaintenanceState.ABANDONED`)
    - Widely used (≥ 5k stars, ≥ 1k forks, ≥ 1M registry downloads, or
      ≥ 1k dependents) → 🟠 "Large project, but now abandoned"
    - Otherwise → 🔴 "Abandoned project — no commit for N months"
 
-8. **Active development** (`MaintenanceState.ACTIVE`)
+9. **Active development** (`MaintenanceState.ACTIVE`)
    - ≥ 80% of commits from bots → 🟠 "Project maintained only by dependency-update bots"
    - No stable release (none, pre-release, or 0.x) → 🟠 "Active development but not yet stabilized"
    - Declining activity (3-month commits < 25% of 12-month commits) → 🟠 "Well-maintained project but in decline"
    - Large community (≥ 100 human authors or ≥ 10k stars), **or LLM-enabled with roadmap AND commercial support** → 🟢 "Active project with a large community"
    - Otherwise → 🟢 "Active project"
 
-9. **Maintenance mode** (infrequent commits, issues still closed)
+10. **Maintenance mode** (infrequent commits, issues still closed)
    - Last release more than 6 months ago → 🟠 "Well-maintained but no new features for N months"
    - Otherwise → 🟠 "Project in maintenance mode"
 
-10. **LLM-reported discontinuation** (only when the LLM is enabled AND the
+11. **LLM-reported discontinuation** (only when the LLM is enabled AND the
     maintenance state is unknown — commit data wins over prose)
     - Widely used → 🟠 "Large project, but now abandoned"
     - Otherwise → 🔴 "Project texts announce its discontinuation"
 
-11. **Unknown maintenance state**
+12. **Unknown maintenance state**
     - Widely used → 🟠 "Widely used project despite low maintenance"
    - LLM enabled, text declares active development AND (roadmap or
      commercial support) → 🟢 "Active project"
@@ -131,6 +140,7 @@ heuristics to be tuned with real-world examples.
 | `_EPHEMERAL_AGE_DAYS` | 180 | ephemeral project detection |
 | `_EPHEMERAL_MAX_AUTHORS` | 3 | ephemeral project detection |
 | `_EPHEMERAL_MAX_STARS` | 200 | ephemeral project detection |
+| `_TOO_YOUNG_AGE_DAYS` | 30 | recorded history too short for a verdict (root commit, fallback creation date) |
 | `_SOFT_FORK_MAX_AHEAD` | 10 | fork kept in sync with upstream (PR vehicle) |
 
 **Registry popularity semantics:** `_is_widely_used` treats both
@@ -436,6 +446,7 @@ runs.
 | `rec_disabled` | Projet désactivé | Disabled project |
 | `rec_deprecated` | Projet déprécié sur le registre | Project deprecated on the registry |
 | `rec_ephemeral` | Projet éphémère accompagnant un article | Ephemeral project accompanying an article |
+| `rec_too_young` | Projet trop récent — historique de {days} jours seulement | Project too recent — only {days} days of history |
 | `rec_abandoned_popular` | Grand projet, mais maintenant abandonné | Large project, but now abandoned |
 | `rec_abandoned_months` | Projet abandonné — pas de commit depuis {months} mois | Abandoned project — no commit for {months} months |
 | `rec_bots` | Projet uniquement maintenu par des bots qui mettent à jour les dépendances | Project maintained only by dependency-update bots |
@@ -448,6 +459,8 @@ runs.
 | `rec_widely_used_unmaintained` | Projet largement utilisé même si peu maintenu | Widely used project despite low maintenance |
 | `rec_insufficient_data` | Données insuffisantes pour une recommandation fiable | Insufficient data for a reliable recommendation |
 | `rec_text_discontinued` | Les textes du projet annoncent son abandon | Project texts announce its discontinuation |
+| `reason_too_young` | historique git de {days} jours seulement, pas encore de recul | git history only {days} days long, no track record yet |
+| `reason_history_size` | {commits:,} commits déjà dans cet historique | {commits:,} commits already in this history |
 | `rec_site_down` | La page d'accueil du projet est hors ligne | Project homepage is down |
 | `rec_site_degraded` | Page d'accueil injoignable ou protégée par un anti-robot | Project homepage unreachable or bot-protected |
 | `reason_site_down` | la page d'accueil est inaccessible | the project homepage is unreachable |
@@ -470,6 +483,7 @@ runs.
 | `fact_fork_hard` | fork divergent de {parent} ({ahead} commits propres) | hard fork of {parent} ({ahead} own commits) |
 | `fact_fork_pr` | #{number} ({state}) : {title} | #{number} ({state}): {title} |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
+| `fact_project_age` | historique de {days} jours | {days} days of history |
 | `fact_dependents` | {count} paquets dépendent de cette bibliothèque | {count} packages depend on this library |
 | `owner_type_user` | utilisateur | user |
 | `owner_type_organization` | organisation | organization |

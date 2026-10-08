@@ -39,6 +39,10 @@ _NO_RELEASE_MONTHS = 6  # maintained but no release for this long
 _EPHEMERAL_AGE_DAYS = 180
 _EPHEMERAL_MAX_AUTHORS = 3
 _EPHEMERAL_MAX_STARS = 200
+# A recorded history shorter than this is too young for a confident
+# verdict, whatever the star count or the owner. A lower bound on the
+# project's real age: work can predate version control.
+_TOO_YOUNG_AGE_DAYS = 30
 
 
 def _is_widely_used(result: AnalysisResult) -> bool:
@@ -93,6 +97,21 @@ def _is_declining(result: AnalysisResult) -> bool:
     return commits_3m < commits_12m * _DECLINING_FACTOR
 
 
+def _project_age_days(result: AnalysisResult) -> int | None:
+    """Age of the recorded history, in days.
+
+    Prefers the root-commit date (the start of version-controlled history)
+    and falls back to the repository creation date. This is a *lower bound*
+    on the project's real age: substantial work may have happened before
+    the first commit.
+    """
+    meta = result.meta
+    reference = meta.first_commit_at or meta.created_at
+    if reference is None:
+        return None
+    return (datetime.now(UTC) - reference).days
+
+
 def _is_ephemeral(result: AnalysisResult) -> bool:
     """Young, tiny, few authors: typical of an article/blog demo project.
 
@@ -103,10 +122,8 @@ def _is_ephemeral(result: AnalysisResult) -> bool:
     meta = result.meta
     if meta.owner_type == "organization":
         return False
-    if meta.created_at is None:
-        return False
-    age_days = (datetime.now(UTC) - meta.created_at).days
-    if age_days > _EPHEMERAL_AGE_DAYS:
+    age_days = _project_age_days(result)
+    if age_days is None or age_days > _EPHEMERAL_AGE_DAYS:
         return False
     if meta.stars > _EPHEMERAL_MAX_STARS:
         return False
@@ -162,6 +179,9 @@ def _build(
                 type=t(f"owner_type_{result.meta.owner_type}", lang=lang),
             )
         )
+    age_days = _project_age_days(result)
+    if age_days is not None:
+        reasoning.append(t("fact_project_age", lang=lang, days=age_days))
     dependents = (
         max((reg.dependents or 0) for reg in result.registries)
         if result.registries
@@ -223,6 +243,7 @@ def analyze_recommendation(
         _rec_fork,
         _rec_website,
         _rec_ephemeral,
+        _rec_too_young,
         _rec_abandoned,
         _rec_active,
         _rec_maintenance,
@@ -406,6 +427,32 @@ def _rec_ephemeral(result: AnalysisResult, lang: str) -> Recommendation | None:
             t("reason_ephemeral", lang=lang),
         )
     return None
+
+
+def _rec_too_young(result: AnalysisResult, lang: str) -> Recommendation | None:
+    """Very short recorded history: too young for a confident verdict.
+
+    A general caution, not the "weekend demo" judgment (ephemeral): it
+    fires whatever the star count, the author count or the owner type,
+    because a project a few weeks old has no track record yet. The git
+    history is a lower bound on the real age — work can predate version
+    control — so the message stays factual ("N days of history").
+    """
+    age_days = _project_age_days(result)
+    if age_days is None or age_days > _TOO_YOUNG_AGE_DAYS:
+        return None
+    reasons = [t("reason_too_young", lang=lang, days=age_days)]
+    if result.meta.total_commits:
+        reasons.append(
+            t("reason_history_size", lang=lang, commits=result.meta.total_commits)
+        )
+    return _build(
+        RecommendationLevel.ORANGE,
+        t("rec_too_young", lang=lang, days=age_days),
+        result,
+        lang,
+        *reasons,
+    )
 
 
 def _rec_abandoned(result: AnalysisResult, lang: str) -> Recommendation | None:

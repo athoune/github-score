@@ -143,6 +143,10 @@ class TestFetchLocalRepo:
         by_login = {c.login: c for c in result.contributors.contributors}
         assert set(by_login) == {"Alice", "Bob"}
 
+        # History start + commit count (root commit = oldest author date)
+        assert result.meta.first_commit_at is not None
+        assert result.meta.total_commits == 2
+
         # Community files and funding
         assert result.community.has_readme is True
         assert result.community.has_contributing is True

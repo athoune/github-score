@@ -46,6 +46,8 @@ def _make_result(
     age_days: int | None = None,
     registries: list[RegistryInfo] | None = None,
     created_at: datetime | None = None,
+    first_commit_at: datetime | None = None,
+    total_commits: int | None = None,
     last_commit_days_ago: int | None = None,
     qualitative: QualitativeIndicator | None = None,
     maintenance_status: Status = Status.HEALTHY,
@@ -67,6 +69,8 @@ def _make_result(
         disabled=disabled,
         owner_type=owner_type,
         created_at=created_at,
+        first_commit_at=first_commit_at,
+        total_commits=total_commits,
     )
     maintenance = MaintenanceIndicator(
         state=state,
@@ -313,9 +317,9 @@ class TestEphemeral:
         rec = _recommend(result)
         assert rec.message != "Projet éphémère accompagnant un article"
 
-    def test_young_org_owned_project_is_not_ephemeral(self):
-        """An organization-owned young project is not an article demo: it
-        must fall through to the active verdict instead."""
+    def test_young_org_owned_project_is_not_ephemeral_but_too_young(self):
+        """An organization-owned young project is not an article demo, but a
+        20-day-old history is still too short for a confident verdict."""
         result = _make_result(
             state=MaintenanceState.ACTIVE,
             owner_type="organization",
@@ -325,8 +329,9 @@ class TestEphemeral:
             created_at=datetime.now(UTC) - timedelta(days=20),
         )
         rec = _recommend(result)
-        assert rec.level == RecommendationLevel.GREEN
-        assert rec.message == "Projet actif"
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "trop récent" in rec.message
+        assert "éphémère" not in rec.message
 
     def test_ephemeral_fact_reasoning_mentions_owner(self):
         result = _make_result(
@@ -338,6 +343,83 @@ class TestEphemeral:
         )
         rec = _recommend(result)
         assert any("propriétaire : organisation" in r for r in rec.reasoning)
+
+
+class TestTooYoung:
+    """A very short recorded history is a general caution, not the
+    'weekend demo' judgment: it fires whatever the size or the owner."""
+
+    def test_young_project_is_orange(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=500,
+            total_authors=5,
+            created_at=datetime.now(UTC) - timedelta(days=7),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "trop récent" in rec.message
+
+    def test_young_widely_starred_project_is_orange(self):
+        # effectcraft-like: one week old, 1.9k stars, organization-owned.
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            owner_type="organization",
+            stars=1_880,
+            total_authors=9,
+            created_at=datetime.now(UTC) - timedelta(days=7),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "7 jours" in rec.message
+
+    def test_first_commit_drives_age(self):
+        # Repository created two years ago (e.g. reused/emptied), but the
+        # recorded history starts a week ago: the history wins.
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=50,
+            total_authors=4,
+            created_at=datetime.now(UTC) - timedelta(days=730),
+            first_commit_at=datetime.now(UTC) - timedelta(days=7),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "trop récent" in rec.message
+
+    def test_old_enough_project_is_not_flagged(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=50,
+            total_authors=4,
+            latest_version="v1.0.0",
+            created_at=datetime.now(UTC) - timedelta(days=90),
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+
+    def test_reasoning_mentions_substance(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=1_880,
+            total_authors=9,
+            created_at=datetime.now(UTC) - timedelta(days=7),
+            total_commits=1_200,
+        )
+        rec = _recommend(result)
+        assert any("1,200 commits" in r for r in rec.reasoning)
+
+    def test_ephemeral_wins_for_tiny_project(self):
+        # A tiny project a week old is still reported as ephemeral (the more
+        # specific message); the too-young branch only catches the rest.
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=10,
+            total_authors=1,
+            created_at=datetime.now(UTC) - timedelta(days=7),
+        )
+        rec = _recommend(result)
+        assert "éphémère" in rec.message
 
 
 class TestHardFlags:

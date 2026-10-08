@@ -251,6 +251,15 @@ class RepositoryMeta:
     owner_type: str = ""  # "user" | "organization" (GitHub API owner.type, normalized)
     description: str | None = None
     created_at: datetime | None = None
+    # Date of the root commit on the default branch: the start of the
+    # recorded history. Distinct from ``created_at`` (the repository may be
+    # created long before the first push, or its history rewritten/imported),
+    # and a lower bound on the project's real age when work started before
+    # version control.
+    first_commit_at: datetime | None = None
+    # Number of commits on the default branch when known (API Link header or
+    # local walk). Used as a substance signal for very young histories.
+    total_commits: int | None = None
     updated_at: datetime | None = None
     pushed_at: datetime | None = None
     default_branch: str = "main"

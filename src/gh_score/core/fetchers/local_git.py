@@ -115,6 +115,12 @@ def fetch_local_repo(path: str) -> Repository:
 
     repo.commits = commits
 
+    # Root commit (oldest author date) and commit count: the recorded
+    # history start, a lower bound on the project's real age.
+    first_commit_at = min(
+        (c.author_date for c in commits if c.author_date), default=None
+    )
+
     # Build contributor stats
     contributors = []
     for login, count in sorted(
@@ -230,12 +236,16 @@ def fetch_local_repo(path: str) -> Repository:
             if not git_repo.head.is_detached
             else "main",
             pushed_at=datetime.fromtimestamp(head_commit.committed_date, tz=UTC),
+            first_commit_at=first_commit_at,
+            total_commits=len(commits) or None,
         )
     except Exception:
         repo.meta = RepositoryMeta(
             name=remote_url.repo,
             full_name=f"{remote_url.owner}/{remote_url.repo}",
             owner=remote_url.owner,
+            first_commit_at=first_commit_at,
+            total_commits=len(commits) or None,
         )
 
     # Language breakdown from file extensions (rough approximation)

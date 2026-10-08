@@ -407,6 +407,72 @@ class TestProbeStatus:
         assert await fetcher.probe_status("https://api.github.com/repos/x/y") is None
 
 
+class TestFetchFirstCommit:
+    """Root-commit date + commit count via the commits endpoint."""
+
+    @staticmethod
+    def _response(status: int, payload, headers: dict | None = None) -> httpx.Response:
+        request = httpx.Request(
+            "GET", "https://api.github.com/repos/owner/repo/commits"
+        )
+        return httpx.Response(
+            status, json=payload, headers=headers or {}, request=request
+        )
+
+    @pytest.mark.asyncio
+    async def test_multi_commit_reads_oldest_page(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        link = '<https://api.github.com/repos/owner/repo/commits?page=500>; rel="last"'
+        tip = {"commit": {"author": {"date": "2026-10-08T00:00:00Z"}}}
+        oldest = {"commit": {"author": {"date": "2026-10-01T18:51:38Z"}}}
+        fetcher.client.get = AsyncMock(
+            return_value=self._response(200, [tip], {"Link": link})
+        )
+        fetcher._get = AsyncMock(return_value=[oldest])
+
+        date, count = await fetcher.fetch_first_commit(URL)
+
+        assert date == datetime(2026, 10, 1, 18, 51, 38, tzinfo=UTC)
+        assert count == 500
+
+    @pytest.mark.asyncio
+    async def test_single_commit(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        only = {"commit": {"author": {"date": "2026-10-01T00:00:00Z"}}}
+        fetcher.client.get = AsyncMock(return_value=self._response(200, [only]))
+
+        date, count = await fetcher.fetch_first_commit(URL)
+
+        assert date == datetime(2026, 10, 1, tzinfo=UTC)
+        assert count == 1
+
+    @pytest.mark.asyncio
+    async def test_empty_repository(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.client.get = AsyncMock(return_value=self._response(200, []))
+
+        assert await fetcher.fetch_first_commit(URL) == (None, None)
+
+    @pytest.mark.asyncio
+    async def test_result_is_cached(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        only = {"commit": {"author": {"date": "2026-10-01T00:00:00Z"}}}
+        get = AsyncMock(return_value=self._response(200, [only]))
+        fetcher.client.get = get
+
+        await fetcher.fetch_first_commit(URL)
+        await fetcher.fetch_first_commit(URL)
+
+        assert get.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_api_error_returns_none(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.client.get = AsyncMock(return_value=self._response(403, {}))
+
+        assert await fetcher.fetch_first_commit(URL) == (None, None)
+
+
 class TestFetchLicense:
     @pytest.mark.asyncio
     async def test_mit_license(self, tmp_path):

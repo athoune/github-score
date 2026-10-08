@@ -7,6 +7,7 @@ import json
 import sys
 import textwrap
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
@@ -196,6 +197,9 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
     )
     if result.meta.owner_type:
         console.print(t("md_owner", type=t(f"owner_type_{result.meta.owner_type}")))
+    if result.meta.first_commit_at:
+        days = (datetime.now(UTC) - result.meta.first_commit_at).days
+        console.print(t("md_first_commit", days=days))
     console.print()
 
     _md_recommendation(result, console)

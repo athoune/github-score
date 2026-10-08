@@ -62,6 +62,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_mirror": "Dépôt miroir d'un projet amont",
         "rec_security_overdue": "Vulnérabilités de sécurité connues non corrigées",
         "rec_text_discontinued": "Les textes du projet annoncent son abandon",
+        "rec_too_young": "Projet trop récent — historique de {days} jours seulement",
         # Recommendation reasoning lines
         "reason_archived": "le dépôt est marqué comme archivé sur GitHub",
         "reason_disabled": "le dépôt est désactivé sur GitHub",
@@ -99,6 +100,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_fork_soft": "Fork aligné sur l'amont — le développement a lieu sur {parent}",
         "reason_fork_soft": "ce dépôt est un fork à usage de PR — {behind} commits de retard sur {parent}, sans développement propre",
         "reason_text_active": "le texte du projet déclare un développement actif",
+        "reason_too_young": (
+            "historique git de {days} jours seulement, pas encore de recul"
+        ),
+        "reason_history_size": "{commits:,} commits déjà dans cet historique",
         # ------------------------------------------------------------------
         # Comparison (multi-repo comparability)
         # ------------------------------------------------------------------
@@ -149,6 +154,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_funding": "financement disponible",
         "fact_corporate": "soutien d'une entreprise",
         "fact_foundation": "adossé à une fondation",
+        "fact_project_age": "historique de {days} jours",
         # ------------------------------------------------------------------
         # Release health interpretation
         # ------------------------------------------------------------------
@@ -264,6 +270,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_stars": "Étoiles : {count:,}",
         "tui_forks": "Forks : {count:,}",
         "tui_created": "Créé : {date}",
+        "tui_first_commit": "premier commit : il y a {days} j",
         "tui_owner": "Propriétaire : {type}",
         "panel_release_health": "Santé des releases",
         "panel_license": "Licence",
@@ -370,6 +377,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_owner": "**Propriétaire :** {type}",
         "md_latest": "**Dernière version :** {version}",
         "md_age": "**Âge :** {days} jours",
+        "md_first_commit": "**Premier commit :** il y a {days} jours",
         "md_cadence": "**Cadence :** {days:.0f} jours/release",
         "md_status": "**Statut :** {status}",
         "md_license_label": "**Licence :** {spdx} ({family})",
@@ -447,6 +455,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_mirror": "Repository is a mirror of an upstream project",
         "rec_security_overdue": "Known security vulnerabilities unpatched",
         "rec_text_discontinued": "Project texts announce its discontinuation",
+        "rec_too_young": "Project too recent — only {days} days of history",
         # Recommendation reasoning lines
         "reason_archived": "repository marked as archived on GitHub",
         "reason_disabled": "repository disabled on GitHub",
@@ -479,6 +488,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_fork_soft": "Fork in sync with upstream — development happens on {parent}",
         "reason_fork_soft": "this repository is a fork used for pull requests — {behind} commits behind {parent}, no own development",
         "reason_text_active": "the project text declares active development",
+        "reason_too_young": "git history only {days} days long, no track record yet",
+        "reason_history_size": "{commits:,} commits already in this history",
         # ------------------------------------------------------------------
         # Comparison (multi-repo comparability)
         # ------------------------------------------------------------------
@@ -529,6 +540,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_funding": "funding available",
         "fact_corporate": "corporate backing",
         "fact_foundation": "foundation-backed",
+        "fact_project_age": "{days} days of history",
         # ------------------------------------------------------------------
         # Release health interpretation
         # ------------------------------------------------------------------
@@ -644,6 +656,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_stars": "Stars: {count:,}",
         "tui_forks": "Forks: {count:,}",
         "tui_created": "Created: {date}",
+        "tui_first_commit": "first commit: {days}d ago",
         "tui_owner": "Owner: {type}",
         "panel_release_health": "Release Health",
         "panel_license": "License",
@@ -748,6 +761,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_owner": "**Owner:** {type}",
         "md_latest": "**Latest:** {version}",
         "md_age": "**Age:** {days} days",
+        "md_first_commit": "**First commit:** {days} days ago",
         "md_cadence": "**Cadence:** {days:.0f} days/release",
         "md_status": "**Status:** {status}",
         "md_license_label": "**License:** {spdx} ({family})",

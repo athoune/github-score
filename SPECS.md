@@ -60,6 +60,12 @@ The library exposes a function-based API returning typed models. The CLI is a th
 Used whenever a repository URL is provided. The following fields are fetched:
 
 - Repository metadata: name, owner, creation date, default branch, archived/disabled status.
+- History start: the root commit date on the default branch (commits endpoint
+  with `per_page=1`, `Link` header `rel="last"` for the total count) and the
+  total commit count. Distinct from the creation date (the repository may be
+  created long before the first push, or its history rewritten) and a lower
+  bound on the project's real age when work predates version control. In
+  local mode the value comes from the commit walk.
 - License: `license.spdx_id` from the GitHub Licensee endpoint
   (`GET /repos/{owner}/{repo}/license`; `NOASSERTION` means undetected).
   When GitHub reports nothing, the SPDX declaration is taken from the
@@ -485,20 +491,21 @@ Decision tree (first matching branch wins):
 | 6 | Homepage degraded: timeout or bot-protection check ("I'm not a robot") | orange | Homepage unreachable or bot-protected |
 | 7 | Young, tiny, ≤ 3 authors (article demo) | orange | Ephemeral project |
 | 7b | Same, but organization-owned → skipped (org does not create repos for articles) | — | falls through to next branch |
-| 8 | Abandoned + widely used | orange | Large project, but now abandoned |
-| 9 | Abandoned | red | No commit for N months |
-| 10 | Active + ≥ 80% bots | orange | Maintained only by bots |
-| 11 | Active + no stable release | orange | Active but not stabilized |
-| 12 | Active + declining activity | orange | Well-maintained but in decline |
-| 13 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
-| 14 | Active | green | Active project |
-| 15 | Maintenance + no release for 6+ months | orange | No new features for N months |
-| 16 | Maintenance mode | orange | Project in maintenance mode |
-| 16b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
-| 16c | Same, but widely used | orange | Large project, but now abandoned |
-| 17 | Unknown + widely used | orange | Widely used despite low maintenance |
-| 17b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
-| 18 | Unknown | orange | Insufficient data |
+| 8 | Too young: recorded history shorter than 30 days (root commit, fallback creation date) | orange | Project too recent — N days of history |
+| 9 | Abandoned + widely used | orange | Large project, but now abandoned |
+| 10 | Abandoned | red | No commit for N months |
+| 11 | Active + ≥ 80% bots | orange | Maintained only by bots |
+| 12 | Active + no stable release | orange | Active but not stabilized |
+| 13 | Active + declining activity | orange | Well-maintained but in decline |
+| 14 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
+| 15 | Active | green | Active project |
+| 16 | Maintenance + no release for 6+ months | orange | No new features for N months |
+| 17 | Maintenance mode | orange | Project in maintenance mode |
+| 17b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
+| 17c | Same, but widely used | orange | Large project, but now abandoned |
+| 18 | Unknown + widely used | orange | Widely used despite low maintenance |
+| 18b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
+| 19 | Unknown | orange | Insufficient data |
 
 **Modifier — exotic main language:** when the verdict would be green, an
 uncommon main language (outside the PYPL top-20 and the GitHub Innovation

@@ -7,6 +7,8 @@ scrolling).
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -480,6 +482,9 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
         result.meta.created_at.strftime("%Y-%m-%d") if result.meta.created_at else "N/A"
     )
     summary.add_row(t("tui_created", date=created))
+    if result.meta.first_commit_at:
+        days = (datetime.now(UTC) - result.meta.first_commit_at).days
+        summary.add_row(t("tui_first_commit", days=days))
     console.print(summary)
     console.print()
 

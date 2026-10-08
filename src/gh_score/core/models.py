@@ -556,6 +556,7 @@ class SustainabilityIndicator:
     funding_platforms: list[str] = field(default_factory=list)
     corporate_backing: str | None = None
     foundation: str | None = None
+    foundation_source: str | None = None  # "owner" | "topic" | "text"
     governance_model: str | None = None
     status: Status = Status.UNKNOWN
     interpretation: str = ""

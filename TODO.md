@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 90% coverage, 672 tests). Last updated: 2026-10-08.
+(suite at 90% coverage, 682 tests). Last updated: 2026-10-08.
 
 ## Tests / coverage
 
@@ -93,15 +93,18 @@ item.
       count and bus factor, surfaced as a `fact_ai_authors` line, and flag
       orange when AI authors dominate with no human lead
       (`_AI_DOMINATED_RATIO`). Module: `core/ai_authorship.py`.
-- [ ] **Context guards for text-derived sustainability facts** — a match
-      in prose is a mention, not a relationship. Require full-name
-      affiliation phrases and structured signals (topic / owner) for
-      foundation membership, add negation / trademark / competitor /
-      license-context guards, drop the case-insensitive company capture in
-      the corporate-backing regex, and record provenance/confidence.
-      Regression cases: an `Apache-2.0` README must not yield "Apache
-      Software Foundation"; "not affiliated with, sponsored by or endorsed
-      by Adobe Inc." must not yield corporate backing.
+- [x] (done 2026-10-08) **Context guards for text-derived sustainability
+      facts** — a match in prose is a mention, not a relationship.
+      Foundation membership is resolved structured-first (owner login →
+      topic → explicit membership phrase); a bare short name ("apache") is
+      rejected, and prose matches are rejected in license / disclaimer /
+      competitor / negated context. The corporate-backing keyword capture
+      is now case-sensitive on the company name (the old `re.IGNORECASE`
+      captured "or endorsed by Adobe Inc.") and rejects negated/disclaimer
+      context. Shared guards: `core/text_context.py`. Provenance recorded
+      for foundations (`foundation_source`); corporate backing is always
+      text-derived. Regression cases added for the effectcraft README
+      (Apache-2.0 license, Adobe disclaimer).
 
 - [x] (done 2026-08-10) **Broken repository URLs** — malformed URLs are
       already rejected by `RepoUrl.parse`; repositories that do not exist

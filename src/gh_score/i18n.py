@@ -247,6 +247,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         # Sustainability interpretation
         # ------------------------------------------------------------------
         "int_foundation": "fondation : {name}",
+        "int_foundation_source": "fondation : {name} (source : {source})",
+        "source_owner": "propriétaire",
+        "source_topic": "topic",
+        "source_text": "texte",
         "int_funding": "financement : {platforms}",
         "int_corporate": "entreprise : {company}",
         "int_governance": "gouvernance : {model}",
@@ -641,6 +645,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         # Sustainability interpretation
         # ------------------------------------------------------------------
         "int_foundation": "foundation: {name}",
+        "int_foundation_source": "foundation: {name} (source: {source})",
+        "source_owner": "owner",
+        "source_topic": "topic",
+        "source_text": "text",
         "int_funding": "funding: {platforms}",
         "int_corporate": "corporate: {company}",
         "int_governance": "governance: {model}",

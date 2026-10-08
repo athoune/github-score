@@ -12,7 +12,10 @@ from gh_score.core.analyzers import (
     analyze_sustainability,
 )
 from gh_score.core.analyzers.mirror import detect_mirror
-from gh_score.core.analyzers.sustainability import _detect_corporate_backing
+from gh_score.core.analyzers.sustainability import (
+    _detect_corporate_backing,
+    _detect_foundation,
+)
 from gh_score.core.models import (
     Commit,
     CommunityFiles,
@@ -371,6 +374,89 @@ class TestCorporateBacking:
         result = analyze_sustainability(repo, lang="en")
         assert result.corporate_backing == "OpenAI"
         assert "OpenAI" in result.interpretation
+
+
+class TestCorporateBackingContext:
+    """Negated / disclaimer / competitor mentions are not backing."""
+
+    def _repo(self) -> Repository:
+        return Repository(url=RepoUrl("storytold", "effectcraft"))
+
+    def test_effectcraft_adobe_disclaimer_is_not_backing(self):
+        repo = self._repo()
+        repo.readme_content = (
+            "EffectCraft is an independent, open-source project and is not "
+            "affiliated with, sponsored by or endorsed by Adobe Inc.; these "
+            "names are used only to describe the workflows it is compatible with."
+        )
+        assert _detect_corporate_backing(repo) is None
+
+    def test_negated_sponsor_is_not_backing(self):
+        repo = self._repo()
+        repo.readme_content = "This project is not sponsored by Acme Corp."
+        assert _detect_corporate_backing(repo) is None
+
+    def test_trademark_disclaimer_is_not_backing(self):
+        repo = self._repo()
+        repo.readme_content = (
+            "Adobe and After Effects are trademarks of Adobe Inc. in the "
+            "United States and/or other countries."
+        )
+        assert _detect_corporate_backing(repo) is None
+
+    def test_alternative_to_is_not_backing(self):
+        repo = self._repo()
+        repo.readme_content = (
+            "A free alternative to Adobe After Effects, backed by open source."
+        )
+        assert _detect_corporate_backing(repo) is None
+
+
+class TestFoundationDetection:
+    """Foundation membership needs an affiliation, not a license mention."""
+
+    def _repo(
+        self,
+        *,
+        owner: str = "owner",
+        topics: list[str] | None = None,
+    ) -> Repository:
+        repo = Repository(url=RepoUrl(owner, "repo"))
+        repo.meta.owner = owner
+        repo.meta.topics = topics or []
+        return repo
+
+    def test_apache_license_is_not_foundation_membership(self):
+        # effectcraft-like: dual MIT/Apache-2.0 README must not yield ASF.
+        repo = self._repo()
+        repo.readme_content = (
+            "EffectCraft is dual-licensed under MIT or Apache-2.0, at your "
+            "option. Apache License 2.0, Version 2.0, January 2004."
+        )
+        assert _detect_foundation(repo) == (None, None)
+
+    def test_apache_topic_is_foundation(self):
+        repo = self._repo(topics=["apache", "rust"])
+        assert _detect_foundation(repo) == ("Apache Software Foundation", "topic")
+
+    def test_foundation_owner_is_foundation(self):
+        repo = self._repo(owner="apache")
+        assert _detect_foundation(repo) == ("Apache Software Foundation", "owner")
+
+    def test_affiliation_phrase_is_foundation(self):
+        repo = self._repo()
+        repo.readme_content = (
+            "Kafka is a project of the Apache Software Foundation community."
+        )
+        assert _detect_foundation(repo) == ("Apache Software Foundation", "text")
+
+    def test_ignored_in_negated_context(self):
+        repo = self._repo()
+        repo.readme_content = (
+            "This is not part of the Apache Software Foundation; it is an "
+            "independent project."
+        )
+        assert _detect_foundation(repo) == (None, None)
 
 
 class TestSecurityAnalyzer:

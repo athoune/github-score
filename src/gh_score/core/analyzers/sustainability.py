@@ -12,6 +12,11 @@ from gh_score.core.models import (
     Status,
     SustainabilityIndicator,
 )
+from gh_score.core.text_context import (
+    is_disclaimer_context,
+    is_license_context,
+    is_negated_before,
+)
 from gh_score.i18n import t
 
 # Known foundations and organizations
@@ -24,6 +29,37 @@ _FOUNDATIONS = {
     "python-software-foundation": "Python Software Foundation",
     "fsf": "Free Software Foundation",
     "owasp": "OWASP Foundation",
+}
+
+# Prose patterns that assert a foundation *membership*. A bare short name
+# ("apache") must never match: it also appears in license names ("Apache
+# License", "Apache-2.0"), which are not relationships.
+_FOUNDATION_TEXT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "apache": (
+        re.compile(r"\bapache software foundation\b", re.IGNORECASE),
+        re.compile(r"\bapache foundation\b", re.IGNORECASE),
+        re.compile(r"\bapache incubator\b", re.IGNORECASE),
+        re.compile(r"\basf\b", re.IGNORECASE),
+    ),
+    "cncf": (
+        re.compile(r"\bcloud native computing foundation\b", re.IGNORECASE),
+        re.compile(r"\bcncf\b", re.IGNORECASE),
+    ),
+    "linux-foundation": (re.compile(r"\blinux foundation\b", re.IGNORECASE),),
+    "eclipse-foundation": (re.compile(r"\beclipse foundation\b", re.IGNORECASE),),
+    "mozilla-foundation": (re.compile(r"\bmozilla foundation\b", re.IGNORECASE),),
+    "python-software-foundation": (
+        re.compile(r"\bpython software foundation\b", re.IGNORECASE),
+        re.compile(r"\bpsf\b", re.IGNORECASE),
+    ),
+    "fsf": (
+        re.compile(r"\bfree software foundation\b", re.IGNORECASE),
+        re.compile(r"\bfsf\b", re.IGNORECASE),
+    ),
+    "owasp": (
+        re.compile(r"\bowasp foundation\b", re.IGNORECASE),
+        re.compile(r"\bowasp\b", re.IGNORECASE),
+    ),
 }
 
 # Funding platform keywords
@@ -65,6 +101,24 @@ _CORPORATE_SPONSOR_PATTERNS = [
 ]
 
 
+def _keyword_company_pattern(keyword: str) -> re.Pattern[str]:
+    """Keyword-first pattern: the keyword is case-insensitive, the captured
+    company name is not.
+
+    Requiring an uppercase start prevents capturing coordination such as
+    "sponsored by **or endorsed by** Adobe Inc." as a company name.
+    """
+    return re.compile(
+        rf"\b(?i:{re.escape(keyword)})\b\s+"
+        r"([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*)"
+    )
+
+
+_CORPORATE_KEYWORD_PATTERNS = {
+    keyword: _keyword_company_pattern(keyword) for keyword in _CORPORATE_KEYWORDS
+}
+
+
 def _detect_funding_platforms(repo: Repository) -> list[str]:
     """Detect funding platforms from FUNDING.yml and README."""
     platforms = []
@@ -92,27 +146,45 @@ def _detect_funding_platforms(repo: Repository) -> list[str]:
     return platforms
 
 
-def _detect_foundation(repo: Repository) -> str | None:
-    """Detect if project is part of a recognized foundation."""
-    # Check topics
-    topics_lower = [t.lower() for t in repo.meta.topics]
+def _detect_foundation(repo: Repository) -> tuple[str | None, str | None]:
+    """Detect if project is part of a recognized foundation.
+
+    Returns ``(name, source)`` where ``source`` is ``"owner"``, ``"topic"``
+    or ``"text"``. Structured, self-declared signals (owner login, GitHub
+    topic) win over prose; a prose match requires an explicit membership
+    phrase and is rejected in license / disclaimer / negated context.
+    """
+    # 1. Owner login (a foundation org owns its projects).
+    url_owner = repo.url.owner if repo.url else ""
+    owner = (repo.meta.owner or url_owner or "").lower()
+    if owner in _FOUNDATIONS:
+        return _FOUNDATIONS[owner], "owner"
+
+    # 2. GitHub topic, self-declared.
+    topics_lower = {topic.lower() for topic in repo.meta.topics}
     for key, name in _FOUNDATIONS.items():
         if key in topics_lower:
-            return name
+            return name, "topic"
 
-    # Check README and GOVERNANCE
+    # 3. Prose: only an explicit membership phrase, with context guards.
     texts = [
         repo.readme_content or "",
         repo.governance_content or "",
     ]
 
     for text in texts:
-        text_lower = text.lower()
         for key, name in _FOUNDATIONS.items():
-            if key.replace("-", " ") in text_lower or name.lower() in text_lower:
-                return name
+            for pattern in _FOUNDATION_TEXT_PATTERNS.get(key, ()):
+                for match in pattern.finditer(text):
+                    if is_license_context(text, match.start(), match.end()):
+                        continue
+                    if is_disclaimer_context(text, match.start(), match.end()):
+                        continue
+                    if is_negated_before(text, match.start()):
+                        continue
+                    return name, "text"
 
-    return None
+    return None, None
 
 
 def _clean_company(raw: str) -> str | None:
@@ -142,7 +214,11 @@ def _detect_corporate_backing(repo: Repository) -> str | None:
     - "<Company> is a/the (founding) sponsor of …" — the company precedes
       the backing noun (_CORPORATE_SPONSOR_PATTERNS);
     - "<…> backed by <Company>" — the company follows the keyword
-      (_CORPORATE_KEYWORDS).
+      (_CORPORATE_KEYWORD_PATTERNS).
+
+    Every match is rejected in negated ("not affiliated with, sponsored by
+    or endorsed by Adobe Inc."), disclaimer / competitor ("trademarks of",
+    "competitor", "alternative to") context.
     """
     texts = [
         repo.readme_content or "",
@@ -152,26 +228,30 @@ def _detect_corporate_backing(repo: Repository) -> str | None:
     for text in texts:
         # Noun phrase: "OpenAI is the founding sponsor of the Warp repository".
         for pattern in _CORPORATE_SPONSOR_PATTERNS:
-            match = pattern.search(text)
-            if match:
+            for match in pattern.finditer(text):
+                if _backing_context_rejected(text, match):
+                    continue
                 company = _clean_company(match.group(1))
                 if company and not _is_self_mention(repo, company):
                     return company
 
         # Keyword phrase: "Backed by Acme Corp", "Sponsored by Acme Corp", …
-        text_lower = text.lower()
-        for keyword in _CORPORATE_KEYWORDS:
-            if keyword in text_lower:
-                # Try to extract company name (simple heuristic)
-                # Look for patterns like "Backed by Company" or "Maintained by @company"
-                pattern = rf"{keyword}\s+([A-Z][A-Za-z0-9\s]+)"
-                match = re.search(pattern, text, re.IGNORECASE)
-                if match:
-                    company = _clean_company(match.group(1))
-                    if company and not _is_self_mention(repo, company):
-                        return company
+        for pattern in _CORPORATE_KEYWORD_PATTERNS.values():
+            for match in pattern.finditer(text):
+                if _backing_context_rejected(text, match):
+                    continue
+                company = _clean_company(match.group(1))
+                if company and not _is_self_mention(repo, company):
+                    return company
 
     return None
+
+
+def _backing_context_rejected(text: str, match: re.Match[str]) -> bool:
+    """True when a backing match sits in negated or disclaimer context."""
+    return is_negated_before(text, match.start()) or is_disclaimer_context(
+        text, match.start(), match.end()
+    )
 
 
 def _detect_governance_model(repo: Repository) -> str | None:
@@ -216,7 +296,7 @@ def analyze_sustainability(
     - Status and interpretation
     """
     funding_platforms = _detect_funding_platforms(repo)
-    foundation = _detect_foundation(repo)
+    foundation, foundation_source = _detect_foundation(repo)
     corporate_backing = _detect_corporate_backing(repo)
     governance_model = _detect_governance_model(repo)
 
@@ -227,6 +307,7 @@ def analyze_sustainability(
         funding_platforms=funding_platforms,
         corporate_backing=corporate_backing,
         foundation=foundation,
+        foundation_source=foundation_source,
         governance_model=governance_model,
     )
 
@@ -264,7 +345,17 @@ def _build_interpretation(
     parts = []
 
     if ind.foundation:
-        parts.append(t("int_foundation", lang=lang, name=ind.foundation))
+        if ind.foundation_source:
+            parts.append(
+                t(
+                    "int_foundation_source",
+                    lang=lang,
+                    name=ind.foundation,
+                    source=t(f"source_{ind.foundation_source}", lang=lang),
+                )
+            )
+        else:
+            parts.append(t("int_foundation", lang=lang, name=ind.foundation))
 
     if ind.funding_platforms:
         parts.append(

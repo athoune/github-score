@@ -555,3 +555,19 @@ class TestProjectAgeAndAiKeys:
                 "md_ai",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
+class TestSustainabilitySourceKeys:
+    """Foundation provenance keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "int_foundation_source",
+                "source_owner",
+                "source_topic",
+                "source_text",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"

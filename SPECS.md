@@ -444,11 +444,12 @@ Composite signal based on:
 
 - Presence and content of `FUNDING.yml`.
 - Funding platforms detected in README/FUNDING (`github/sponsors`, `opencollective`, `tidelift`, `patreon`, `ko-fi`, `liberapay`, etc.).
-- Membership in a recognized foundation or organization (Apache, CNCF, Linux Foundation, etc.) via topic, owner, or README.
+- Membership in a recognized foundation or organization (Apache, CNCF, Linux Foundation, etc.). Resolved structured-first: owner login, then a self-declared GitHub topic, then an explicit membership phrase in README/GOVERNANCE. A bare short name (`apache`) is never enough — it also appears in license names — and a prose match is rejected in license, disclaimer/competitor or negated context; the winning source (`owner` / `topic` / `text`) is reported.
 - Explicit mentions in README/GOVERNANCE of corporate backing, maintainers, governance model. Corporate backing is detected from two
   phrasings: keyword-first (`backed by <Company>`, `sponsored by <Company>`, …) and noun-first (`<Company> is a/the (founding) sponsor/backer of
-  …`). A sentence where the repository names itself as the sponsor of others ("Warp is a sponsor of X") is not backing of that repository and is
-  ignored.
+  …`), with the company name required to start with an uppercase letter and the match rejected in negated or disclaimer/competitor context (a
+  "not affiliated with, sponsored by or endorsed by X" sentence is not backing of X). A sentence where the repository names itself as the sponsor
+  of others ("Warp is a sponsor of X") is not backing of that repository and is ignored. The shared guards live in `core/text_context.py`.
 - Optional LLM pass: read README, GOVERNANCE, SECURITY to extract sustainability hints.
 
 ### 7.7 Website availability

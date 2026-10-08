@@ -407,10 +407,10 @@ The full catalog (TUI and Markdown labels included) lives in
 ## Reasoning
 
 Each verdict carries a `reasoning` list: the triggering signal plus
-objective facts (stars, author count, owner type, registry dependents when
-known, hard-fork relationship) and, when the LLM is enabled, qualitative
-facts (roadmap, commercial support, security policy, declared maintenance
-state). Example:
+objective facts (stars, author count, owner type, history age, AI
+co-authors when detected, registry dependents when known, hard-fork
+relationship) and, when the LLM is enabled, qualitative facts (roadmap,
+commercial support, security policy, declared maintenance state). Example:
 
 ```
 🟢 Active project with a large community
@@ -451,6 +451,37 @@ runs.
 |-----|--------|---------|
 | `tui_license_via` | via {source} | via {source} |
 | `md_license_via` | via {source} | via {source} |
+
+## Sustainability facts (text heuristics)
+
+Sustainability signals come from `analyzers/sustainability.py`. Structured,
+self-declared evidence always wins over prose:
+
+- **Foundation membership** — resolved by `_detect_foundation`, first match
+  wins: (1) the owner login is a known foundation org; (2) a GitHub topic
+  equals the foundation key; (3) an explicit membership phrase in
+  README/GOVERNANCE (e.g. "Apache Software Foundation", "CNCF", "Linux
+  Foundation"). A bare short name (`apache`) is **never** enough: it also
+  appears in license names. The winning source is shown in the report
+  (`source_owner` / `source_topic` / `source_text`).
+- **Corporate backing** — resolved by `_detect_corporate_backing` from
+  "<Company> is a sponsor of …" or "<…> backed by <Company>", with the
+  company name required to start with an uppercase letter (so
+  "sponsored by **or endorsed by** Adobe Inc." is not read as a company).
+
+Both prose detectors run the shared context guards from
+`core/text_context.py` and reject a match when it sits in:
+
+- **negated** context ("not affiliated with, sponsored by or endorsed by
+  Adobe Inc.", "is not sponsored by Acme");
+- **disclaimer / competitor** context ("trademarks of", "competitor",
+  "alternative to", "clean room");
+- **license** context for foundations ("Apache License", "Apache-2.0",
+  "MIT OR Apache-2.0").
+
+Facts derived from prose are heuristic: a mention is not a relationship.
+These rules never affect the verdict today (the sustainability family is
+not read by the recommendation), but they keep the report truthful.
 
 ## Message catalog
 

@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 90% coverage, 649 tests). Last updated: 2026-10-08.
+(suite at 90% coverage, 672 tests). Last updated: 2026-10-08.
 
 ## Tests / coverage
 
@@ -84,14 +84,15 @@ Feature ideas carried over from the maintainer's notes (`TODO.txt`),
 described cleanly. Scope and acceptance criteria still to be defined per
 item.
 
-- [ ] **AI authorship / "vibe coding" signal** — model AI agents as a
-      third author class (human / automation bot / AI agent), detected
-      from commit trailers (`Co-Authored-By: Claude <noreply@anthropic.com>`,
-      `Claude-Session:`, Copilot/Cursor/Codex/Devin/Aider), author email
-      domains and known logins (a bare `claude` login is weak evidence).
-      Exclude AI authors from the human count and bus factor, surface the
-      agents as a fact, and flag orange when AI dominates with no human
-      lead.
+- [x] (done 2026-10-08) **AI authorship / "vibe coding" signal** — coding
+      agents are a third author class (human / automation bot / AI agent),
+      detected from commit trailers (`Co-Authored-By: Claude
+      <noreply@anthropic.com>`, `Claude-Session:`, Copilot/Cursor/Codex/
+      Devin/Aider), agent email domains and reserved logins (a bare `claude`
+      login alone is weak evidence). Agents are excluded from the human
+      count and bus factor, surfaced as a `fact_ai_authors` line, and flag
+      orange when AI authors dominate with no human lead
+      (`_AI_DOMINATED_RATIO`). Module: `core/ai_authorship.py`.
 - [ ] **Context guards for text-derived sustainability facts** — a match
       in prose is a mention, not a relationship. Require full-name
       affiliation phrases and structured signals (topic / owner) for

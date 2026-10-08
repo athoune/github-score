@@ -40,6 +40,8 @@ def _make_result(
     owner_type: str = "",
     total_authors: int = 0,
     bot_ratio: float = 0.0,
+    ai_authored_ratio: float = 0.0,
+    ai_agents: list[str] | None = None,
     activity_trend: dict | None = None,
     latest_version: str | None = None,
     is_prerelease: bool = False,
@@ -80,6 +82,8 @@ def _make_result(
     contributors = ContributorsIndicator(
         total_authors=total_authors,
         bot_ratio=bot_ratio,
+        ai_agents=ai_agents or [],
+        ai_authored_ratio=ai_authored_ratio,
         activity_trend=activity_trend or {},
         status=contributors_status,
     )
@@ -420,6 +424,38 @@ class TestTooYoung:
         )
         rec = _recommend(result)
         assert "éphémère" in rec.message
+
+
+class TestAiDominated:
+    """AI agents as authors (no human lead) downgrade; assistance does not."""
+
+    def test_ai_dominated_is_orange(self):
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=100,
+            total_authors=0,
+            ai_authored_ratio=0.95,
+            ai_agents=["Claude"],
+            latest_version="v1.0.0",
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.ORANGE
+        assert "IA" in rec.message
+
+    def test_ai_assisted_stays_green_with_fact(self):
+        # effectcraft-like: ~2% of commits authored by an agent, so the
+        # project is human-led and keeps its verdict; the signal is surfaced.
+        result = _make_result(
+            state=MaintenanceState.ACTIVE,
+            stars=1_880,
+            total_authors=8,
+            ai_authored_ratio=0.02,
+            ai_agents=["Claude"],
+            latest_version="v1.0.0",
+        )
+        rec = _recommend(result)
+        assert rec.level == RecommendationLevel.GREEN
+        assert any("Claude" in r for r in rec.reasoning)
 
 
 class TestHardFlags:

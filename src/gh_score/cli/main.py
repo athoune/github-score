@@ -252,6 +252,8 @@ def _md_contributors(result: AnalysisResult, console: Console) -> None:
     console.print(f"- {t('md_bus_factor', count=contrib.bus_factor)}")
     if contrib.bot_ratio > 0:
         console.print(f"- {t('md_bot_ratio', ratio=contrib.bot_ratio)}")
+    if contrib.ai_agents:
+        console.print(f"- {t('md_ai', agents=', '.join(contrib.ai_agents))}")
     if contrib.lead:
         console.print(f"- {t('md_lead', login=contrib.lead.login)}")
     console.print(f"- {t('md_status', status=t(f'status_{contrib.status.value}'))}\n")

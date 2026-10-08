@@ -7,6 +7,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+from gh_score.core.ai_authorship import (
+    agent_for_email,
+    agent_for_login,
+    commit_ai_agents,
+)
 from gh_score.core.models import (
     Contributor,
     ContributorArchetype,
@@ -51,6 +56,16 @@ def _contributor_is_bot(c: Contributor) -> bool:
     return c.is_bot or _is_bot(c.login)
 
 
+def _contributor_is_ai(c: Contributor) -> bool:
+    """Check if a contributor is a coding agent (not a human, not a bot).
+
+    An AI agent is a distinct author class: it must not inflate the human
+    author count or the bus factor, and the task-bot verdict must not fire
+    for it.
+    """
+    return c.is_ai or agent_for_login(c.login) is not None
+
+
 def _compute_bus_factor(contributors: list[Contributor], threshold: float = 0.5) -> int:
     """Compute bus factor: smallest N contributors accounting for threshold% of commits.
 
@@ -73,7 +88,7 @@ def _compute_bus_factor(contributors: list[Contributor], threshold: float = 0.5)
     count = 0
 
     for c in contributors:
-        if _contributor_is_bot(c):
+        if _contributor_is_bot(c) or _contributor_is_ai(c):
             continue
         cumulative += c.commits
         count += 1
@@ -94,8 +109,12 @@ def _classify_contributors(
     Returns:
         (lead, historical_lead, minor_count)
     """
-    # Filter out bots
-    humans = [c for c in contributors if not _contributor_is_bot(c)]
+    # Filter out bots and coding agents: only humans count as maintainers.
+    humans = [
+        c
+        for c in contributors
+        if not _contributor_is_bot(c) and not _contributor_is_ai(c)
+    ]
 
     if not humans:
         return None, None, 0
@@ -110,7 +129,7 @@ def _classify_contributors(
             author = commit.author_login
             if not author or author == "unknown":
                 continue  # Skip commits without a GitHub login
-            if not _is_bot(author):
+            if not _is_bot(author) and agent_for_login(author) is None:
                 recent_commits_by_author[author] = (
                     recent_commits_by_author.get(author, 0) + 1
                 )
@@ -189,6 +208,41 @@ def _compute_bot_ratio(contributors: list[Contributor]) -> float:
     return bot_commits / total_commits
 
 
+def _ai_commit_stats(repo: Repository) -> tuple[list[str], float, float]:
+    """AI authorship over the fetched commits.
+
+    Returns ``(agents, authored_ratio, coauthored_ratio)``:
+    - ``agents``: display names of the coding agents seen (as commit author
+      or in a commit trailer);
+    - ``authored_ratio``: share of commits whose *author* is an AI agent;
+    - ``coauthored_ratio``: share of commits carrying an AI co-author
+      trailer (assistance on a human-authored commit).
+    """
+    total = 0
+    authored = 0
+    coauthored = 0
+    agents: set[str] = set()
+
+    for commit in repo.commits:
+        if not commit.author_date:
+            continue
+        total += 1
+        author_agent = agent_for_login(commit.author_login) or agent_for_email(
+            commit.author_email
+        )
+        trailer_agents = commit_ai_agents(commit.message)
+        if author_agent:
+            authored += 1
+            agents.add(author_agent)
+        if trailer_agents:
+            coauthored += 1
+            agents.update(trailer_agents)
+
+    if total == 0:
+        return [], 0.0, 0.0
+    return sorted(agents), authored / total, coauthored / total
+
+
 def analyze_contributors(
     repo: Repository,
     lang: str | None = None,
@@ -212,8 +266,12 @@ def analyze_contributors(
     now = datetime.now(UTC)
     contributors = repo.contributors.contributors
 
-    # Filter out bots for author count
-    humans = [c for c in contributors if not _contributor_is_bot(c)]
+    # Filter out bots and AI agents for the human author count.
+    humans = [
+        c
+        for c in contributors
+        if not _contributor_is_bot(c) and not _contributor_is_ai(c)
+    ]
     total_authors = len(humans)
 
     # Bus factor
@@ -221,6 +279,9 @@ def analyze_contributors(
 
     # Bot ratio
     bot_ratio = _compute_bot_ratio(contributors)
+
+    # AI authorship (vibe-coding signal)
+    ai_agents, ai_authored_ratio, ai_coauthored_ratio = _ai_commit_stats(repo)
 
     # Classify contributors
     lead, historical_lead, minor_count = _classify_contributors(
@@ -238,6 +299,9 @@ def analyze_contributors(
         historical_lead=historical_lead,
         minor_count=minor_count,
         activity_trend=activity_trend,
+        ai_agents=ai_agents,
+        ai_authored_ratio=ai_authored_ratio,
+        ai_coauthored_ratio=ai_coauthored_ratio,
     )
 
     indicator.status = _compute_status(indicator)
@@ -279,6 +343,9 @@ def _build_interpretation(
 
     if ind.bot_ratio > 0:
         parts.append(t("int_bots", lang=lang, ratio=ind.bot_ratio))
+
+    if ind.ai_agents:
+        parts.append(t("int_ai", lang=lang, agents=", ".join(ind.ai_agents)))
 
     if ind.lead:
         parts.append(t("int_lead", lang=lang, login=ind.lead.login))

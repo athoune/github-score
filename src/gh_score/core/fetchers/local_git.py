@@ -11,6 +11,7 @@ from pathlib import Path
 
 from git import Repo
 
+from gh_score.core.ai_authorship import agent_for_domain, agent_for_login
 from gh_score.core.models import (
     Commit,
     CommunityFiles,
@@ -137,6 +138,8 @@ def fetch_local_repo(path: str) -> Repository:
                 login=login,
                 commits=count,
                 email_domain=email_domain,
+                is_ai=agent_for_login(login) is not None
+                or agent_for_domain(email_domain) is not None,
             )
         )
     repo.contributors = ContributorStats(

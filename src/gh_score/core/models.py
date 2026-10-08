@@ -161,6 +161,7 @@ class Contributor:
     additions: int = 0
     deletions: int = 0
     is_bot: bool = False
+    is_ai: bool = False  # coding-agent account (Claude Code, Copilot, …)
     email_domain: str | None = None
     company: str | None = None
 
@@ -507,6 +508,10 @@ class ContributorsIndicator:
     minor_count: int = 0
     activity_trend: dict[str, int] = field(default_factory=dict)
     # {"3m": N, "6m": N, "12m": N, "24m": N} commit counts
+    ai_agents: list[str] = field(default_factory=list)
+    # coding agents that authored or co-authored commits (display names)
+    ai_authored_ratio: float = 0.0  # commits whose author is an AI agent
+    ai_coauthored_ratio: float = 0.0  # commits co-signed by an AI agent trailer
     status: Status = Status.UNKNOWN
     interpretation: str = ""
 

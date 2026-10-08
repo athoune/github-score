@@ -531,3 +531,27 @@ class TestComparisonKeys:
                 "md_section_comparison_table",
             ):
                 assert key in MESSAGES[lang], f"{lang}:{key} missing"
+
+
+class TestProjectAgeAndAiKeys:
+    """Project-age and AI-authorship keys exist in both catalogs."""
+
+    def test_keys_present(self):
+        from gh_score.i18n import MESSAGES
+
+        for lang in ("fr", "en"):
+            for key in (
+                "rec_too_young",
+                "reason_too_young",
+                "reason_history_size",
+                "fact_project_age",
+                "tui_first_commit",
+                "md_first_commit",
+                "rec_ai_dominated",
+                "reason_ai_dominated",
+                "fact_ai_authors",
+                "int_ai",
+                "tui_ai",
+                "md_ai",
+            ):
+                assert key in MESSAGES[lang], f"{lang}:{key} missing"

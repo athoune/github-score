@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 
 from gh_score.config import Config
+from gh_score.core.ai_authorship import agent_for_email, agent_for_login
 from gh_score.core.cache import Cache
 from gh_score.core.models import (
     Commit,
@@ -451,6 +452,10 @@ class GitHubFetcher:
             email = email_by_login.get(contributor.login)
             if email and "@" in email:
                 contributor.email_domain = email.split("@")[-1].lower()
+            contributor.is_ai = (
+                agent_for_login(contributor.login) is not None
+                or agent_for_email(email) is not None
+            )
 
         return ContributorStats(
             contributors=contributors,

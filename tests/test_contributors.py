@@ -137,6 +137,34 @@ class TestFetchContributors:
         assert stats.contributors == []
         assert stats.total_commit_count == 0
 
+    @pytest.mark.asyncio
+    async def test_marks_ai_contributor(self, tmp_path):
+        # The `claude` account (noreply@anthropic.com) is a coding agent;
+        # a normal login sharing the repo is not.
+        fetcher = self._make_fetcher(tmp_path)
+        fetcher._get_all_pages = AsyncMock(
+            return_value=[
+                {"login": "claude", "contributions": 16},
+                {"login": "alice", "contributions": 100},
+            ]
+        )
+        fetcher.fetch_commits = AsyncMock(
+            return_value=[
+                Commit(
+                    sha="c",
+                    author_login="claude",
+                    author_email="noreply@anthropic.com",
+                ),
+            ]
+        )
+
+        stats = await fetcher.fetch_contributors(RepoUrl(owner="owner", repo="repo"))
+
+        by_login = {c.login: c for c in stats.contributors}
+        assert by_login["claude"].is_ai is True
+        assert by_login["claude"].email_domain == "anthropic.com"
+        assert by_login["alice"].is_ai is False
+
 
 # ---------------------------------------------------------------------------
 # analyze_contributors with mocked Repository
@@ -190,3 +218,82 @@ class TestAnalyzeContributors:
         assert result.total_authors == 1
         assert result.lead is not None
         assert result.lead.login == "alice"
+
+
+class TestAiAuthorship:
+    """Coding agents are a third author class: excluded from the human count
+    and bus factor, surfaced as an AI signal."""
+
+    def _make_repo(self, contributors, commits) -> Repository:
+        repo = Repository(url=RepoUrl(owner="test", repo="project"))
+        repo.contributors = ContributorStats(
+            contributors=contributors,
+            total_commit_count=sum(c.commits for c in contributors),
+        )
+        repo.commits = commits
+        return repo
+
+    def test_ai_author_excluded_from_humans(self):
+        from datetime import datetime
+
+        now = datetime.now(UTC)
+        contribs = [
+            Contributor(login="alice", commits=90),
+            Contributor(login="claude", commits=10, is_ai=True),
+        ]
+        commits = [
+            Commit(sha="a", author_login="alice", author_date=now, message="fix"),
+            Commit(
+                sha="c",
+                author_login="claude",
+                author_email="noreply@anthropic.com",
+                author_date=now,
+                message=(
+                    "feat: add renderer\n\n"
+                    "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+                ),
+            ),
+        ]
+        result = analyze_contributors(self._make_repo(contribs, commits))
+
+        assert result.total_authors == 1
+        assert "Claude" in result.ai_agents
+        assert result.ai_authored_ratio == 0.5
+        assert result.ai_coauthored_ratio == 0.5
+
+    def test_coauthor_trailer_on_human_commit(self):
+        # effectcraft-like: a human-authored commit co-signed by Claude.
+        from datetime import datetime
+
+        now = datetime.now(UTC)
+        contribs = [Contributor(login="alice", commits=1)]
+        commits = [
+            Commit(
+                sha="a",
+                author_login="alice",
+                author_date=now,
+                message=(
+                    "engine: fix\n\n"
+                    "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+                ),
+            )
+        ]
+        result = analyze_contributors(self._make_repo(contribs, commits))
+
+        assert result.ai_authored_ratio == 0.0
+        assert result.ai_coauthored_ratio == 1.0
+        assert "Claude" in result.ai_agents
+
+    def test_no_ai_means_no_signal(self):
+        from datetime import datetime
+
+        now = datetime.now(UTC)
+        contribs = [Contributor(login="alice", commits=5)]
+        commits = [
+            Commit(sha="a", author_login="alice", author_date=now, message="fix")
+        ]
+        result = analyze_contributors(self._make_repo(contribs, commits))
+
+        assert result.ai_agents == []
+        assert result.ai_authored_ratio == 0.0
+        assert result.ai_coauthored_ratio == 0.0

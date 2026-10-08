@@ -45,6 +45,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_bots": (
             "Projet uniquement maintenu par des bots qui mettent à jour les dépendances"
         ),
+        "rec_ai_dominated": (
+            "Projet principalement écrit par des IA, sans mainteneur humain identifié"
+        ),
         "rec_not_stable": "Projet en développement actif mais pas encore stabilisé",
         "rec_declining": "Projet bien maintenu mais en déclin",
         "rec_active_community": "Projet actif avec une grande communauté",
@@ -73,6 +76,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         ),
         "reason_last_commit_days": "dernier commit il y a {days} jours",
         "reason_bots": "{ratio:.0%} des commits proviennent de bots",
+        "reason_ai_dominated": "{ratio:.0%} des commits proviennent d'agents IA",
         "reason_no_stable_release": "pas de release stable (1.0+ ou non-pré-release)",
         "reason_declining": "l'activité des 3 derniers mois est en nette baisse",
         "reason_active": "état actif, développement régulier",
@@ -155,6 +159,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_corporate": "soutien d'une entreprise",
         "fact_foundation": "adossé à une fondation",
         "fact_project_age": "historique de {days} jours",
+        "fact_ai_authors": "commits assistés ou écrits par IA : {agents}",
         # ------------------------------------------------------------------
         # Release health interpretation
         # ------------------------------------------------------------------
@@ -187,6 +192,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_authors": "{count} auteurs",
         "int_bus_factor": "facteur du bus : {count}",
         "int_bots": "bots : {ratio:.0%}",
+        "int_ai": "IA : {agents}",
         "int_lead": "développeur principal : {login}",
         "int_historical_lead": "historique : {login}",
         "int_minor": "{count} mineurs",
@@ -299,6 +305,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_total": "total : {count}",
         "tui_bus_factor": "facteur de bus : {count}",
         "tui_bots": "bots : {ratio:.0%}",
+        "tui_ai": "IA : {agents}",
         "tui_lead": "lead : {login}",
         "tui_historical": "historique : {login}",
         "tui_minor": "mineurs : {count}",
@@ -386,6 +393,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_total_authors": "**Nombre d'auteurs :** {count}",
         "md_bus_factor": "**Facteur de bus :** {count}",
         "md_bot_ratio": "**Ratio de bots :** {ratio:.0%}",
+        "md_ai": "**IA :** {agents}",
         "md_lead": "**Développeur principal :** {login}",
         "md_state": "**État :** {state}",
         "md_last_commit": "**Dernier commit :** il y a {days} jours",
@@ -438,6 +446,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "rec_abandoned_popular": "Large project, but now abandoned",
         "rec_abandoned_months": "Abandoned project — no commit for {months} months",
         "rec_bots": "Project maintained only by dependency-update bots",
+        "rec_ai_dominated": (
+            "Project primarily written by AI, with no identified human maintainer"
+        ),
         "rec_not_stable": "Active development but not yet stabilized",
         "rec_declining": "Well-maintained project but in decline",
         "rec_active_community": "Active project with a large community",
@@ -464,6 +475,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reason_abandoned_popular": "no commit for a long time despite wide adoption",
         "reason_last_commit_days": "last commit {days} days ago",
         "reason_bots": "{ratio:.0%} of commits come from bots",
+        "reason_ai_dominated": "{ratio:.0%} of commits come from AI agents",
         "reason_no_stable_release": "no stable release (1.0+ or non-pre-release)",
         "reason_declining": "activity over the last 3 months is sharply down",
         "reason_active": "active state, regular development",
@@ -541,6 +553,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fact_corporate": "corporate backing",
         "fact_foundation": "foundation-backed",
         "fact_project_age": "{days} days of history",
+        "fact_ai_authors": "AI-written or AI-assisted commits: {agents}",
         # ------------------------------------------------------------------
         # Release health interpretation
         # ------------------------------------------------------------------
@@ -573,6 +586,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "int_authors": "{count} authors",
         "int_bus_factor": "bus factor: {count}",
         "int_bots": "bots: {ratio:.0%}",
+        "int_ai": "AI: {agents}",
         "int_lead": "lead: {login}",
         "int_historical_lead": "historical: {login}",
         "int_minor": "{count} minor",
@@ -685,6 +699,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tui_total": "total: {count}",
         "tui_bus_factor": "bus factor: {count}",
         "tui_bots": "bots: {ratio:.0%}",
+        "tui_ai": "AI: {agents}",
         "tui_lead": "lead: {login}",
         "tui_historical": "historical: {login}",
         "tui_minor": "minor: {count}",
@@ -770,6 +785,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "md_total_authors": "**Total authors:** {count}",
         "md_bus_factor": "**Bus factor:** {count}",
         "md_bot_ratio": "**Bot ratio:** {ratio:.0%}",
+        "md_ai": "**AI:** {agents}",
         "md_lead": "**Lead:** {login}",
         "md_state": "**State:** {state}",
         "md_last_commit": "**Last commit:** {days} days ago",

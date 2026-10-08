@@ -88,6 +88,7 @@ The rules are evaluated **in order**; the first matching branch wins.
    - Otherwise → 🔴 "Abandoned project — no commit for N months"
 
 9. **Active development** (`MaintenanceState.ACTIVE`)
+   - ≥ 80% of commits authored by AI agents and no human lead → 🟠 "Project primarily written by AI, with no identified human maintainer"
    - ≥ 80% of commits from bots → 🟠 "Project maintained only by dependency-update bots"
    - No stable release (none, pre-release, or 0.x) → 🟠 "Active development but not yet stabilized"
    - Declining activity (3-month commits < 25% of 12-month commits) → 🟠 "Well-maintained project but in decline"
@@ -121,6 +122,18 @@ in English is displayed in the report (dependency-free heuristic on the
 dominant script and English stopword density) but **never affects the
 verdict**.
 
+**AI authorship (vibe coding):** coding agents are a third author class,
+between humans and automation bots. They are detected from self-declared
+evidence — commit trailers (`Co-Authored-By: Claude
+<noreply@anthropic.com>`, `Claude-Session:`, Copilot/Cursor/Codex/Devin/
+Aider markers), agent email domains and reserved logins — never from a
+bare login alone (a human may share the name). AI authors are excluded
+from the human author count and the bus factor. The detected agents are
+always surfaced as a `fact_ai_authors` reasoning line; the orange
+"AI-dominated" branch only fires when ≥ 80 % of commits are *authored* by
+agents and no human lead drives the project — assistance on a human-led
+project never downgrades it.
+
 ## Thresholds
 
 All thresholds are module-level constants in `recommendation.py` and are
@@ -141,6 +154,7 @@ heuristics to be tuned with real-world examples.
 | `_EPHEMERAL_MAX_AUTHORS` | 3 | ephemeral project detection |
 | `_EPHEMERAL_MAX_STARS` | 200 | ephemeral project detection |
 | `_TOO_YOUNG_AGE_DAYS` | 30 | recorded history too short for a verdict (root commit, fallback creation date) |
+| `_AI_DOMINATED_RATIO` | 0.8 | AI-authored commits without a human lead |
 | `_SOFT_FORK_MAX_AHEAD` | 10 | fork kept in sync with upstream (PR vehicle) |
 
 **Registry popularity semantics:** `_is_widely_used` treats both
@@ -450,6 +464,7 @@ runs.
 | `rec_abandoned_popular` | Grand projet, mais maintenant abandonné | Large project, but now abandoned |
 | `rec_abandoned_months` | Projet abandonné — pas de commit depuis {months} mois | Abandoned project — no commit for {months} months |
 | `rec_bots` | Projet uniquement maintenu par des bots qui mettent à jour les dépendances | Project maintained only by dependency-update bots |
+| `rec_ai_dominated` | Projet principalement écrit par des IA, sans mainteneur humain identifié | Project primarily written by AI, with no identified human maintainer |
 | `rec_not_stable` | Projet en développement actif mais pas encore stabilisé | Active development but not yet stabilized |
 | `rec_declining` | Projet bien maintenu mais en déclin | Well-maintained project but in decline |
 | `rec_active_community` | Projet actif avec une grande communauté | Active project with a large community |
@@ -484,6 +499,7 @@ runs.
 | `fact_fork_pr` | #{number} ({state}) : {title} | #{number} ({state}): {title} |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
 | `fact_project_age` | historique de {days} jours | {days} days of history |
+| `fact_ai_authors` | commits assistés ou écrits par IA : {agents} | AI-written or AI-assisted commits: {agents} |
 | `fact_dependents` | {count} paquets dépendent de cette bibliothèque | {count} packages depend on this library |
 | `owner_type_user` | utilisateur | user |
 | `owner_type_organization` | organisation | organization |

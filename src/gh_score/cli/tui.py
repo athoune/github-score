@@ -179,6 +179,9 @@ def _render_contributors(result: AnalysisResult) -> Panel:
     if contrib.bot_ratio > 0:
         content.append(f"{t('tui_bots', ratio=contrib.bot_ratio)}\n")
 
+    if contrib.ai_agents:
+        content.append(f"{t('tui_ai', agents=', '.join(contrib.ai_agents))}\n")
+
     if contrib.lead:
         content.append(t("tui_lead", login=contrib.lead.login))
         if contrib.lead.commits > 0:

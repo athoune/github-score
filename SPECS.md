@@ -401,6 +401,12 @@ Analysis spans the full project history to detect leadership transitions.
 - Contribution distribution: top contributors by commit count and lines changed.
 - Bus factor: smallest number of contributors accounting for 50% of commits.
 - Bot ratio: commits authored by known bots (Dependabot, Renovate, GitHub Actions, etc.).
+- AI agents: commits authored by, or co-signed by, a coding agent
+  (Claude, Copilot, Cursor, Codex, Devin, Aider…) are detected from
+  self-declared evidence (commit trailers, agent email domains, reserved
+  logins — never a bare login alone). Agents are excluded from the human
+  author count and the bus factor, and the AI-authored / AI-co-authored
+  shares are reported (the optional "vibe coding" signal).
 - Contributor archetypes:
   - **Lead**: dominant contributor over the last 12 months.
   - **Historical lead**: dominant contributor over the full history but no longer active.
@@ -494,18 +500,19 @@ Decision tree (first matching branch wins):
 | 8 | Too young: recorded history shorter than 30 days (root commit, fallback creation date) | orange | Project too recent — N days of history |
 | 9 | Abandoned + widely used | orange | Large project, but now abandoned |
 | 10 | Abandoned | red | No commit for N months |
-| 11 | Active + ≥ 80% bots | orange | Maintained only by bots |
-| 12 | Active + no stable release | orange | Active but not stabilized |
-| 13 | Active + declining activity | orange | Well-maintained but in decline |
-| 14 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
-| 15 | Active | green | Active project |
-| 16 | Maintenance + no release for 6+ months | orange | No new features for N months |
-| 17 | Maintenance mode | orange | Project in maintenance mode |
-| 17b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
-| 17c | Same, but widely used | orange | Large project, but now abandoned |
-| 18 | Unknown + widely used | orange | Widely used despite low maintenance |
-| 18b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
-| 19 | Unknown | orange | Insufficient data |
+| 11 | Active + ≥ 80% AI-authored, no human lead | orange | Written by AI |
+| 12 | Active + ≥ 80% bots | orange | Maintained only by bots |
+| 13 | Active + no stable release | orange | Active but not stabilized |
+| 14 | Active + declining activity | orange | Well-maintained but in decline |
+| 15 | Active + large community, **or LLM: roadmap AND commercial support** | green | Active project with a large community |
+| 16 | Active | green | Active project |
+| 17 | Maintenance + no release for 6+ months | orange | No new features for N months |
+| 18 | Maintenance mode | orange | Project in maintenance mode |
+| 18b | LLM: text declares abandonment AND maintenance state unknown | red | Project texts announce its discontinuation |
+| 18c | Same, but widely used | orange | Large project, but now abandoned |
+| 19 | Unknown + widely used | orange | Widely used despite low maintenance |
+| 19b | Unknown + LLM: text active AND (roadmap or commercial support) | green | Active project |
+| 20 | Unknown | orange | Insufficient data |
 
 **Modifier — exotic main language:** when the verdict would be green, an
 uncommon main language (outside the PYPL top-20 and the GitHub Innovation

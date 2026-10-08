@@ -34,6 +34,7 @@ _WIDELY_USED_DEPENDENTS = 1_000
 _LARGE_COMMUNITY_AUTHORS = 100
 _LARGE_COMMUNITY_STARS = 10_000
 _BOT_DOMINATED_RATIO = 0.8
+_AI_DOMINATED_RATIO = 0.8  # share of commits authored by AI agents
 _DECLINING_FACTOR = 0.25  # 3m commits < 25% of 12m commits → declining
 _NO_RELEASE_MONTHS = 6  # maintained but no release for this long
 _EPHEMERAL_AGE_DAYS = 180
@@ -74,6 +75,18 @@ def _has_large_community(result: AnalysisResult) -> bool:
 def _is_bot_dominated(result: AnalysisResult) -> bool:
     """Most commits come from dependency-update bots."""
     return result.contributors.bot_ratio >= _BOT_DOMINATED_RATIO
+
+
+def _is_ai_dominated(result: AnalysisResult) -> bool:
+    """Most commits are authored by AI agents, with no human lead.
+
+    AI assistance on a human-led project is not "vibe coding": the flag
+    requires the agents to be the authors and no human to drive the work.
+    """
+    return (
+        result.contributors.ai_authored_ratio >= _AI_DOMINATED_RATIO
+        and result.contributors.lead is None
+    )
 
 
 def _has_stable_release(result: AnalysisResult) -> bool:
@@ -177,6 +190,14 @@ def _build(
                 "fact_owner",
                 lang=lang,
                 type=t(f"owner_type_{result.meta.owner_type}", lang=lang),
+            )
+        )
+    if result.contributors.ai_agents:
+        reasoning.append(
+            t(
+                "fact_ai_authors",
+                lang=lang,
+                agents=", ".join(result.contributors.ai_agents),
             )
         )
     age_days = _project_age_days(result)
@@ -483,6 +504,18 @@ def _rec_active(result: AnalysisResult, lang: str) -> Recommendation | None:
     maint = result.maintenance
     if maint.state != MaintenanceState.ACTIVE:
         return None
+    if _is_ai_dominated(result):
+        return _build(
+            RecommendationLevel.ORANGE,
+            t("rec_ai_dominated", lang=lang),
+            result,
+            lang,
+            t(
+                "reason_ai_dominated",
+                lang=lang,
+                ratio=result.contributors.ai_authored_ratio,
+            ),
+        )
     if _is_bot_dominated(result):
         return _build(
             RecommendationLevel.ORANGE,

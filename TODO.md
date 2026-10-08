@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 90% coverage, 682 tests). Last updated: 2026-10-08.
+(suite at 90% coverage, 692 tests). Last updated: 2026-10-08.
 
 ## Tests / coverage
 
@@ -87,12 +87,20 @@ item.
 - [x] (done 2026-10-08) **AI authorship / "vibe coding" signal** — coding
       agents are a third author class (human / automation bot / AI agent),
       detected from commit trailers (`Co-Authored-By: Claude
-      <noreply@anthropic.com>`, `Claude-Session:`, Copilot/Cursor/Codex/
-      Devin/Aider), agent email domains and reserved logins (a bare `claude`
-      login alone is weak evidence). Agents are excluded from the human
+      <noreply@anthropic.com>`, `Claude-Session:`, `Generated with [Claude
+      Code](…)`, Copilot/Cursor/Codex/Devin/Aider, matched at line start so
+      a commit quoting the pattern is not flagged), agent email domains and
+      reserved logins (a bare `claude` login alone is weak evidence; a
+      reserved token also matches a model suffix, e.g.
+      `OpenCode deepseek-v4-flash`). Agents are excluded from the human
       count and bus factor, surfaced as a `fact_ai_authors` line, and flag
       orange when AI authors dominate with no human lead
       (`_AI_DOMINATED_RATIO`). Module: `core/ai_authorship.py`.
+- [x] (done 2026-10-08) **SPDX alias normalization for the registry
+      comparison** — GitHub reports the deprecated `GPL-3.0` while PyPI
+      declares `GPL-3.0-only`; the same license was flagged as a mismatch.
+      `_normalize_license_label` now folds `-only`/`-or-later` aliases
+      (GPL/LGPL/AGPL/GFDL families), so equivalents compare equal.
 - [x] (done 2026-10-08) **Context guards for text-derived sustainability
       facts** — a match in prose is a mention, not a relationship.
       Foundation membership is resolved structured-first (owner login →

@@ -1197,14 +1197,27 @@ async def fetch_registry_info(
     return results
 
 
+# SPDX ids that omit the `-only` suffix: "GPL-3.0" is the deprecated alias of
+# "GPL-3.0-only" (GitHub still reports the old form, registries the modern
+# one). The `+` suffix is the deprecated alias of `-or-later`.
+_SPDX_ONLY_FAMILIES = re.compile(r"^(?:A?GPL|LGPL|GFDL)-\d+(?:\.\d+)?$")
+
+
 def _normalize_license_label(label: str) -> str:
     """Normalize a license label for comparison.
 
     Uppercases, collapses whitespace and drops a trailing "license"/"licence"
-    word so that "MIT License" compares equal to the SPDX id "MIT".
+    word so that "MIT License" compares equal to the SPDX id "MIT". Deprecated
+    SPDX aliases are canonicalized so that "GPL-3.0" (GitHub) compares equal
+    to "GPL-3.0-only" (registry) and "GPL-2.0+" to "GPL-2.0-or-later".
     """
     normalized = " ".join(label.upper().split())
-    return normalized.removesuffix(" LICENSE").removesuffix(" LICENCE")
+    normalized = normalized.removesuffix(" LICENSE").removesuffix(" LICENCE")
+    if normalized.endswith("+"):
+        return normalized[:-1] + "-OR-LATER"
+    if _SPDX_ONLY_FAMILIES.match(normalized):
+        return normalized + "-ONLY"
+    return normalized
 
 
 def _compare_licenses(registries: list[RegistryInfo], repo: Repository) -> None:

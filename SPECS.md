@@ -202,7 +202,7 @@ For each detected registry, the tool reports:
 - Download/download count when available through public APIs (see §6.3.9 for the per-ecosystem windows).
 - Number of dependent packages (reverse dependencies) when the registry or libraries.io exposes it (§6.3.8).
 - Deprecated/archived status if the registry exposes it.
-- License declared on the registry (compared against GitHub-detected license).
+- License declared on the registry (compared against GitHub-detected license). The comparison drops a trailing "license"/"licence" word and folds deprecated SPDX aliases (`GPL-3.0` ≡ `GPL-3.0-only`, `GPL-2.0+` ≡ `GPL-2.0-or-later`, LGPL/AGPL/GFDL families) so equivalent ids on either side are not reported as a mismatch.
 
 #### 6.3.7 Package name resolution from repository
 
@@ -402,9 +402,11 @@ Analysis spans the full project history to detect leadership transitions.
 - Bus factor: smallest number of contributors accounting for 50% of commits.
 - Bot ratio: commits authored by known bots (Dependabot, Renovate, GitHub Actions, etc.).
 - AI agents: commits authored by, or co-signed by, a coding agent
-  (Claude, Copilot, Cursor, Codex, Devin, Aider…) are detected from
-  self-declared evidence (commit trailers, agent email domains, reserved
-  logins — never a bare login alone). Agents are excluded from the human
+  (Claude, OpenCode, Copilot, Cursor, Codex, Devin, Aider…) are detected
+  from self-declared evidence (commit trailers matched at line start,
+  agent email domains, reserved logins — never a bare login alone; a
+  reserved login also matches a model suffix such as
+  `OpenCode deepseek-v4-flash`). Agents are excluded from the human
   author count and the bus factor, and the AI-authored / AI-co-authored
   shares are reported (the optional "vibe coding" signal).
 - Contributor archetypes:

@@ -125,14 +125,18 @@ verdict**.
 **AI authorship (vibe coding):** coding agents are a third author class,
 between humans and automation bots. They are detected from self-declared
 evidence — commit trailers (`Co-Authored-By: Claude
-<noreply@anthropic.com>`, `Claude-Session:`, Copilot/Cursor/Codex/Devin/
-Aider markers), agent email domains and reserved logins — never from a
-bare login alone (a human may share the name). AI authors are excluded
-from the human author count and the bus factor. The detected agents are
-always surfaced as a `fact_ai_authors` reasoning line; the orange
-"AI-dominated" branch only fires when ≥ 80 % of commits are *authored* by
-agents and no human lead drives the project — assistance on a human-led
-project never downgrades it.
+<noreply@anthropic.com>`, `Claude-Session:`, `Generated with [Claude
+Code](…)`, Copilot/Cursor/Codex/Devin/Aider markers), agent email domains
+and reserved logins (`claude`, `cursoragent`, `opencode`, …) — never from
+a bare login alone (a human may share the name). Trailers are matched at
+the start of a line, so a commit that merely *quotes* the pattern in prose
+is not flagged; a reserved login also matches a model suffix
+(`OpenCode deepseek-v4-flash`). AI authors are excluded from the human
+author count and the bus factor. The detected agents are always surfaced
+as a `fact_ai_authors` reasoning line; the orange "AI-dominated" branch
+only fires when ≥ 80 % of commits are *authored* by agents and no human
+lead drives the project — assistance on a human-led project never
+downgrades it.
 
 ## Thresholds
 
@@ -446,6 +450,15 @@ whose `LICENSE` carries an extra paragraph referencing CONTRIBUTING and
 scores `NOASSERTION`), hence the fallbacks. `NOASSERTION` (GitHub's
 "undetected" marker) is normalized to "no license" before the fallback
 runs.
+
+**Registry comparison normalization:** the registry license is compared to
+the GitHub-detected one after canonicalization. A trailing
+"license"/"licence" word is dropped ("MIT License" == "MIT"), and
+deprecated SPDX aliases are folded onto their modern form — `GPL-3.0` ==
+`GPL-3.0-only` (GitHub still reports the old id), `GPL-2.0+` ==
+`GPL-2.0-or-later`, and likewise for the LGPL/AGPL/GFDL families. Without
+this, a project whose GitHub license is `GPL-3.0` and whose registry
+declares `GPL-3.0-only` was wrongly flagged as a license mismatch.
 
 | Key | French | English |
 |-----|--------|---------|

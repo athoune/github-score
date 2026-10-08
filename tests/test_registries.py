@@ -1057,6 +1057,35 @@ class TestCompareLicenses:
         _compare_licenses([reg], repo)
         assert reg.license_matches_github is False
 
+    def test_gpl_only_alias_matches(self):
+        """GitHub's deprecated "GPL-3.0" equals the registry's "GPL-3.0-only"."""
+        reg = self._make_registry("GPL-3.0-only")
+        repo = _make_repo()
+        repo.license = LicenseInfo(spdx_id="GPL-3.0")
+        _compare_licenses([reg], repo)
+        assert reg.license_matches_github is True
+
+    def test_gpl_or_later_alias_matches(self):
+        reg = self._make_registry("GPL-2.0-or-later")
+        repo = _make_repo()
+        repo.license = LicenseInfo(spdx_id="GPL-2.0+")
+        _compare_licenses([reg], repo)
+        assert reg.license_matches_github is True
+
+    def test_lgpl_alias_matches(self):
+        reg = self._make_registry("LGPL-2.1-only")
+        repo = _make_repo()
+        repo.license = LicenseInfo(spdx_id="LGPL-2.1")
+        _compare_licenses([reg], repo)
+        assert reg.license_matches_github is True
+
+    def test_distinct_licenses_still_mismatch(self):
+        reg = self._make_registry("GPL-3.0-only")
+        repo = _make_repo()
+        repo.license = LicenseInfo(spdx_id="MIT")
+        _compare_licenses([reg], repo)
+        assert reg.license_matches_github is False
+
     def test_no_github_license_skips(self):
         reg = self._make_registry("MIT")
         repo = _make_repo()  # no license

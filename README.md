@@ -1,5 +1,7 @@
 # gh-score
 
+[![CI](https://github.com/athoune/github-score/actions/workflows/ci.yml/badge.svg)](https://github.com/athoune/github-score/actions/workflows/ci.yml)
+
 GitHub Project Health Scorer — evaluate maturity, maintenance, community health and sustainability of any GitHub project, in your terminal.
 
 `gh-score` turns raw GitHub signals (commit activity, contributors, releases, license, registries, sustainability) into a single **traffic-light verdict**: 🟢 green (safe to bet on), 🟠 orange (proceed with caution), 🔴 red (risky).

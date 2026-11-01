@@ -626,7 +626,17 @@ def ranked_projects(comparison: ComparisonResult) -> list[AnalysisResult]:
     then name. Used by the decision table in every renderer; never
     changes the analysis itself.
     """
-    return sorted(comparison.projects, key=_project_sort_key)
+    return sort_by_health(comparison.projects)
+
+
+def sort_by_health(results: list[AnalysisResult]) -> list[AnalysisResult]:
+    """Order bare analysis results like ``ranked_projects`` does.
+
+    Search mode ranks an ad-hoc list of projects that were never paired
+    up, so it needs the same ordering without building a
+    ``ComparisonResult`` (and without the pairwise noise).
+    """
+    return sorted(results, key=_project_sort_key)
 
 
 def _build_warnings(pairs: list[PairComparison]) -> list[str]:

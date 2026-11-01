@@ -14,7 +14,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from gh_score.cli.tui import render_comparison, render_dashboard
+from gh_score.cli.tui import render_comparison, render_dashboard, render_triage
 from gh_score.config import Config
 from gh_score.core.analyzers.license_analyzer import license_family_label
 from gh_score.core.api import (
@@ -29,8 +29,17 @@ from gh_score.core.comparison import (
     compare_results,
     project_downloads,
     ranked_projects,
+    sort_by_health,
 )
+from gh_score.core.fetchers.github import GitHubFetcher
 from gh_score.core.models import AnalysisResult, RecommendationLevel, RepoUrl
+from gh_score.core.search import (
+    Funnel,
+    SearchHit,
+    SearchSpec,
+    apply_funnel,
+    resolve_language,
+)
 from gh_score.i18n import t
 
 # ---------------------------------------------------------------------------
@@ -612,16 +621,36 @@ cli = DefaultGroup(
 
 
 async def _gather_analyses(
-    targets: list[tuple[str, bool]], config: Config
+    targets: list[tuple[str, bool]],
+    config: Config,
+    *,
+    concurrency: int | None = None,
 ) -> list[AnalysisResult]:
     """Analyze every target concurrently, each with its own local/remote
     mode (the gather lives inside asyncio.run, which cannot wrap
-    asyncio.gather directly)."""
-    return await asyncio.gather(
-        *(
-            analyze_repo_async(target, config, use_local=is_local)
-            for target, is_local in targets
+    asyncio.gather directly).
+
+    ``concurrency`` caps how many analyses run at once. Search mode sets
+    it: a dozen analyses fanning out at the same time would put ~100
+    requests in flight, which is exactly what GitHub's secondary rate
+    limits ask you not to do.
+    """
+    if concurrency is None:
+        return await asyncio.gather(
+            *(
+                analyze_repo_async(target, config, use_local=is_local)
+                for target, is_local in targets
+            )
         )
+
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _bounded(target: str, is_local: bool) -> AnalysisResult:
+        async with semaphore:
+            return await analyze_repo_async(target, config, use_local=is_local)
+
+    return await asyncio.gather(
+        *(_bounded(target, is_local) for target, is_local in targets)
     )
 
 
@@ -715,6 +744,331 @@ def report(urls: tuple[str, ...]) -> None:
     """Generate a detailed report (same as analyze)."""
     ctx = click.get_current_context()
     ctx.invoke(analyze, urls=urls)
+
+
+# ---------------------------------------------------------------------------
+# Search mode
+# ---------------------------------------------------------------------------
+
+# Candidates are fetched in one request (search results are not paginated
+# over: the funnel works in memory), so ask for a few times --limit.
+_SEARCH_CANDIDATE_FACTOR = 4
+_SEARCH_MIN_PER_PAGE = 20
+_SEARCH_MAX_PER_PAGE = 100
+_SEARCH_MAX_LIMIT = 10
+
+# Analyses run a few at a time: each one fans out into several concurrent
+# requests, and GitHub asks for serial access to avoid secondary limits.
+_SEARCH_ANALYSIS_CONCURRENCY = 4
+
+# Nominal core-request cost of one analysis (meta, license, releases,
+# contributors, commits, issues, languages, contents, readme… 12–30 in
+# practice, depending on pagination). Used only for the cost warning.
+_SEARCH_REQUESTS_PER_REPO = 20
+
+_SEARCH_SORTS = ("relevance", "stars", "updated", "health")
+
+# GitHub sort field per --sort value; "health" orders after analysis.
+_SEARCH_API_SORTS: dict[str, str | None] = {
+    "relevance": None,
+    "stars": "stars",
+    "updated": "updated",
+    "health": None,
+}
+
+
+def _run_search(config: Config, query: str, per_page: int, sort_by: str) -> dict | None:
+    """Run the search request in its own httpx client (asyncio.run scope)."""
+
+    async def run() -> dict | None:
+        cache = Cache(config.cache.dir, config.cache.ttl_hours * 3600)
+        fetcher = GitHubFetcher(config, cache)
+        try:
+            return await fetcher.search_repositories(
+                query, per_page=per_page, sort=_SEARCH_API_SORTS.get(sort_by)
+            )
+        finally:
+            await fetcher.close()
+
+    return asyncio.run(run())
+
+
+def _hit_payload(hit: SearchHit) -> dict:
+    """Serializable candidate, before any analysis."""
+    return {
+        "full_name": hit.full_name,
+        "url": hit.html_url,
+        "description": hit.description,
+        "topics": list(hit.topics),
+        "language": hit.language,
+        "stars": hit.stars,
+        "pushed_at": hit.pushed_at.isoformat() if hit.pushed_at else None,
+        "created_at": hit.created_at.isoformat() if hit.created_at else None,
+        "archived": hit.archived,
+        "fork": hit.forklike,
+    }
+
+
+def _funnel_payload(funnel: Funnel) -> dict:
+    """Serializable funnel: kept count plus every drop with its reason."""
+    return {
+        "total_count": funnel.total_count,
+        "incomplete": funnel.incomplete,
+        "kept": len(funnel.kept),
+        "rejected": [
+            {
+                "repo": rejection.full_name,
+                "reason": rejection.reason,
+                "detail": rejection.detail,
+            }
+            for rejection in funnel.rejected
+        ],
+    }
+
+
+def _render_search_json(
+    funnel: Funnel,
+    spec: SearchSpec,
+    query: str,
+    results: list[AnalysisResult] | None,
+    console: Console,
+) -> None:
+    """Render search results as JSON: funnel, candidates, analyses."""
+    for result in results or []:
+        _warn_stderr(result)
+    payload: dict = {
+        "query": query,
+        "language": spec.language,
+        "funnel": _funnel_payload(funnel),
+        "candidates": [_hit_payload(hit) for hit in funnel.kept],
+    }
+    if results is not None:
+        payload["projects"] = [asdict(result) for result in results]
+        payload["ranking"] = [
+            result.meta.full_name or str(result.url) for result in results
+        ]
+    console.print_json(json.dumps(payload, default=str))
+
+
+def _render_search_markdown(
+    funnel: Funnel,
+    spec: SearchSpec,
+    query: str,
+    results: list[AnalysisResult] | None,
+    sort_by: str,
+    console: Console,
+) -> None:
+    """Render search results as Markdown: funnel, then the triage table."""
+    for result in results or []:
+        _warn_stderr(result)
+    console.print("# GitHub Search\n")
+    console.print(f"- {t('search_query')}: `{query}`")
+    console.print(f"- {t('search_found', count=funnel.total_count)}")
+    if funnel.incomplete:
+        console.print(f"- ⚠ {t('search_incomplete')}")
+
+    console.print(f"\n## {t('search_panel_funnel')}\n")
+    console.print(f"- ✓ {t('search_kept', count=len(funnel.kept))}")
+    for rejection in funnel.rejected:
+        reason = t(rejection.reason, detail=rejection.detail)
+        console.print(f"- ✗ {rejection.full_name} — {reason}")
+
+    console.print(f"\n## {t('search_candidates_title')}\n")
+    if results is None:
+        console.print("| Project | Stars | Language | Updated | Description |")
+        console.print("|---|---|---|---|---|")
+        for hit in funnel.kept:
+            updated = hit.pushed_at.date().isoformat() if hit.pushed_at else "—"
+            console.print(
+                f"| {hit.full_name} | {hit.stars:,} | {hit.language or '—'} "
+                f"| {updated} | {hit.description or '—'} |"
+            )
+        return
+
+    console.print("| Project | Stars | Language | State | Last commit | Verdict |")
+    console.print("|---|---|---|---|---|---|")
+    for result in results:
+        name = result.meta.full_name or f"{result.url.owner}/{result.url.repo}"
+        glyph = _MD_GLYPHS.get(result.recommendation.level, "❓")
+        console.print(
+            f"| {name} | {result.meta.stars:,} "
+            f"| {result.languages.primary or '—'} "
+            f"| {t(f'state_{result.maintenance.state.value}')} "
+            f"| {_md_commit_cell(result.maintenance.last_commit_days_ago)} "
+            f"| {glyph} |"
+        )
+    console.print()
+    console.print(f"*{t('search_sort_note', sort=t(f'search_sort_{sort_by}'))}*")
+
+
+@cli.command(name="search", epilog=_ENV_VARS_HELP, cls=_EnvHelpCommand)
+@click.argument("terms", nargs=-1, required=True)
+@click.option(
+    "--in",
+    "in_fields",
+    type=click.Choice(["auto", "name", "readme"]),
+    default="auto",
+    show_default=True,
+    help=(
+        "Where GitHub looks: auto (name, description, topics), name, "
+        "or readme (very noisy: it matches every repository mentioning "
+        "the words anywhere in its README)"
+    ),
+)
+@click.option("--lang", "language", help="Language filter, e.g. py, Python, rust")
+@click.option("--topic", "topics", multiple=True, help="Require a topic (repeatable)")
+@click.option(
+    "--not",
+    "not_terms",
+    multiple=True,
+    help="Drop candidates containing this word or phrase (repeatable)",
+)
+@click.option("--min-stars", type=click.IntRange(0), default=0, show_default=True)
+@click.option(
+    "--pushed-since", "pushed_since", help="Only repositories pushed since YYYY-MM-DD"
+)
+@click.option(
+    "--limit",
+    type=click.IntRange(1, _SEARCH_MAX_LIMIT),
+    default=5,
+    show_default=True,
+    help="How many candidates to analyze",
+)
+@click.option(
+    "--sort",
+    "sort_by",
+    type=click.Choice(_SEARCH_SORTS),
+    default="relevance",
+    show_default=True,
+    help=(
+        "relevance/stars/updated order the GitHub search; health ranks the "
+        "analyzed projects by verdict (requires the analysis)"
+    ),
+)
+@click.option(
+    "--no-analyze",
+    is_flag=True,
+    help="List candidates only: one request, no health analysis",
+)
+@click.option("--no-dedup", is_flag=True, help="Keep duplicates and declared mirrors")
+@click.option("--refresh", is_flag=True, help="Bypass cache")
+@click.option("--no-llm", is_flag=True, help="Disable LLM analysis")
+@click.option("--config", "config_path", help="Path to config file")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["tui", "json", "markdown"]),
+    default="tui",
+    help="tui (default), json (funnel + projects), or markdown",
+)
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+def search(
+    terms: tuple[str, ...],
+    in_fields: str,
+    language: str | None,
+    topics: tuple[str, ...],
+    not_terms: tuple[str, ...],
+    min_stars: int,
+    pushed_since: str | None,
+    limit: int,
+    sort_by: str,
+    no_analyze: bool,
+    no_dedup: bool,
+    refresh: bool,
+    no_llm: bool,
+    config_path: str | None,
+    output_format: str,
+) -> None:
+    """Search GitHub for projects, then score the ones worth a look."""
+    console = Console()
+
+    if sort_by == "health" and no_analyze:
+        console.print(
+            f"[red]{t('cli_error')}[/red] {t('search_health_needs_analysis')}"
+        )
+        sys.exit(1)
+
+    config = _prepare_config(config_path, refresh, no_llm, console)
+
+    try:
+        spec = SearchSpec(
+            terms=terms,
+            language=resolve_language(language) if language else None,
+            in_fields=in_fields,
+            topics=topics,
+            not_terms=not_terms,
+            min_stars=min_stars,
+            pushed_since=pushed_since,
+        )
+        query = spec.to_query()
+    except ValueError as exc:
+        console.print(f"[red]{t('cli_error')}[/red] {exc}")
+        sys.exit(1)
+
+    per_page = min(
+        _SEARCH_MAX_PER_PAGE,
+        max(_SEARCH_MIN_PER_PAGE, limit * _SEARCH_CANDIDATE_FACTOR),
+    )
+    envelope = _run_search(config, query, per_page, sort_by)
+    if envelope is None:
+        console.print(f"[red]{t('cli_error')}[/red] {t('search_error')} · {query}")
+        sys.exit(1)
+
+    hits = [
+        hit
+        for item in envelope.get("items") or []
+        if (hit := SearchHit.from_api(item)) is not None
+    ]
+    funnel = apply_funnel(
+        hits,
+        spec,
+        total_count=int(envelope.get("total_count") or len(hits)),
+        incomplete=bool(envelope.get("incomplete_results")),
+        dedupe=not no_dedup,
+    )
+
+    selected = funnel.kept[:limit]
+    results: list[AnalysisResult] | None = None
+
+    try:
+        if not no_analyze and selected:
+            if not config.github.token:
+                cost = len(selected) * _SEARCH_REQUESTS_PER_REPO
+                console.print(
+                    f"⚠ {t('search_no_token_cost', count=len(selected), cost=cost)}",
+                    style="yellow",
+                )
+            with console.status(
+                f"[bold blue]{t('search_analyzing', count=len(selected))}[/bold blue]"
+            ):
+                results = asyncio.run(
+                    _gather_analyses(
+                        [(hit.html_url, False) for hit in selected],
+                        config,
+                        concurrency=_SEARCH_ANALYSIS_CONCURRENCY,
+                    )
+                )
+            if sort_by == "health":
+                results = sort_by_health(results)
+    except Exception as exc:
+        console.print(f"[red]{t('cli_error')}[/red] {exc}")
+        if "--verbose" in sys.argv or "-v" in sys.argv:
+            console.print_exception()
+        sys.exit(1)
+
+    if output_format == "json":
+        _render_search_json(funnel, spec, query, results, console)
+        return
+    if output_format == "markdown":
+        _render_search_markdown(funnel, spec, query, results, sort_by, console)
+        return
+
+    render_triage(
+        funnel, query, t(f"search_sort_{sort_by}"), results=results, console=console
+    )
+    if not funnel.kept:
+        key = "search_none" if funnel.total_count == 0 else "search_no_candidates"
+        console.print(t(key), style="yellow")
 
 
 @cli.command()

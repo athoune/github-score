@@ -56,6 +56,28 @@ downloads, latest release, traffic-light verdict), ranked by verdict,
 then downloads, then bus factor. Each pair also shows an informational
 similarity score (0.0–1.0) saying how close the expressed subjects are.
 
+### Search, then score
+
+Don't know the repository name yet? Search GitHub, filter the noise, and
+score the ones worth a look:
+
+```bash
+# Find candidates (one API request, no analysis)
+gh-score search vega mcp --lang py --no-analyze
+
+# Analyze the first 5, removing the polysemy by hand
+gh-score search vega mcp --lang py --not vegas --not vega-os --not vegapunk --limit 5
+```
+
+Relevance and health are kept apart: the filter decides *which projects
+match*, the analysis decides *how healthy they are* — and never the other
+way round. Every dropped candidate is listed with its reason, so the
+filter is auditable instead of magic.
+
+GitHub's search matches prefixes, which is why `--lang` is resolved
+locally (`py` → `Python`) and why `--not` is the only reliable way to
+remove a meaning you did not want.
+
 ### Optional LLM analysis
 
 The LLM is opt-in and never required. It extracts qualitative facts that

@@ -424,6 +424,50 @@ MESSAGES: dict[str, dict[str, str]] = {
         ),
         "cli_usage_1": "Usage : gh-score [URL ...] [OPTIONS]",
         "cli_usage_2": "Usage : gh-score analyze [URL ...] [OPTIONS]",
+        # ------------------------------------------------------------------
+        # Search mode (gh-score search)
+        # ------------------------------------------------------------------
+        "search_title": "Recherche GitHub",
+        "search_query": "Requête",
+        "search_found": "{count} dépôt(s) trouvé(s)",
+        "search_panel_funnel": "Entonnoir des candidats",
+        "search_kept": "{count} retenu(s)",
+        "search_reject_not": "exclu par --not « {detail} »",
+        "search_reject_mirror": "miroir déclaré",
+        "search_reject_duplicate": "doublon de {detail}",
+        "search_more_rejected": "… et {count} autre(s)",
+        "search_incomplete": (
+            "GitHub a renvoyé des résultats partiels (incomplete_results) : "
+            "la liste est incomplète."
+        ),
+        "search_no_candidates": "Aucun candidat ne survit au filtre.",
+        "search_none": "Aucun dépôt ne correspond à la requête.",
+        "search_analyzing": "Analyse de {count} dépôt(s)...",
+        "search_limited": "Analysé : {count} sur {kept} retenus (--limit).",
+        "search_error": "Échec de la recherche GitHub",
+        "search_candidates_title": "Candidats",
+        "search_sort_note": (
+            "Classement : {sort}. La pertinence a été tranchée par le filtre "
+            "ci-dessus, jamais par la santé."
+        ),
+        "search_sort_relevance": "pertinence GitHub",
+        "search_sort_stars": "étoiles",
+        "search_sort_updated": "dernière mise à jour",
+        "search_sort_health": "verdict de santé",
+        "search_health_needs_analysis": (
+            "--sort health nécessite l'analyse : retirez --no-analyze."
+        ),
+        "search_no_token_cost": (
+            "Sans token, le quota est de 60 requêtes/heure : "
+            "{count} analyse(s) ≈ {cost} requêtes."
+        ),
+        "search_table_project": "Projet",
+        "search_table_stars": "Étoiles",
+        "search_table_lang": "Langage",
+        "search_table_updated": "Mise à jour",
+        "search_table_state": "État",
+        "search_table_commit": "Dernier commit",
+        "search_table_verdict": "Verdict",
         "cli_config_title": "Configuration actuelle",
         "cli_config_setting": "Paramètre",
         "cli_config_value": "Valeur",
@@ -834,6 +878,50 @@ MESSAGES: dict[str, dict[str, str]] = {
         "cli_cfg_llm_base_url": "LLM Base URL",
         "cli_cfg_llm_disable_reasoning": "LLM Reasoning Disabled",
         "cli_cfg_libraries_io": "libraries.io API Key",
+        # ------------------------------------------------------------------
+        # Search mode (gh-score search)
+        # ------------------------------------------------------------------
+        "search_title": "GitHub Search",
+        "search_query": "Query",
+        "search_found": "{count} repositories found",
+        "search_panel_funnel": "Candidate funnel",
+        "search_kept": "{count} kept",
+        "search_reject_not": "excluded by --not {detail!r}",
+        "search_reject_mirror": "declared mirror",
+        "search_reject_duplicate": "duplicate of {detail}",
+        "search_more_rejected": "… and {count} more",
+        "search_incomplete": (
+            "GitHub returned partial results (incomplete_results): "
+            "the list is incomplete."
+        ),
+        "search_no_candidates": "No candidate survived the filter.",
+        "search_none": "No repository matches the query.",
+        "search_analyzing": "Analyzing {count} repositories...",
+        "search_limited": "Analyzed {count} of {kept} kept (--limit).",
+        "search_error": "GitHub search failed",
+        "search_candidates_title": "Candidates",
+        "search_sort_note": (
+            "Ranking: {sort}. Relevance was decided by the filter above, "
+            "never by health."
+        ),
+        "search_sort_relevance": "GitHub relevance",
+        "search_sort_stars": "stars",
+        "search_sort_updated": "last update",
+        "search_sort_health": "health verdict",
+        "search_health_needs_analysis": (
+            "--sort health requires the analysis: drop --no-analyze."
+        ),
+        "search_no_token_cost": (
+            "Without a token the quota is 60 requests/hour: "
+            "{count} analyses ≈ {cost} requests."
+        ),
+        "search_table_project": "Project",
+        "search_table_stars": "Stars",
+        "search_table_lang": "Language",
+        "search_table_updated": "Updated",
+        "search_table_state": "State",
+        "search_table_commit": "Last commit",
+        "search_table_verdict": "Verdict",
     },
 }
 

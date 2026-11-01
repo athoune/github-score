@@ -1,11 +1,11 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 90% coverage, 692 tests). Last updated: 2026-10-08.
+(suite at 90% coverage, 747 tests). Last updated: 2026-11-01.
 
 ## Tests / coverage
 
-- [ ] `cli/main.py` (84%) — direct tests for the Markdown renderers
+- [ ] `cli/main.py` (82%) — direct tests for the Markdown renderers
       (`_md_*`), `_render_json` and the CLI commands (`analyze`, `report`,
       `config`).
 - [ ] `fetchers/github.py` (80%) — cover `_get` (rate-limit warning,
@@ -204,6 +204,31 @@ item.
       Follow-ups: RubyGems dependents may be capped for very popular gems
       (approximate floor); libraries.io needs a free API key (60 req/min);
       the `*.gemspec` language fallback still needs a root listing.
+- [x] (done 2026-11-01) **Repository search + triage** — `gh-score search
+      QUERY…` finds candidates on GitHub, runs a deterministic funnel, then
+      analyzes the survivors. Relevance is decided before analysis (query
+      qualifiers, `--not`, declared mirrors, duplicates) and health is
+      decided after it (`--sort health`); the two axes never mix, and a
+      search result set is not a comparison (no pairwise noise).
+      `--lang` is resolved locally (`py` → `Python`) because GitHub
+      silently returns nothing for an unknown language. No lexical filter:
+      measured, `vega` matches `mcp-vegalite-server` (best hit) and `vegas`
+      with the same prefix rule, so dropping the noise drops the good hit.
+      Every drop is printed with its reason (SPECS §10.4, RULES "Search
+      mode"). `core/search.py`, `render_triage`, 55 tests at 98 %.
+      Follow-ups (v2):
+      - `--keep owner/repo` — re-add a candidate the funnel dropped (the
+        escape hatch for a wrong `--not` or a false duplicate).
+      - `--llm-rerank` — one call over name/description/topics to resolve
+        the polysemy no deterministic rule can (`Vega OS` vs the Vega
+        grammar). Must emit a *reasoned rejection*, never a relevance
+        score, and stay opt-in.
+      - `--in code` — `/search/code` answers "who *uses* X" rather than
+        "who *is about* X"; needs auth (10 req/min), and the language
+        qualifier then filters files instead of the primary language.
+      - `--not` phrase matching is a bag of words: `--not vega-os` also
+        drops a description saying "Vega charts on OS X". Adjacency-aware
+        matching would fix it.
 
 ## Product / housekeeping
 

@@ -148,6 +148,7 @@ class GitHubFetcher:
     """Fetches repository data from the GitHub REST API."""
 
     BASE_URL = "https://api.github.com"
+    SEARCH_URL = "https://api.github.com/search/repositories"
 
     def __init__(self, config: Config, cache: Cache):
         self.config = config
@@ -247,6 +248,33 @@ class GitHubFetcher:
             page += concurrency
 
         return results
+
+    async def search_repositories(
+        self,
+        query: str,
+        *,
+        per_page: int = 30,
+        sort: str | None = None,
+        order: str = "desc",
+    ) -> dict | None:
+        """Search repositories and return the raw API envelope.
+
+        The search endpoint answers with ``{total_count, incomplete_results,
+        items}`` rather than a bare list, so ``_get_all_pages`` does not
+        apply: one request, one page. ``incomplete_results`` means GitHub
+        timed out and the list is partial — the caller must surface it.
+
+        Returns None when the request failed (network, rate limit, bad
+        query); an empty search is an envelope with an empty ``items``.
+        """
+        params: dict[str, str] = {"q": query, "per_page": str(per_page)}
+        if sort:
+            params["sort"] = sort
+            params["order"] = order
+        data = await self._get(self.SEARCH_URL, params)
+        if not isinstance(data, dict):
+            return None
+        return data
 
     async def fetch_meta(self, url: RepoUrl) -> RepositoryMeta:
         """Fetch repository metadata."""

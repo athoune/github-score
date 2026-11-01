@@ -752,6 +752,7 @@ by absent/missing/lacking) appends a hedged warning in two cases:
 gh-score [URL] [OPTIONS]
 gh-score URL1 URL2 [URL3…] [OPTIONS]   # comparison mode (2+ URLs, see §8)
 gh-score report [URL] [OPTIONS]
+gh-score search QUERY… [OPTIONS]       # discovery + triage (see §10.4)
 gh-score config
 ```
 
@@ -846,6 +847,62 @@ With two or more URLs, the renderers switch to comparison mode (§8):
   where `projects` are full `AnalysisResult` objects.
 - **Markdown**: comparability section, comparison table, then the full
   per-project report.
+
+### 10.4 Search mode
+
+`gh-score search QUERY…` discovers candidate repositories, filters them,
+then scores the ones worth a look.
+
+```
+gh-score search QUERY… [--in auto|name|readme] [--lang LANG]
+                  [--topic T]… [--not TERM]…
+                  [--min-stars N] [--pushed-since YYYY-MM-DD]
+                  [--sort relevance|stars|updated|health]
+                  [--limit N] [--no-analyze] [--no-dedup]
+                  [--refresh] [--no-llm] [--format …]
+```
+
+**Two axes, never mixed.** *Relevance* is decided before any analysis, by
+a deterministic funnel; *health* is decided after it, by the normal
+analyzers, and only ranks the survivors (`--sort health`). A search
+result set is not a comparison: no pairwise comparability is computed.
+
+The funnel, in order:
+
+1. **Query** — `--lang` is resolved locally against a canonical language
+   table (`py` → `Python`) and refused with close matches when unknown;
+   GitHub silently returns nothing for an unknown language. `--in`
+   selects `name`, `readme`, or GitHub's default (name, description,
+   topics — *not* the README). `--topic`, `--min-stars`,
+   `--pushed-since` become server-side qualifiers; forks and archived
+   repositories are excluded by default.
+2. **`--not TERM`** — client-side, whole-word (a phrase requires every
+   word). GitHub has no reliable negation: `-vega-os` returns exactly the
+   two repositories containing it, and `NOT` removes unrelated results.
+3. **Mirrors** — a description starting with `Mirror of` / `Copy of` /
+   `Clone of` is a declared copy, not an independent project.
+4. **Duplicates** — same non-empty description and same name modulo the
+   owner segment (the same project republished under several
+   organisations).
+
+There is **no lexical filter**, by measurement: GitHub matches prefixes,
+so `vega` returns `mcp-vegalite-server` (the most relevant hit) *and*
+`vegas`, `Vegapunk` and `Vega OS`. Any rule dropping the noise drops the
+relevant project with it.
+
+Every drop is printed with its reason (capped at 12 lines plus a count):
+an unreadable filter is indistinguishable from a filter that lies. The
+funnel is also emitted in `--format json` under `funnel.rejected`.
+
+Cost control: one search request, then 12–30 core requests per analyzed
+repository. `--limit` defaults to 5 (hard cap 10), analyses run 4 at a
+time (GitHub asks for serial access to avoid secondary rate limits), and
+`--no-analyze` lists the candidates without spending anything. Missing
+`GH_SCORE_GITHUB_TOKEN` is warned about with the anonymous quota (60
+req/h) and the estimated cost.
+
+`incomplete_results: true` from the API is surfaced as a warning: the
+result list is partial, and pretending otherwise would be a silent lie.
 
 ## 11. Library API
 

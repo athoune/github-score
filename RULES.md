@@ -408,6 +408,48 @@ Binding detection is limited to registry publications and explicit
 The full catalog (TUI and Markdown labels included) lives in
 `src/gh_score/i18n.py`.
 
+## Search mode (discovery, never scoring)
+
+`gh-score search` finds candidate repositories and then scores them. It
+**never** touches the verdict logic: the recommendation of an analyzed
+candidate is exactly the one `gh-score <url>` would produce, and the
+search query itself is not an indicator.
+
+Two axes are kept strictly apart:
+
+- **Relevance** is decided *before* any analysis, by a deterministic
+  funnel: the query qualifiers, the user's `--not` exclusions, declared
+  mirrors and duplicates. Nothing else.
+- **Health** is decided *after* the funnel, by the normal analyzers, and
+  only ranks the survivors among themselves (`--sort health`).
+
+A search result set is deliberately **not** a comparison: no pairwise
+comparability is computed (a query with 10 hits would emit 45
+"not comparable" warnings, all meaningless).
+
+Why no lexical filter: GitHub's repository search matches prefixes, so
+`vega` returns `mcp-vegalite-server` (the best hit) *and* `vegas`,
+`Vegapunk`, `Vega OS` and the option Greek. The same rule produces both,
+so no deterministic filter can separate them — dropping the noise drops
+the relevant project with it. `--not` matches whole words
+(`--not vegas` never eats `vegalite`), which is the only knowable
+exclusion.
+
+| Key | FR | EN |
+|---|---|---|
+| `search_reject_not` | exclu par --not « {detail} » | excluded by --not {detail!r} |
+| `search_reject_mirror` | miroir déclaré | declared mirror |
+| `search_reject_duplicate` | doublon de {detail} | duplicate of {detail} |
+| `search_incomplete` | GitHub a renvoyé des résultats partiels | GitHub returned partial results |
+| `search_sort_note` | Classement : {sort}… | Ranking: {sort}… |
+| `search_no_token_cost` | Sans token, quota 60 req/h… | Without a token the quota is 60 req/h… |
+
+Deduplication collapses repositories sharing a non-empty description and
+a name identical modulo the owner segment (spammers republish the same
+project under several organisations). A description starting with
+`Mirror of` / `Copy of` / `Clone of` marks a declared mirror. Both are
+displayed as drops, never silently removed.
+
 ## Reasoning
 
 Each verdict carries a `reasoning` list: the triggering signal plus

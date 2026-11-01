@@ -28,6 +28,7 @@ from gh_score.core.models import (
     RecommendationLevel,
     Status,
 )
+from gh_score.core.search import Funnel
 from gh_score.i18n import t
 
 # Traffic-light glyphs and colors for the recommendation verdict.
@@ -730,4 +731,184 @@ def render_comparison(
 
     console.print(table)
     console.print(t("cmp_rank_note"), style="dim")
+    console.print()
+
+
+# ---------------------------------------------------------------------------
+# Search triage
+# ---------------------------------------------------------------------------
+
+# Rejections are capped so a noisy query cannot bury the table; the count
+# of hidden lines is printed, the list is never silently truncated.
+_MAX_REJECTION_LINES = 12
+
+# Column widths are computed from the console width and the cells are
+# truncated by hand. Rich's last-resort width reduction shaves every column
+# evenly when none of them may wrap, which silently zeroes the narrow
+# numeric columns instead of the long project name.
+_CELL_PADDING = 2
+_NAME_MIN_WIDTH = 24
+_NAME_MAX_WIDTH = 48
+_DESCRIPTION_MIN_WIDTH = 12
+
+# Fixed widths of the non-name columns, padding included.
+_CANDIDATE_FIXED = (
+    (7 + _CELL_PADDING) + (14 + _CELL_PADDING) + (7 + _CELL_PADDING)
+)  # stars, language, updated
+_RESULT_FIXED = (
+    (7 + _CELL_PADDING)  # stars
+    + (14 + _CELL_PADDING)  # language
+    + (12 + _CELL_PADDING)  # state
+    + (7 + _CELL_PADDING)  # last commit
+    + (3 + _CELL_PADDING)  # verdict
+)
+
+
+def _fit_cell(text: str, width: int) -> str:
+    """Truncate a cell to ``width`` with an ellipsis."""
+    if width <= 1:
+        return ""
+    return text if len(text) <= width else text[: width - 1] + "…"
+
+
+def _name_width(console: Console, fixed: int) -> int:
+    """Share the remaining columns between the project name and the rest."""
+    available = max(console.width, 60) - fixed
+    return max(_NAME_MIN_WIDTH, min(_NAME_MAX_WIDTH, int(available * 0.6)))
+
+
+def _render_funnel(funnel: Funnel) -> Panel:
+    """Funnel block: candidates kept, and every drop with its reason.
+
+    The funnel is the only thing that decides relevance, so it has to be
+    auditable: a filter whose drops cannot be read is indistinguishable
+    from a filter that silently lies.
+    """
+    content = Text()
+    content.append(
+        f"✓ {t('search_kept', count=len(funnel.kept))}\n", style="bold green"
+    )
+
+    for rejection in funnel.rejected[:_MAX_REJECTION_LINES]:
+        reason = t(rejection.reason, detail=rejection.detail)
+        content.append("✗ ", style="yellow")
+        content.append(f"{rejection.full_name}  ", style="dim")
+        content.append(f"{reason}\n", style="dim italic")
+
+    hidden = len(funnel.rejected) - _MAX_REJECTION_LINES
+    if hidden > 0:
+        content.append(f"{t('search_more_rejected', count=hidden)}\n", style="dim")
+
+    return Panel(
+        content,
+        title=t("search_panel_funnel"),
+        border_style="yellow" if funnel.rejected else "green",
+    )
+
+
+def _age_days(moment: datetime | None) -> int | None:
+    """Days between a timestamp and now, or None when unknown."""
+    if moment is None:
+        return None
+    return max(0, (datetime.now(UTC) - moment).days)
+
+
+def _candidates_table(funnel: Funnel, console: Console) -> Table:
+    """Raw candidates, before any analysis (--no-analyze)."""
+    name_width = _name_width(console, _CANDIDATE_FIXED)
+    # Two cells of slack: Rich counts table padding its own way, and a
+    # width that lands exactly on the console width still triggers the
+    # last-resort reduction.
+    description_width = console.width - _CANDIDATE_FIXED - name_width - 2
+    show_description = description_width >= _DESCRIPTION_MIN_WIDTH
+
+    table = Table(show_header=True, header_style="bold", box=box.SIMPLE)
+    table.add_column(t("search_table_project"), no_wrap=True)
+    table.add_column(t("search_table_stars"), justify="right", no_wrap=True)
+    table.add_column(t("search_table_lang"), no_wrap=True)
+    table.add_column(t("search_table_updated"), justify="right", no_wrap=True)
+    if show_description:
+        table.add_column("", no_wrap=True)
+
+    for hit in funnel.kept:
+        cells = [
+            _fit_cell(hit.full_name, name_width),
+            _compact_number(hit.stars),
+            _fit_cell(hit.language or "—", 14),
+            _compact_days(_age_days(hit.pushed_at)),
+        ]
+        if show_description:
+            cells.append(_fit_cell(hit.description, description_width))
+        table.add_row(*cells)
+    return table
+
+
+def _results_table(results: list[AnalysisResult], console: Console) -> Table:
+    """Analyzed candidates: health only, never relevance."""
+    name_width = _name_width(console, _RESULT_FIXED)
+    table = Table(show_header=True, header_style="bold", box=box.SIMPLE)
+    table.add_column(t("search_table_project"), no_wrap=True)
+    table.add_column(t("search_table_stars"), justify="right", no_wrap=True)
+    table.add_column(t("search_table_lang"), no_wrap=True)
+    table.add_column(t("search_table_state"), no_wrap=True)
+    table.add_column(t("search_table_commit"), justify="right", no_wrap=True)
+    table.add_column(t("search_table_verdict"), justify="center", no_wrap=True)
+
+    for result in results:
+        meta = result.meta
+        name = meta.full_name or f"{result.url.owner}/{result.url.repo}"
+        glyph, _ = _TRAFFIC_LIGHT.get(result.recommendation.level, ("❓", "dim"))
+        table.add_row(
+            _fit_cell(name, name_width),
+            _compact_number(meta.stars),
+            _fit_cell(result.languages.primary or "—", 14),
+            _fit_cell(t(f"state_{result.maintenance.state.value}"), 12),
+            _compact_days(result.maintenance.last_commit_days_ago),
+            glyph,
+        )
+    return table
+
+
+def render_triage(
+    funnel: Funnel,
+    query: str,
+    sort_label: str,
+    results: list[AnalysisResult] | None = None,
+    console: Console | None = None,
+) -> None:
+    """Render the search triage view: funnel first, then candidates.
+
+    With ``results`` the table carries the health verdict (one line per
+    project, in the requested order); without it, the table lists the raw
+    candidates so the query can be tuned before paying for N analyses.
+    No pairwise comparability is shown: a search result set is not a
+    comparison, and judging every pair would bury the signal.
+    """
+    if console is None:
+        console = Console()
+
+    console.print()
+    console.print(f"[bold]{t('search_title')}[/bold] · {query}", style="blue")
+    console.print(f"{t('search_found', count=funnel.total_count)}", style="dim")
+    console.print()
+
+    if funnel.incomplete:
+        console.print(f"⚠ {t('search_incomplete')}", style="yellow")
+        console.print()
+
+    console.print(_render_funnel(funnel))
+    console.print()
+
+    if results is None:
+        console.print(_candidates_table(funnel, console))
+        console.print()
+        return
+
+    console.print(_results_table(results, console))
+    if len(results) < len(funnel.kept):
+        console.print(
+            t("search_limited", count=len(results), kept=len(funnel.kept)),
+            style="dim",
+        )
+    console.print(t("search_sort_note", sort=sort_label), style="dim")
     console.print()

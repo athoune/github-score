@@ -871,7 +871,13 @@ The funnel, in order:
 
 1. **Query** — `--lang` is resolved locally against a canonical language
    table (`py` → `Python`) and refused with close matches when unknown;
-   GitHub silently returns nothing for an unknown language. `--in`
+   GitHub silently returns nothing for an unknown language. The option is
+   repeatable and accepts comma-separated values (`--lang py,rust`); the
+   `js` alias names the *ecosystem* (`JavaScript` + `TypeScript`) because
+   a tool migrated to TypeScript is still a JavaScript tool. Repeated
+   `language:` qualifiers are ORed by GitHub, so a family costs exactly
+   one request (measured: 18 TypeScript + 2 JavaScript = 20 results for
+   `vega mcp`). `--in`
    selects `name`, `readme`, or GitHub's default (name, description,
    topics — *not* the README). `--topic`, `--min-stars`,
    `--pushed-since` become server-side qualifiers; forks and archived

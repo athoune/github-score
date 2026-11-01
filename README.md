@@ -78,6 +78,11 @@ GitHub's search matches prefixes, which is why `--lang` is resolved
 locally (`py` → `Python`) and why `--not` is the only reliable way to
 remove a meaning you did not want.
 
+`--lang js` covers **both** JavaScript and TypeScript (GitHub ORs the
+qualifiers in a single request): a tool rewritten in TypeScript is still
+a JavaScript tool. `--lang` is repeatable and accepts comma-separated
+values.
+
 ### Optional LLM analysis
 
 The LLM is opt-in and never required. It extracts qualitative facts that

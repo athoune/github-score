@@ -29,6 +29,7 @@ funnel and only ever ranks the survivors among themselves.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from difflib import get_close_matches
@@ -125,27 +126,56 @@ _CANONICAL_LANGUAGES: dict[str, str] = {
     name.casefold(): name for name in set(_LANGUAGE_ALIASES.values())
 }
 
+# Ecosystem aliases: the pairs where the split is an artifact of the
+# project's history (a JavaScript tool rewritten in TypeScript is still a
+# JavaScript tool), not a language choice. Deliberately tiny — every added
+# family is a taxonomy someone has to defend. Anything else is spelled
+# out explicitly: `--lang c,cpp`.
+_LANGUAGE_FAMILIES: dict[str, tuple[str, ...]] = {
+    "js": ("JavaScript", "TypeScript"),
+    "node": ("JavaScript", "TypeScript"),
+}
 
-def resolve_language(raw: str) -> str:
-    """Resolve a user-supplied language to its canonical GitHub name.
 
-    ``py`` becomes ``Python``; an unknown value raises ValueError with
-    close matches instead of silently returning an empty result set.
+def resolve_languages(raw_values: Sequence[str]) -> tuple[str, ...]:
+    """Resolve language filters to canonical GitHub names.
+
+    Accepts several values, each of which may be a comma-separated list.
+    ``py`` becomes ``Python``; ``js`` becomes ``JavaScript`` *and*
+    ``TypeScript`` (GitHub ORs repeated ``language:`` qualifiers, so one
+    request covers the whole ecosystem — measured: 18 TypeScript + 2
+    JavaScript results for ``vega mcp``, 20 when both are requested).
 
     Raises:
-        ValueError: when the value is not a known GitHub language.
+        ValueError: when a value is not a known GitHub language.
     """
-    value = raw.strip()
-    if not value:
+    values = [
+        part.strip() for raw in raw_values for part in raw.split(",") if part.strip()
+    ]
+    if not values:
         raise ValueError("Empty language filter")
-    alias = _LANGUAGE_ALIASES.get(value.casefold())
+
+    resolved: list[str] = []
+    for value in values:
+        for name in _resolve_one(value):
+            if name not in resolved:
+                resolved.append(name)
+    return tuple(resolved)
+
+
+def _resolve_one(raw: str) -> tuple[str, ...]:
+    """Resolve a single language name or ecosystem alias."""
+    folded = raw.casefold()
+    family = _LANGUAGE_FAMILIES.get(folded)
+    if family is not None:
+        return family
+    alias = _LANGUAGE_ALIASES.get(folded)
     if alias is not None:
-        return alias
-    suggestion = _CANONICAL_LANGUAGES.get(value.casefold())
-    if suggestion is not None:
-        return suggestion
-    known = sorted(_CANONICAL_LANGUAGES)
-    close = get_close_matches(value.casefold(), known, n=3, cutoff=0.6)
+        return (alias,)
+    canonical = _CANONICAL_LANGUAGES.get(folded)
+    if canonical is not None:
+        return (canonical,)
+    close = get_close_matches(folded, sorted(_CANONICAL_LANGUAGES), n=3, cutoff=0.6)
     hint = ", ".join(_CANONICAL_LANGUAGES[c] for c in close)
     message = f"Unknown GitHub language: {raw!r}"
     if hint:
@@ -174,7 +204,7 @@ class SearchSpec:
     """Everything needed to build the GitHub query and filter its results."""
 
     terms: tuple[str, ...]
-    language: str | None = None
+    languages: tuple[str, ...] = ()
     in_fields: str = "auto"
     topics: tuple[str, ...] = ()
     not_terms: tuple[str, ...] = ()
@@ -199,8 +229,10 @@ class SearchSpec:
         if qualifier:
             parts.append(qualifier)
 
-        if self.language:
-            parts.append(f"language:{self.language}")
+        # Repeated language: qualifiers are ORed by GitHub (measured),
+        # so an ecosystem family costs no extra request.
+        for language in self.languages:
+            parts.append(f"language:{language}")
         for topic in self.topics:
             parts.append(f"topic:{topic}")
         if self.min_stars > 0:

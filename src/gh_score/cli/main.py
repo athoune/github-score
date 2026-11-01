@@ -38,7 +38,7 @@ from gh_score.core.search import (
     SearchHit,
     SearchSpec,
     apply_funnel,
-    resolve_language,
+    resolve_languages,
 )
 from gh_score.i18n import t
 
@@ -838,7 +838,7 @@ def _render_search_json(
         _warn_stderr(result)
     payload: dict = {
         "query": query,
-        "language": spec.language,
+        "languages": list(spec.languages),
         "funnel": _funnel_payload(funnel),
         "candidates": [_hit_payload(hit) for hit in funnel.kept],
     }
@@ -915,7 +915,15 @@ def _render_search_markdown(
         "the words anywhere in its README)"
     ),
 )
-@click.option("--lang", "language", help="Language filter, e.g. py, Python, rust")
+@click.option(
+    "--lang",
+    "languages",
+    multiple=True,
+    help=(
+        "Language filter (repeatable, or comma-separated): py, Python, "
+        "rust, js (JavaScript + TypeScript)…"
+    ),
+)
 @click.option("--topic", "topics", multiple=True, help="Require a topic (repeatable)")
 @click.option(
     "--not",
@@ -965,7 +973,7 @@ def _render_search_markdown(
 def search(
     terms: tuple[str, ...],
     in_fields: str,
-    language: str | None,
+    languages: tuple[str, ...],
     topics: tuple[str, ...],
     not_terms: tuple[str, ...],
     min_stars: int,
@@ -993,7 +1001,7 @@ def search(
     try:
         spec = SearchSpec(
             terms=terms,
-            language=resolve_language(language) if language else None,
+            languages=resolve_languages(languages) if languages else (),
             in_fields=in_fields,
             topics=topics,
             not_terms=not_terms,

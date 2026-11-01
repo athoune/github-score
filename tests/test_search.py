@@ -43,7 +43,7 @@ from gh_score.core.search import (
     SearchHit,
     SearchSpec,
     apply_funnel,
-    resolve_language,
+    resolve_languages,
 )
 
 
@@ -72,30 +72,49 @@ def _hit(**overrides) -> SearchHit:
 
 class TestLanguageResolution:
     def test_short_alias(self):
-        assert resolve_language("py") == "Python"
+        assert resolve_languages(("py",)) == ("Python",)
 
     def test_alias_is_case_insensitive(self):
-        assert resolve_language("PY") == "Python"
+        assert resolve_languages(("PY",)) == ("Python",)
 
     def test_canonical_name_passes_through(self):
-        assert resolve_language("TypeScript") == "TypeScript"
+        assert resolve_languages(("TypeScript",)) == ("TypeScript",)
 
     def test_other_aliases(self):
-        assert resolve_language("rs") == "Rust"
-        assert resolve_language("golang") == "Go"
-        assert resolve_language("csharp") == "C#"
+        assert resolve_languages(("rs",)) == ("Rust",)
+        assert resolve_languages(("golang",)) == ("Go",)
+        assert resolve_languages(("csharp",)) == ("C#",)
+
+    def test_comma_separated_values(self):
+        assert resolve_languages(("py,rust",)) == ("Python", "Rust")
+
+    def test_repeated_option(self):
+        assert resolve_languages(("py", "rust")) == ("Python", "Rust")
+
+    def test_full_ecosystem_family(self):
+        # "js" names the ecosystem: GitHub ORs the repeated qualifiers, so
+        # a tool migrated to TypeScript is not lost.
+        assert resolve_languages(("js",)) == ("JavaScript", "TypeScript")
+        assert resolve_languages(("node",)) == ("JavaScript", "TypeScript")
+
+    def test_explicit_ecosystem_member_stays_single(self):
+        assert resolve_languages(("ts",)) == ("TypeScript",)
+        assert resolve_languages(("javascript",)) == ("JavaScript",)
+
+    def test_duplicates_are_collapsed(self):
+        assert resolve_languages(("py,Python,python3",)) == ("Python",)
 
     def test_unknown_language_raises_with_suggestion(self):
         with pytest.raises(ValueError, match="did you mean: Python"):
-            resolve_language("pythn")
+            resolve_languages(("pythn",))
 
     def test_unknown_language_without_close_match(self):
         with pytest.raises(ValueError, match="Unknown GitHub language"):
-            resolve_language("zzzznotalanguage")
+            resolve_languages(("zzzznotalanguage",))
 
     def test_empty_raises(self):
         with pytest.raises(ValueError, match="Empty language"):
-            resolve_language("   ")
+            resolve_languages(("   ",))
 
 
 class TestQueryBuilding:
@@ -106,7 +125,7 @@ class TestQueryBuilding:
     def test_language_and_extra_qualifiers(self):
         spec = SearchSpec(
             terms=("vega", "mcp"),
-            language="Python",
+            languages=("Python",),
             topics=("vega-lite",),
             min_stars=5,
             pushed_since="2025-01-31",
@@ -676,7 +695,7 @@ class TestSearchRenderers:
     def _funnel(self) -> Funnel:
         return apply_funnel(
             [_hit(full_name="acme/vega-mcp", description="Vega over MCP")],
-            SearchSpec(terms=("vega", "mcp"), language="Python"),
+            SearchSpec(terms=("vega", "mcp"), languages=("Python",)),
         )
 
     def test_json_contains_funnel_and_projects(self):
@@ -684,13 +703,13 @@ class TestSearchRenderers:
         results = [_analysis("acme/vega-mcp", 100, RecommendationLevel.GREEN)]
         _render_search_json(
             self._funnel(),
-            SearchSpec(terms=("vega", "mcp"), language="Python"),
+            SearchSpec(terms=("vega", "mcp"), languages=("Python",)),
             "vega mcp language:Python",
             results,
             console,
         )
         payload = json.loads(buffer.getvalue())
-        assert payload["language"] == "Python"
+        assert payload["languages"] == ["Python"]
         assert payload["funnel"]["kept"] == 1
         assert payload["ranking"] == ["acme/vega-mcp"]
         assert payload["projects"][0]["meta"]["stars"] == 100

@@ -318,6 +318,42 @@ class TestReportDigest:
         assert digest["maintenance"]["state"] == MaintenanceState.UNKNOWN.value
         assert digest["primary_language"] is None
 
+    def test_digest_labels_activity_windows_as_commits(self):
+        """The window counts are commits, not contributors: the key must say so."""
+        from gh_score.core.models import (
+            AnalysisResult,
+            ContributorsIndicator,
+            LicenseIndicator,
+            MaintenanceIndicator,
+            ReleaseHealthIndicator,
+            RepositoryMeta,
+            RepoUrl,
+            SustainabilityIndicator,
+        )
+
+        result = AnalysisResult(
+            url=RepoUrl("natasha", "razdel"),
+            meta=RepositoryMeta(owner="natasha"),
+            release_health=ReleaseHealthIndicator(),
+            license=LicenseIndicator(),
+            contributors=ContributorsIndicator(
+                total_authors=4,
+                bus_factor=1,
+                activity_trend={"3m": 0, "6m": 0, "12m": 0},
+            ),
+            maintenance=MaintenanceIndicator(),
+            languages=None,  # type: ignore[arg-type]  # handled in digest
+            sustainability=SustainabilityIndicator(),
+        )
+
+        contributors = _build_report_digest(result)["contributors"]
+
+        assert contributors["commit_windows"] == {"3m": 0, "6m": 0, "12m": 0}
+        assert "activity_trend" not in contributors
+        # The author count is a separate fact: zero commits must not read as
+        # zero contributors.
+        assert contributors["authors"] == 4
+
     def test_recommendation_prompt_has_digest_placeholder(self):
         prompt = _build_recommendation_prompt()
         assert "{digest}" in prompt
@@ -333,6 +369,12 @@ class TestRecommendationPromptHardening:
         assert "do not deny it" in prompt
         assert "never state an absolute absence" in prompt.lower()
         assert "no X announced in the project texts" in prompt
+
+    def test_prompt_pins_the_units_of_the_numbers(self):
+        prompt = _build_recommendation_prompt()
+        assert "commit counts on the default branch" in prompt
+        assert "not contributor counts" in prompt
+        assert "null means *unknown*, never zero" in prompt
 
 
 class TestDeniesFact:

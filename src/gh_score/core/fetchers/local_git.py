@@ -239,6 +239,7 @@ def fetch_local_repo(path: str) -> Repository:
             if not git_repo.head.is_detached
             else "main",
             pushed_at=datetime.fromtimestamp(head_commit.committed_date, tz=UTC),
+            last_commit_at=datetime.fromtimestamp(head_commit.committed_date, tz=UTC),
             first_commit_at=first_commit_at,
             total_commits=len(commits) or None,
         )

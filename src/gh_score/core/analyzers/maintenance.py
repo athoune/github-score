@@ -16,22 +16,29 @@ from gh_score.core.models import (
 from gh_score.i18n import t
 
 
+def _latest_commit_date(repo: Repository) -> datetime | None:
+    """Date of the most recent commit on the default branch.
+
+    Prefers the fetched commit window; falls back to the tip commit read
+    with the root commit when the window is empty. That fallback is what
+    makes "abandoned" reachable at all: the window only covers 12 months,
+    so a project silent for longer would otherwise look like a project
+    without history. ``meta.pushed_at`` is deliberately not used — it moves
+    on pushes to any branch (a Dependabot branch, a maintenance tag), which
+    says nothing about the default branch.
+    """
+    dates = [c.author_date for c in repo.commits if c.author_date]
+    if dates:
+        return max(dates)
+    return repo.meta.last_commit_at
+
+
 def _compute_last_commit_days(repo: Repository, now: datetime) -> int | None:
     """Compute days since last commit."""
-    if not repo.commits:
+    latest = _latest_commit_date(repo)
+    if latest is None:
         return None
-
-    # Find most recent commit
-    latest = max(
-        (c for c in repo.commits if c.author_date),
-        key=lambda c: c.author_date,  # type: ignore[arg-type]
-        default=None,
-    )
-
-    if latest and latest.author_date:
-        return (now - latest.author_date).days
-
-    return None
+    return (now - latest).days
 
 
 def _compute_last_closed_days(repo: Repository, now: datetime) -> int | None:
@@ -167,15 +174,7 @@ def analyze_maintenance(
     stale_ratio = _compute_stale_issue_ratio(repo, now)
 
     # Find last commit date
-    last_commit_date = None
-    if repo.commits:
-        latest = max(
-            (c for c in repo.commits if c.author_date),
-            key=lambda c: c.author_date,  # type: ignore[arg-type]
-            default=None,
-        )
-        if latest:
-            last_commit_date = latest.author_date
+    last_commit_date = _latest_commit_date(repo)
 
     # Find last closed date
     last_closed_date = None

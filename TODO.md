@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 90% coverage, 747 tests). Last updated: 2026-11-01.
+(suite at 90% coverage, 761 tests). Last updated: 2026-11-02.
 
 ## Tests / coverage
 
@@ -56,6 +56,20 @@ Remaining actions after the comparison feature
       parsers.
 - [x] (done 2026-08-06) `_get_all_pages` mutates its `params` dict in place (aliasing) —
       fixed: it now rebinds to a fresh dict (`{**params, ...}`) per request.
+- [x] (done 2026-11-02) "Last commit" was read only from the 12-month commit
+      window, so a project silent for longer showed `—` and landed in
+      `MaintenanceState.UNKNOWN` instead of `ABANDONED` (razdel: last commit
+      2023-07-24, `pushed_at` 2026-04-13 from a Dependabot branch). The tip
+      commit date is now read from the same `per_page=1` call as the root
+      commit (`fetch_commit_history`, `meta.last_commit_at`, zero extra
+      request) and used when the window is empty; `pushed_at` is never used
+      as a substitute. Also removed the dead `24m` activity-trend bucket
+      (computed from 12 months of commits, so it always equalled `12m`) and
+      the LLM digest key `activity_trend` became `contributors.commit_windows`
+      with an explicit units note — the refined recommendation used to read
+      it as "zero contributors in the last 24 months".
+      Remaining: the pre-analysis triage table still shows `pushed_at` as
+      "Updated" (correctly labelled, but easily read as "last commit").
 
 ## Planned features
 

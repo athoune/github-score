@@ -86,6 +86,13 @@ The rules are evaluated **in order**; the first matching branch wins.
    - Widely used (≥ 5k stars, ≥ 1k forks, ≥ 1M registry downloads, or
      ≥ 1k dependents) → 🟠 "Large project, but now abandoned"
    - Otherwise → 🔴 "Abandoned project — no commit for N months"
+   - "Last commit" is the newest commit on the **default branch**: the
+     12-month commit window when it is not empty, otherwise the tip commit
+     read alongside the root commit. `pushed_at` is never used — it also
+     moves on a push to an unrelated branch (a Dependabot branch, a
+     maintenance tag) and would report a dead project as recently active.
+     The window must never turn an abandoned project into `UNKNOWN`: that
+     is the "insufficient data" branch, not a verdict about its health.
 
 9. **Active development** (`MaintenanceState.ACTIVE`)
    - ≥ 80% of commits authored by AI agents and no human lead → 🟠 "Project primarily written by AI, with no identified human maintainer"
@@ -236,6 +243,12 @@ Rules:
   traffic light of the report stays the deterministic one.
 - The LLM may agree with, or refine/disagree with, the deterministic
   verdict — the two are shown side by side so the user sees the nuance.
+- **Units are pinned in the digest**: commit window counts are exposed as
+  `contributors.commit_windows` (commit counts on the default branch, *not*
+  contributor counts) over the windows actually fetched, and a null
+  `maintenance.last_commit_days_ago` means *unknown*, not zero. The prompt
+  states both, because a bare `{"12m": 0}` next to an author count invites
+  "zero contributors in the last 24 months".
 - Invalid LLM output (unknown level, unparseable JSON, provider failure)
   simply hides the refined panel; the pipeline never breaks.
 

@@ -60,12 +60,15 @@ The library exposes a function-based API returning typed models. The CLI is a th
 Used whenever a repository URL is provided. The following fields are fetched:
 
 - Repository metadata: name, owner, creation date, default branch, archived/disabled status.
-- History start: the root commit date on the default branch (commits endpoint
-  with `per_page=1`, `Link` header `rel="last"` for the total count) and the
-  total commit count. Distinct from the creation date (the repository may be
-  created long before the first push, or its history rewritten) and a lower
-  bound on the project's real age when work predates version control. In
-  local mode the value comes from the commit walk.
+- History start and tip: the root commit date and the tip commit date on the
+  default branch (commits endpoint with `per_page=1`, `Link` header
+  `rel="last"` for the total count), and the total commit count. The root
+  date is distinct from the creation date (the repository may be created long
+  before the first push, or its history rewritten) and is a lower bound on
+  the project's real age when work predates version control. The tip date is
+  the project's "last commit": it does not move on a push to an unrelated
+  branch (unlike `pushed_at`) and it is not limited by the commit window. In
+  local mode both values come from the commit walk.
 - License: `license.spdx_id` from the GitHub Licensee endpoint
   (`GET /repos/{owner}/{repo}/license`; `NOASSERTION` means undetected).
   When GitHub reports nothing, the SPDX declaration is taken from the
@@ -79,6 +82,10 @@ Used whenever a repository URL is provided. The following fields are fetched:
 - Stars, forks, watchers.
 - Issues: open and closed counts, average time to close over the last 12 months.
 - Commits: default branch commit history (last N commits or 12 months), authors, dates.
+  The 12-month window is a cost bound, not a claim of inactivity: a project
+  silent for longer returns an empty list, and "last commit" is then read
+  from the tip commit date (source: metadata call above), never from
+  `pushed_at`.
 - Contributors: GitHub’s contributor statistics endpoint (commits per contributor).
 - Languages: GitHub Linguist breakdown.
 - Remote metadata: `FUNDING.yml`, `GOVERNANCE.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`.
@@ -413,13 +420,18 @@ Analysis spans the full project history to detect leadership transitions.
   - **Lead**: dominant contributor over the last 12 months.
   - **Historical lead**: dominant contributor over the full history but no longer active.
   - **Minor contributors**: authors with very few commits, typically drive-by fixes.
-- Activity trend over the last 3, 6, 12, and 24 months.
+- Activity trend over the last 3, 6, and 12 months (commit counts; the
+  windows never exceed the fetched history, so a wider window cannot
+  silently repeat the 12-month count).
 
 ### 7.4 Maintenance state
 
 Derived from commit and issue activity.
 
-- Date of last commit on the default branch.
+- Date of last commit on the default branch: the newest commit of the
+  12-month window, falling back to the tip commit date when that window is
+  empty (a project silent for over a year). `pushed_at` is never used — it
+  also moves on pushes to unrelated branches.
 - Date of last closed issue or merged PR.
 - Commit frequency: commits per month over the last 12 months.
 - Issue velocity: median time to close issues created in the last 12 months.

@@ -28,6 +28,7 @@ from gh_score.core.models import (
     Release,
     ReleaseHealth,
     Repository,
+    RepositoryMeta,
     RepoUrl,
     SecurityUpdate,
     Status,
@@ -225,6 +226,45 @@ class TestMaintenanceAnalyzer:
         repo = Repository(url=RepoUrl("owner", "repo"))
         result = analyze_maintenance(repo)
         assert result.state == MaintenanceState.UNKNOWN
+
+    def test_abandoned_beyond_the_commit_window(self):
+        """A project silent for over a year has an empty 12-month window.
+
+        The tip-commit date read with the root commit is then the only
+        witness; ``pushed_at`` must not stand in for it, since it moves on
+        pushes to unrelated branches.
+        """
+        now = datetime.now(UTC)
+        last = now - timedelta(days=1197)
+        repo = Repository(
+            url=RepoUrl("natasha", "razdel"),
+            meta=RepositoryMeta(
+                last_commit_at=last,
+                pushed_at=now - timedelta(days=203),
+            ),
+        )
+
+        result = analyze_maintenance(repo)
+
+        assert result.state == MaintenanceState.ABANDONED
+        assert result.last_commit_days_ago == 1197
+        assert result.last_commit_date == last
+
+    def test_commit_window_wins_over_the_tip_date(self):
+        """Fetched commits stay authoritative when the window is not empty."""
+        now = datetime.now(UTC)
+        repo = Repository(
+            url=RepoUrl("owner", "repo"),
+            meta=RepositoryMeta(
+                last_commit_at=now - timedelta(days=400),
+            ),
+            commits=[Commit(sha="abc", author_date=now - timedelta(days=2))],
+        )
+
+        result = analyze_maintenance(repo)
+
+        assert result.last_commit_days_ago is not None
+        assert result.last_commit_days_ago <= 2
 
 
 class TestLanguagesAnalyzer:

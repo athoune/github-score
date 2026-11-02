@@ -150,7 +150,10 @@ def _build_report_digest(result) -> dict[str, Any]:
             "authors": contrib.total_authors,
             "bus_factor": contrib.bus_factor,
             "bot_ratio": round(contrib.bot_ratio, 2),
-            "activity_trend": contrib.activity_trend,
+            # Commit counts per window on the default branch — not
+            # contributor counts. Named explicitly so the model cannot read a
+            # zero as "no contributors".
+            "commit_windows": contrib.activity_trend,
         },
         "release": {
             "latest_version": rh.latest_version,
@@ -212,6 +215,12 @@ def _build_recommendation_prompt() -> str:
         'funding", "no commercial support"); if you must mention it, '
         'phrase it as "no X announced in the project texts" or stay '
         "silent about it.\n\n"
+        "The numeric fields are authoritative and must be read for what "
+        "they are: `contributors.commit_windows` holds commit counts on "
+        "the default branch (not contributor counts) and only over the "
+        "windows listed there; `maintenance.last_commit_days_ago` is a "
+        "number of days, and null means *unknown*, never zero. Do not "
+        "invent a wider window than the ones provided.\n\n"
         "Return a JSON object with:\n"
         '- level: one of "green", "orange", "red"\n'
         "- message: a short verdict sentence (max 15 words)\n"

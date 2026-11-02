@@ -178,12 +178,16 @@ def _classify_contributors(
 
 
 def _compute_activity_trend(commits: list, now: datetime) -> dict[str, int]:
-    """Compute commit counts for different time windows."""
+    """Compute commit counts for different time windows.
+
+    The windows must stay inside the fetched history (12 months): a wider
+    window would silently repeat the 12-month count under a longer label,
+    which reads — to a human or to the LLM — as "no activity for 24 months".
+    """
     windows = {
         "3m": 90,
         "6m": 180,
         "12m": 365,
-        "24m": 730,
     }
 
     trend = {}

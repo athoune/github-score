@@ -258,6 +258,13 @@ class RepositoryMeta:
     # and a lower bound on the project's real age when work started before
     # version control.
     first_commit_at: datetime | None = None
+    # Date of the tip commit on the default branch, when known. This is the
+    # authoritative "last commit" of the project: unlike ``pushed_at`` it does
+    # not move on a push to an unrelated branch (a Dependabot branch, a
+    # maintenance tag), and unlike the fetched commit window it is not limited
+    # to the last 12 months — the only witness left once a project has been
+    # silent for longer.
+    last_commit_at: datetime | None = None
     # Number of commits on the default branch when known (API Link header or
     # local walk). Used as a substance signal for very young histories.
     total_commits: int | None = None
@@ -507,7 +514,9 @@ class ContributorsIndicator:
     historical_lead: ContributorDetail | None = None
     minor_count: int = 0
     activity_trend: dict[str, int] = field(default_factory=dict)
-    # {"3m": N, "6m": N, "12m": N, "24m": N} commit counts
+    # {"3m": N, "6m": N, "12m": N} commit counts on the default branch. The
+    # windows stop at the fetched commit history (12 months): a longer window
+    # would silently report the 12-month count under a wider label.
     ai_agents: list[str] = field(default_factory=list)
     # coding agents that authored or co-authored commits (display names)
     ai_authored_ratio: float = 0.0  # commits whose author is an AI agent

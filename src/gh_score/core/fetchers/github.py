@@ -491,7 +491,14 @@ class GitHubFetcher:
         )
 
     async def fetch_commits(self, url: RepoUrl, months: int = 12) -> list[Commit]:
-        """Fetch commit history for the last N months."""
+        """Fetch commit history for the last N months.
+
+        The window is a deliberate cost bound: ``since`` keeps the answer
+        small on active repositories. It is *not* a statement that the
+        project has no commit — a repository silent for longer returns an
+        empty list, which is why the tip date from
+        :meth:`fetch_commit_history` is the fallback for "last commit".
+        """
         since = _rolling_since(months)
         data = await self._get_all_pages(
             f"{url.api_url}/commits",
@@ -519,36 +526,48 @@ class GitHubFetcher:
 
         return commits
 
-    async def fetch_first_commit(
+    async def fetch_commit_history(
         self, url: RepoUrl
-    ) -> tuple[datetime | None, int | None]:
-        """Root-commit date and total commit count on the default branch.
+    ) -> tuple[datetime | None, int | None, datetime | None]:
+        """Root-commit date, total commit count, and tip-commit date.
 
-        Uses the commits endpoint with ``per_page=1``: the ``Link`` header's
-        ``rel="last"`` page number equals the total commit count and that
-        page holds the oldest (root) commit. Both are cached together; a
-        failed lookup is not cached so the next run retries. Returns
-        ``(None, None)`` when the history cannot be read (empty repository,
-        API failure).
+        Uses the commits endpoint with ``per_page=1``: the first item is the
+        tip (newest) commit on the default branch, the ``Link`` header's
+        ``rel="last"`` page number equals the total commit count, and that
+        page holds the oldest (root) commit. The tip date is the project's
+        real "last commit": it survives a commit history older than the
+        12-month window used by :meth:`fetch_commits`, and unlike
+        ``pushed_at`` it ignores pushes to unrelated branches.
+
+        All three are cached together; a failed lookup is not cached so the
+        next run retries. Returns ``(None, None, None)`` when the history
+        cannot be read (empty repository, API failure).
         """
         cache_key = f"github:first_commit:{url.owner}/{url.repo}"
         cached = self.cache.get_json(cache_key)
-        if isinstance(cached, dict):
-            return _parse_datetime(cached.get("date")), cached.get("count")
+        # ``head_date`` is required: an entry written before the tip date was
+        # recorded would otherwise keep "last commit" unknown for a whole TTL.
+        if isinstance(cached, dict) and "head_date" in cached:
+            return (
+                _parse_datetime(cached.get("date")),
+                cached.get("count"),
+                _parse_datetime(cached.get("head_date")),
+            )
 
         try:
             resp = await self.client.get(
                 f"{url.api_url}/commits", params={"per_page": "1", "sha": "HEAD"}
             )
             if resp.status_code != 200:
-                return None, None
+                return None, None, None
             data = resp.json()
         except (httpx.RequestError, ValueError):
-            return None, None
+            return None, None, None
 
         if not isinstance(data, list) or not data:
-            return None, None
+            return None, None, None
 
+        head_date = _commit_author_date(data[0])
         last_page = _last_page_from_link(resp.headers.get("Link"))
         if last_page is None or last_page <= 1:
             # A single commit: it is both the root and the tip.
@@ -560,20 +579,24 @@ class GitHubFetcher:
                 {"per_page": "1", "sha": "HEAD", "page": str(last_page)},
             )
             if not isinstance(oldest, list) or not oldest:
-                return None, None
+                return None, None, None
             date = _commit_author_date(oldest[-1])
             count = last_page
 
         if date is None:
-            return None, None
+            return None, None, None
 
         ttl = self.config.cache.ttl_hours * 3600
         self.cache.set_json(
             cache_key,
-            {"date": date.isoformat(), "count": count},
+            {
+                "date": date.isoformat(),
+                "count": count,
+                "head_date": head_date.isoformat() if head_date else None,
+            },
             ttl,
         )
-        return date, count
+        return date, count, head_date
 
     async def fetch_issues(self, url: RepoUrl, months: int = 12) -> list[Issue]:
         """Fetch issues (including PRs) for the last N months."""
@@ -756,7 +779,8 @@ class GitHubFetcher:
         (
             repo.meta.first_commit_at,
             repo.meta.total_commits,
-        ) = await self.fetch_first_commit(url)
+            repo.meta.last_commit_at,
+        ) = await self.fetch_commit_history(url)
 
         return repo
 

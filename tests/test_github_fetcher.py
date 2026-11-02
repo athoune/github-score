@@ -17,7 +17,16 @@ from gh_score.core.fetchers.github import (
     _parse_funding_yml,
     _rolling_since,
 )
-from gh_score.core.models import LicenseFamily, RepoUrl
+from gh_score.core.models import (
+    CommunityFiles,
+    ContributorStats,
+    LanguageBreakdown,
+    LicenseFamily,
+    LicenseInfo,
+    ReleaseHealth,
+    RepositoryMeta,
+    RepoUrl,
+)
 
 
 def _make_fetcher(tmp_path) -> GitHubFetcher:
@@ -407,7 +416,7 @@ class TestProbeStatus:
         assert await fetcher.probe_status("https://api.github.com/repos/x/y") is None
 
 
-class TestFetchFirstCommit:
+class TestFetchCommitHistory:
     """Root-commit date + commit count via the commits endpoint."""
 
     @staticmethod
@@ -430,10 +439,13 @@ class TestFetchFirstCommit:
         )
         fetcher._get = AsyncMock(return_value=[oldest])
 
-        date, count = await fetcher.fetch_first_commit(URL)
+        date, count, head_date = await fetcher.fetch_commit_history(URL)
 
         assert date == datetime(2026, 10, 1, 18, 51, 38, tzinfo=UTC)
         assert count == 500
+        # The tip is the first item of the first page, not the root commit:
+        # it is the "last commit" of the project.
+        assert head_date == datetime(2026, 10, 8, tzinfo=UTC)
 
     @pytest.mark.asyncio
     async def test_single_commit(self, tmp_path):
@@ -441,17 +453,18 @@ class TestFetchFirstCommit:
         only = {"commit": {"author": {"date": "2026-10-01T00:00:00Z"}}}
         fetcher.client.get = AsyncMock(return_value=self._response(200, [only]))
 
-        date, count = await fetcher.fetch_first_commit(URL)
+        date, count, head_date = await fetcher.fetch_commit_history(URL)
 
         assert date == datetime(2026, 10, 1, tzinfo=UTC)
         assert count == 1
+        assert head_date == date
 
     @pytest.mark.asyncio
     async def test_empty_repository(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
         fetcher.client.get = AsyncMock(return_value=self._response(200, []))
 
-        assert await fetcher.fetch_first_commit(URL) == (None, None)
+        assert await fetcher.fetch_commit_history(URL) == (None, None, None)
 
     @pytest.mark.asyncio
     async def test_result_is_cached(self, tmp_path):
@@ -460,17 +473,64 @@ class TestFetchFirstCommit:
         get = AsyncMock(return_value=self._response(200, [only]))
         fetcher.client.get = get
 
-        await fetcher.fetch_first_commit(URL)
-        await fetcher.fetch_first_commit(URL)
+        await fetcher.fetch_commit_history(URL)
+        assert await fetcher.fetch_commit_history(URL) == (
+            datetime(2026, 10, 1, tzinfo=UTC),
+            1,
+            datetime(2026, 10, 1, tzinfo=UTC),
+        )
 
         assert get.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_legacy_cache_entry_without_tip_is_refreshed(self, tmp_path):
+        """An entry cached before the tip date existed must not pin the
+        "last commit" to unknown for a whole TTL."""
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.cache.set_json(
+            "github:first_commit:owner/repo",
+            {"date": "2020-01-01T00:00:00+00:00", "count": 12},
+        )
+        only = {"commit": {"author": {"date": "2026-10-01T00:00:00Z"}}}
+        fetcher.client.get = AsyncMock(return_value=self._response(200, [only]))
+
+        date, count, head_date = await fetcher.fetch_commit_history(URL)
+
+        assert date == datetime(2026, 10, 1, tzinfo=UTC)
+        assert count == 1
+        assert head_date == date
 
     @pytest.mark.asyncio
     async def test_api_error_returns_none(self, tmp_path):
         fetcher = _make_fetcher(tmp_path)
         fetcher.client.get = AsyncMock(return_value=self._response(403, {}))
 
-        assert await fetcher.fetch_first_commit(URL) == (None, None)
+        assert await fetcher.fetch_commit_history(URL) == (None, None, None)
+
+    @pytest.mark.asyncio
+    async def test_fetch_all_wires_the_tip_commit_date(self, tmp_path):
+        """The tip date must land on meta, where the maintenance analyzer
+        reads it once the 12-month commit window comes back empty."""
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.fetch_meta = AsyncMock(return_value=RepositoryMeta())
+        fetcher.fetch_license = AsyncMock(return_value=LicenseInfo())
+        fetcher.fetch_releases = AsyncMock(return_value=ReleaseHealth())
+        fetcher.fetch_contributors = AsyncMock(return_value=ContributorStats())
+        fetcher.fetch_languages = AsyncMock(return_value=LanguageBreakdown())
+        fetcher.fetch_community_files = AsyncMock(return_value=CommunityFiles())
+        fetcher.fetch_commits = AsyncMock(return_value=[])
+        fetcher.fetch_issues = AsyncMock(return_value=[])
+        fetcher.fetch_readme = AsyncMock(return_value=None)
+        tip = datetime(2023, 7, 24, tzinfo=UTC)
+        fetcher.fetch_commit_history = AsyncMock(
+            return_value=(datetime(2018, 11, 8, tzinfo=UTC), 98, tip)
+        )
+
+        repo = await fetcher.fetch_all(URL)
+
+        assert repo.meta.last_commit_at == tip
+        assert repo.meta.first_commit_at == datetime(2018, 11, 8, tzinfo=UTC)
+        assert repo.meta.total_commits == 98
 
 
 class TestFetchLicense:

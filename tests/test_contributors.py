@@ -6,7 +6,7 @@ Uses recorded API response fixtures to avoid hitting rate limits.
 from __future__ import annotations
 
 import json
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -218,6 +218,23 @@ class TestAnalyzeContributors:
         assert result.total_authors == 1
         assert result.lead is not None
         assert result.lead.login == "alice"
+
+    def test_activity_windows_stay_inside_the_fetched_history(self):
+        """No window may exceed the 12-month commit fetch.
+
+        A wider window would report the 12-month count under a longer label,
+        which reads as "no activity for N months" to anything downstream.
+        """
+        contribs = [Contributor(login="alice", commits=10)]
+        now = datetime.now(UTC)
+        commits = [
+            Commit(sha="sha0", author_login="alice", author_date=now, message="fix"),
+        ]
+        repo = self._make_repo(contribs, commits)
+
+        result = analyze_contributors(repo)
+
+        assert result.activity_trend == {"3m": 1, "6m": 1, "12m": 1}
 
 
 class TestAiAuthorship:

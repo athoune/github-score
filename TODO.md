@@ -1,7 +1,7 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 90% coverage, 761 tests). Last updated: 2026-11-02.
+(suite at 90% coverage, 789 tests). Last updated: 2026-11-02.
 
 ## Tests / coverage
 
@@ -275,6 +275,15 @@ item.
       pylint/pyright/pycodestyle via prospector run only locally.
 - [x] (done 2026-08-07) Decide the fate of `toto.json` — removed; nothing in the codebase
       writes it anymore (it was never tracked).
+- [x] (done 2026-11-02) Durations were printed as raw day counts (`2549d`,
+      "il y a 2549 jours"). New `gh_score/durations.py` renders a compact
+      cell form (`3d`, `8w`, `7mo`, `7y`, translated "today") and a long
+      prose form (`7 months`, `3 years`, pluralized fr/en) from one set of
+      thresholds — a cell and a sentence can no longer disagree. Used by the
+      comparison table, the search triage table, TUI panels, the Markdown
+      report and the interpretation/reasoning lines. `tui_cadence` and
+      `tui_issues_closed` keep raw day counts on purpose: those are metric
+      units (days per release, days to close), not ages.
 - [ ] Tune the recommendation thresholds (`RULES.md`) against real
       projects — includes the new website probe heuristics (timeouts,
       redirect cap, captcha markers) and the homepage-downgrade branches.

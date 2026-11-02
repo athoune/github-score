@@ -13,6 +13,7 @@ from gh_score.core.models import (
     Repository,
     Status,
 )
+from gh_score.durations import humanize_days_long
 from gh_score.i18n import t
 
 
@@ -258,7 +259,11 @@ def _append_last_commit(
         parts.append(t("int_last_commit_yesterday", lang=lang))
     else:
         parts.append(
-            t("int_last_commit_days", lang=lang, days=ind.last_commit_days_ago)
+            t(
+                "int_last_commit_age",
+                lang=lang,
+                age=humanize_days_long(ind.last_commit_days_ago, lang=lang),
+            )
         )
 
 

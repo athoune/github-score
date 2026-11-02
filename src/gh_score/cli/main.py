@@ -40,6 +40,7 @@ from gh_score.core.search import (
     apply_funnel,
     resolve_languages,
 )
+from gh_score.durations import format_duration, humanize_days_long
 from gh_score.i18n import t
 
 # ---------------------------------------------------------------------------
@@ -208,7 +209,7 @@ def _render_markdown(result: AnalysisResult, console: Console) -> None:
         console.print(t("md_owner", type=t(f"owner_type_{result.meta.owner_type}")))
     if result.meta.first_commit_at:
         days = (datetime.now(UTC) - result.meta.first_commit_at).days
-        console.print(t("md_first_commit", days=days))
+        console.print(t("md_first_commit", age=humanize_days_long(days)))
     console.print()
 
     _md_recommendation(result, console)
@@ -231,7 +232,7 @@ def _md_release_health(result: AnalysisResult, console: Console) -> None:
     if rh.latest_version:
         console.print(f"- {t('md_latest', version=rh.latest_version)}")
     if rh.age_days is not None:
-        console.print(f"- {t('md_age', days=rh.age_days)}")
+        console.print(f"- {t('md_age', age=humanize_days_long(rh.age_days))}")
     if rh.cadence_days is not None:
         console.print(f"- {t('md_cadence', days=rh.cadence_days)}")
     console.print(f"- {t('md_status', status=t(f'status_{rh.status.value}'))}\n")
@@ -273,7 +274,9 @@ def _md_maintenance(result: AnalysisResult, console: Console) -> None:
     console.print(f"{t('md_section_maintenance')}\n")
     console.print(f"- {t('md_state', state=t(f'state_{maint.state.value}'))}")
     if maint.last_commit_days_ago is not None:
-        console.print(f"- {t('md_last_commit', days=maint.last_commit_days_ago)}")
+        console.print(
+            f"- {t('md_last_commit', age=humanize_days_long(maint.last_commit_days_ago))}"
+        )
     if maint.commits_per_month is not None:
         console.print(f"- {t('md_frequency', rate=maint.commits_per_month)}")
     console.print(f"- {t('md_status', status=t(f'status_{maint.status.value}'))}\n")
@@ -391,15 +394,6 @@ def _warn_comparison_stderr(comparison: ComparisonResult) -> None:
         print(f"warning: {warning}", file=sys.stderr)
 
 
-def _md_commit_cell(days: int | None) -> str:
-    """Compact last-commit cell for the comparison table."""
-    if days is None:
-        return "—"
-    if days == 0:
-        return t("cmp_table_today")
-    return f"{days}d"
-
-
 def _md_release_cell(result) -> str:
     """Compact latest-release cell: 'v2.4.1 · 12d' or '—'."""
     rh = result.release_health
@@ -407,7 +401,7 @@ def _md_release_cell(result) -> str:
         return "—"
     if rh.age_days is None:
         return rh.latest_version
-    return f"{rh.latest_version} · {rh.age_days}d"
+    return f"{rh.latest_version} · {format_duration(rh.age_days)}"
 
 
 def _pair_md_label(pair) -> str:
@@ -458,7 +452,7 @@ def _render_comparison_markdown(comparison: ComparisonResult, console: Console) 
         lic = result.license.spdx_id or "—"
         lang = result.languages.primary or "—"
         state = t(f"state_{result.maintenance.state.value}")
-        commit = _md_commit_cell(result.maintenance.last_commit_days_ago)
+        commit = format_duration(result.maintenance.last_commit_days_ago)
         bus = (
             str(result.contributors.bus_factor)
             if result.contributors.bus_factor
@@ -894,7 +888,7 @@ def _render_search_markdown(
             f"| {name} | {result.meta.stars:,} "
             f"| {result.languages.primary or '—'} "
             f"| {t(f'state_{result.maintenance.state.value}')} "
-            f"| {_md_commit_cell(result.maintenance.last_commit_days_ago)} "
+            f"| {format_duration(result.maintenance.last_commit_days_ago)} "
             f"| {glyph} |"
         )
     console.print()

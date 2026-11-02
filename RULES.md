@@ -553,6 +553,15 @@ not read by the recommendation), but they keep the report truthful.
 
 ## Message catalog
 
+Durations (`{age}`) are not spelled out in the catalog: `gh_score/durations.py`
+renders them in two forms that share one set of thresholds — compact for
+table cells (`3d`, `8w`, `7mo`, `7y`, or the translated "today") and long for
+prose (`3 days`, `7 months`, `7 years`). A cell and a sentence therefore never
+disagree about the same age. Day counts stay exact under 14 days; past that
+they are noise (`2549d` is unreadable where `7y` is instant). `rec_too_young`
+and `reason_too_young` keep raw days on purpose: the value is always below 30
+and precision near that threshold is the point.
+
 | Key | French | English |
 |-----|--------|---------|
 | `rec_archived` | Projet archivé — plus aucun développement | Archived project — no further development |
@@ -597,7 +606,7 @@ not read by the recommendation), but they keep the report truthful.
 | `fact_fork_hard` | fork divergent de {parent} ({ahead} commits propres) | hard fork of {parent} ({ahead} own commits) |
 | `fact_fork_pr` | #{number} ({state}) : {title} | #{number} ({state}): {title} |
 | `fact_owner` | propriétaire : {type} | owner: {type} |
-| `fact_project_age` | historique de {days} jours | {days} days of history |
+| `fact_project_age` | historique de {age} | {age} of history |
 | `fact_ai_authors` | commits assistés ou écrits par IA : {agents} | AI-written or AI-assisted commits: {agents} |
 | `fact_dependents` | {count} paquets dépendent de cette bibliothèque | {count} packages depend on this library |
 | `owner_type_user` | utilisateur | user |

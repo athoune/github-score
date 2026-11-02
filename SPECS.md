@@ -820,7 +820,7 @@ Example skeleton:
 │ status: healthy                  │
 └──────────────────────────────────┘
 ┌─ Contributors ───────────────────┐ ┌─ Maintenance ─────────┐
-│ total: 45                        │ │ last commit: 2d ago   │
+│ total: 45                        │ │ last commit: 2 days   │
 │ bus factor: 3                    │ │ state: active         │
 │ bots: 12%                        │ │ issues closed: 4d     │
 │ lead: alice (12m)                │ └───────────────────────┘

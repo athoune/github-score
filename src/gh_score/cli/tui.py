@@ -29,6 +29,7 @@ from gh_score.core.models import (
     Status,
 )
 from gh_score.core.search import Funnel
+from gh_score.durations import format_duration, humanize_days_long
 from gh_score.i18n import t
 
 # Traffic-light glyphs and colors for the recommendation verdict.
@@ -123,7 +124,7 @@ def _render_release_health(result: AnalysisResult) -> Panel:
         content.append("\n")
 
     if rh.age_days is not None:
-        content.append(f"{t('tui_age', days=rh.age_days)}\n")
+        content.append(f"{t('tui_age', age=humanize_days_long(rh.age_days))}\n")
 
     if rh.cadence_days is not None:
         content.append(f"{t('tui_cadence', days=rh.cadence_days)}\n")
@@ -237,7 +238,9 @@ def _render_maintenance(result: AnalysisResult) -> Panel:
         elif maint.last_commit_days_ago == 1:
             content.append(f"{t('int_last_commit_yesterday')}\n")
         else:
-            content.append(f"{t('tui_last_commit', days=maint.last_commit_days_ago)}\n")
+            content.append(
+                f"{t('tui_last_commit', age=humanize_days_long(maint.last_commit_days_ago))}\n"
+            )
 
     if maint.commits_per_month is not None:
         content.append(f"{t('tui_frequency', rate=maint.commits_per_month)}\n")
@@ -488,7 +491,7 @@ def render_dashboard(result: AnalysisResult, console: Console | None = None) -> 
     summary.add_row(t("tui_created", date=created))
     if result.meta.first_commit_at:
         days = (datetime.now(UTC) - result.meta.first_commit_at).days
-        summary.add_row(t("tui_first_commit", days=days))
+        summary.add_row(t("tui_first_commit", age=humanize_days_long(days)))
     console.print(summary)
     console.print()
 
@@ -569,15 +572,6 @@ def _compact_number(count: int) -> str:
     return str(count)
 
 
-def _compact_days(days: int | None) -> str:
-    """Compact last-commit age: 3 → '3d', 0 → 'today'."""
-    if days is None:
-        return "—"
-    if days == 0:
-        return t("cmp_table_today")
-    return f"{days}d"
-
-
 def _release_cell(result) -> str:
     """Compact latest-release cell: 'v2.4.1 · 12d' or '—'."""
     rh = result.release_health
@@ -585,7 +579,7 @@ def _release_cell(result) -> str:
         return "—"
     if rh.age_days is None:
         return rh.latest_version
-    return f"{rh.latest_version} · {_compact_days(rh.age_days)}"
+    return f"{rh.latest_version} · {format_duration(rh.age_days)}"
 
 
 def _pair_label(pair) -> str:
@@ -703,7 +697,7 @@ def render_comparison(
         lic = result.license.spdx_id or "—"
         lang = result.languages.primary or "—"
         state = t(f"state_{result.maintenance.state.value}")
-        commit = _compact_days(result.maintenance.last_commit_days_ago)
+        commit = format_duration(result.maintenance.last_commit_days_ago)
         bus = (
             str(result.contributors.bus_factor)
             if result.contributors.bus_factor
@@ -835,7 +829,7 @@ def _candidates_table(funnel: Funnel, console: Console) -> Table:
             _fit_cell(hit.full_name, name_width),
             _compact_number(hit.stars),
             _fit_cell(hit.language or "—", 14),
-            _compact_days(_age_days(hit.pushed_at)),
+            format_duration(_age_days(hit.pushed_at)),
         ]
         if show_description:
             cells.append(_fit_cell(hit.description, description_width))
@@ -863,7 +857,7 @@ def _results_table(results: list[AnalysisResult], console: Console) -> Table:
             _compact_number(meta.stars),
             _fit_cell(result.languages.primary or "—", 14),
             _fit_cell(t(f"state_{result.maintenance.state.value}"), 12),
-            _compact_days(result.maintenance.last_commit_days_ago),
+            format_duration(result.maintenance.last_commit_days_ago),
             glyph,
         )
     return table

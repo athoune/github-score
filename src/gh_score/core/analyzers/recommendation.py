@@ -21,6 +21,7 @@ from gh_score.core.models import (
     RecommendationLevel,
     Status,
 )
+from gh_score.durations import humanize_days_long
 from gh_score.i18n import current_language, t
 
 # ---------------------------------------------------------------------------
@@ -202,7 +203,13 @@ def _build(
         )
     age_days = _project_age_days(result)
     if age_days is not None:
-        reasoning.append(t("fact_project_age", lang=lang, days=age_days))
+        reasoning.append(
+            t(
+                "fact_project_age",
+                lang=lang,
+                age=humanize_days_long(age_days, lang=lang),
+            )
+        )
     dependents = (
         max((reg.dependents or 0) for reg in result.registries)
         if result.registries
@@ -495,7 +502,7 @@ def _rec_abandoned(result: AnalysisResult, lang: str) -> Recommendation | None:
         t("rec_abandoned_months", lang=lang, months=months),
         result,
         lang,
-        t("reason_last_commit_days", lang=lang, days=n),
+        t("reason_last_commit_age", lang=lang, age=humanize_days_long(n, lang=lang)),
     )
 
 
@@ -595,7 +602,11 @@ def _rec_maintenance(result: AnalysisResult, lang: str) -> Recommendation | None
             t("rec_maintenance_no_release", lang=lang, months=n),
             result,
             lang,
-            t("reason_release_age_days", lang=lang, days=rh.age_days),
+            t(
+                "reason_release_age",
+                lang=lang,
+                age=humanize_days_long(rh.age_days, lang=lang),
+            ),
         )
     return _build(
         RecommendationLevel.ORANGE,

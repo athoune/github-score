@@ -236,7 +236,7 @@ class TestPanels:
         result.maintenance.last_commit_days_ago = 200
         panel = _render_maintenance(result)
         assert "state: abandoned" in _panel_text(panel)
-        assert "last commit: 200d ago" in _panel_text(panel)
+        assert "last commit: 7 months ago" in _panel_text(panel)
 
     def test_languages(self, result, en_locale):
         panel = _render_languages(result)
@@ -549,11 +549,11 @@ class TestCompactNumber:
         assert _compact_number(2_500_000) == "2.5M"
 
     def test_days(self):
-        from gh_score.cli.tui import _compact_days
+        from gh_score.durations import format_duration
 
-        assert _compact_days(None) == "—"
-        assert _compact_days(3) == "3d"
-        assert _compact_days(0) == "today"
+        assert format_duration(None) == "—"
+        assert format_duration(3) == "3d"
+        assert format_duration(0, lang="en") == "today"
 
 
 class TestRenderComparison:

@@ -13,6 +13,7 @@ from gh_score.core.models import (
     Repository,
     Status,
 )
+from gh_score.durations import humanize_days_long
 from gh_score.i18n import t
 
 # Semver pattern: MAJOR.MINOR.PATCH with optional pre-release
@@ -129,7 +130,13 @@ def _build_interpretation(ind: ReleaseHealthIndicator, lang: str | None = None) 
             elif ind.age_days == 1:
                 parts.append(t("int_released_yesterday", lang=lang))
             else:
-                parts.append(t("int_released_days_ago", lang=lang, days=ind.age_days))
+                parts.append(
+                    t(
+                        "int_released_age",
+                        lang=lang,
+                        age=humanize_days_long(ind.age_days, lang=lang),
+                    )
+                )
 
     if ind.cadence_days is not None:
         if ind.cadence_days < 7:

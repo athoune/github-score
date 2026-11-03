@@ -454,6 +454,15 @@ MESSAGES: dict[str, dict[str, str]] = {
         "search_analyzing": "Analyse de {count} dépôt(s)...",
         "search_limited": "Analysé : {count} sur {kept} retenus (--limit).",
         "search_error": "Échec de la recherche GitHub",
+        "search_error_auth": (
+            "Jeton GitHub rejeté ({detail}) — régénère GH_SCORE_GITHUB_TOKEN, "
+            "ou retire-le pour interroger GitHub en anonyme"
+        ),
+        "search_error_rate_limit": (
+            "Quota GitHub épuisé ({detail}) — réessaie après {reset}"
+        ),
+        "search_error_reset_unknown": "un moment",
+        "search_error_query": "Requête refusée par GitHub ({detail})",
         "search_candidates_title": "Candidats",
         "search_sort_note": (
             "Classement : {sort}. La pertinence a été tranchée par le filtre "
@@ -917,6 +926,15 @@ MESSAGES: dict[str, dict[str, str]] = {
         "search_analyzing": "Analyzing {count} repositories...",
         "search_limited": "Analyzed {count} of {kept} kept (--limit).",
         "search_error": "GitHub search failed",
+        "search_error_auth": (
+            "GitHub token rejected ({detail}) — regenerate GH_SCORE_GITHUB_TOKEN, "
+            "or unset it to query GitHub anonymously"
+        ),
+        "search_error_rate_limit": (
+            "GitHub quota exhausted ({detail}) — retry after {reset}"
+        ),
+        "search_error_reset_unknown": "a moment",
+        "search_error_query": "GitHub refused the query ({detail})",
         "search_candidates_title": "Candidates",
         "search_sort_note": (
             "Ranking: {sort}. Relevance was decided by the filter above, "

@@ -922,6 +922,16 @@ req/h) and the estimated cost.
 `incomplete_results: true` from the API is surfaced as a warning: the
 result list is partial, and pretending otherwise would be a silent lie.
 
+**Fatal statuses are named.** The search is a single request with no
+degraded mode, so the failures that would otherwise collapse into the
+same generic message are typed: `401` is a rejected token (worse than no
+token at all — anonymous requests are allowed, an invalid
+`Authorization` header is not), `403`/`429` with the quota exhausted is a
+rate limit (the message carries `X-RateLimit-Reset` as a local time), and
+`422` is a query GitHub refused (its own `message` is shown). A `403`
+without a quota signal (permissions, abuse detection) and any `404` stay
+the ordinary `None` that the analysis path degrades on.
+
 ## 11. Library API
 
 The library is designed for programmatic use.

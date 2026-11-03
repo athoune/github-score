@@ -36,6 +36,98 @@ from gh_score.core.models import (
     SecurityUpdate,
 )
 
+
+class GitHubAPIError(Exception):
+    """A GitHub response that poisons the whole run, not just one request.
+
+    ``_get`` returns ``None`` on failure by default: a 404 on a missing
+    release, a 204 with an empty body or a transient network error is an
+    ordinary "no data" answer, and every analyzer treats it the same. The
+    statuses modelled below are *not* ordinary — a rejected token or an
+    exhausted quota fails every subsequent request — but degrading stays
+    the right call for a multi-request analysis (one warning beats losing
+    the report entirely). Callers whose whole job is that single request
+    ask for the reason with ``raise_on_fatal=True`` and report it.
+    """
+
+
+class GitHubAuthError(GitHubAPIError):
+    """401 — the configured token was rejected (expired, revoked, typo).
+
+    A rejected token is worse than no token at all: anonymous requests are
+    allowed (10 searches/min, 60 core requests/h), while an invalid
+    ``Authorization`` header is refused outright.
+    """
+
+
+class GitHubQueryError(GitHubAPIError):
+    """422 — GitHub refused the query itself (unknown qualifier, too long)."""
+
+
+class GitHubRateLimitError(GitHubAPIError):
+    """Quota exhausted (403/429); ``reset_at`` says when it lifts."""
+
+    def __init__(self, message: str, reset_at: datetime | None = None) -> None:
+        super().__init__(message)
+        self.reset_at = reset_at
+
+
+def _api_message(response: httpx.Response) -> str:
+    """The ``message`` field of a GitHub error body, when there is one."""
+    try:
+        payload = response.json()
+    except (json.JSONDecodeError, ValueError):
+        return ""
+    if isinstance(payload, dict):
+        message = payload.get("message")
+        if isinstance(message, str):
+            return message
+    return ""
+
+
+def _rate_limit_reset(response: httpx.Response) -> datetime | None:
+    """When the quota lifts, read from ``X-RateLimit-Reset`` (epoch seconds)."""
+    raw = response.headers.get("X-RateLimit-Reset")
+    if not raw:
+        return None
+    try:
+        return datetime.fromtimestamp(int(raw), UTC)
+    except (TypeError, ValueError, OSError, OverflowError):
+        return None
+
+
+def _is_rate_limited(response: httpx.Response) -> bool:
+    """True when the response is a quota refusal rather than an access denial.
+
+    A 403 is ambiguous — missing permissions, abuse detection, quota — and
+    GitHub only flags the quota case with ``X-RateLimit-Remaining: 0`` or,
+    for secondary limits, with "rate limit" in the body message.
+    """
+    if response.status_code == 429:
+        return True
+    if response.headers.get("X-RateLimit-Remaining") == "0":
+        return True
+    return "rate limit" in _api_message(response).lower()
+
+
+def _raise_for_fatal_status(response: httpx.Response) -> None:
+    """Turn a run-poisoning status into a typed exception.
+
+    Messages carry the technical detail only (``"401: Bad credentials"``);
+    the caller owns the localized, actionable sentence. Everything else
+    (404, 500, redirect loops) falls through to the usual ``None``.
+    """
+    status = response.status_code
+    detail = _api_message(response)
+    message = f"{status}: {detail}" if detail else str(status)
+    if status == 401:
+        raise GitHubAuthError(message)
+    if status == 422:
+        raise GitHubQueryError(message)
+    if _is_rate_limited(response):
+        raise GitHubRateLimitError(message, reset_at=_rate_limit_reset(response))
+
+
 # Known bot accounts
 _BOT_LOGINS = frozenset(
     {
@@ -174,8 +266,21 @@ class GitHubFetcher:
     async def close(self) -> None:
         await self.client.aclose()
 
-    async def _get(self, url: str, params: dict | None = None) -> dict | list | None:
-        """Make a cached GET request to the GitHub API."""
+    async def _get(
+        self,
+        url: str,
+        params: dict | None = None,
+        *,
+        raise_on_fatal: bool = False,
+    ) -> dict | list | None:
+        """Make a cached GET request to the GitHub API.
+
+        Returns ``None`` on any failure by default. With
+        ``raise_on_fatal=True``, the statuses that poison the whole run
+        (401 token rejected, 422 query refused, quota exhausted) raise a
+        :class:`GitHubAPIError` instead: a caller that spends its entire
+        value on this one request must be able to say *why* it failed.
+        """
         cache_key = f"github:{url}:{json.dumps(params or {}, sort_keys=True)}"
         cached = self.cache.get_json(cache_key)
         if cached is not None:
@@ -200,7 +305,9 @@ class GitHubFetcher:
             self.cache.set_json(cache_key, data, ttl)
 
             return data
-        except httpx.HTTPStatusError:
+        except httpx.HTTPStatusError as exc:
+            if raise_on_fatal:
+                _raise_for_fatal_status(exc.response)
             return None
         except httpx.RequestError:
             return None
@@ -264,14 +371,23 @@ class GitHubFetcher:
         apply: one request, one page. ``incomplete_results`` means GitHub
         timed out and the list is partial — the caller must surface it.
 
-        Returns None when the request failed (network, rate limit, bad
-        query); an empty search is an envelope with an empty ``items``.
+        Returns None when the request failed (network, bad query); an empty
+        search is an envelope with an empty ``items``.
+
+        Raises:
+            GitHubAuthError: the token was rejected (401).
+            GitHubQueryError: GitHub refused the query (422).
+            GitHubRateLimitError: the quota is exhausted (403/429).
+
+        This call is the whole feature — there is nothing to degrade to —
+        so the fatal statuses are named instead of collapsing into the
+        same ``None`` as a network blip.
         """
         params: dict[str, str] = {"q": query, "per_page": str(per_page)}
         if sort:
             params["sort"] = sort
             params["order"] = order
-        data = await self._get(self.SEARCH_URL, params)
+        data = await self._get(self.SEARCH_URL, params, raise_on_fatal=True)
         if not isinstance(data, dict):
             return None
         return data

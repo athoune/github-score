@@ -31,7 +31,13 @@ from gh_score.core.comparison import (
     ranked_projects,
     sort_by_health,
 )
-from gh_score.core.fetchers.github import GitHubFetcher
+from gh_score.core.fetchers.github import (
+    GitHubAuthError,
+    GitHubFetcher,
+    GitHubQueryError,
+    GitHubRateLimitError,
+)
+
 from gh_score.core.models import AnalysisResult, RecommendationLevel, RepoUrl
 from gh_score.core.search import (
     Funnel,
@@ -771,8 +777,19 @@ _SEARCH_API_SORTS: dict[str, str | None] = {
 }
 
 
+def _reset_hint(exc: GitHubRateLimitError) -> str:
+    """Local wall-clock time when the quota lifts, for the error message."""
+    if exc.reset_at is None:
+        return t("search_error_reset_unknown")
+    return exc.reset_at.astimezone().strftime("%H:%M")
+
+
 def _run_search(config: Config, query: str, per_page: int, sort_by: str) -> dict | None:
-    """Run the search request in its own httpx client (asyncio.run scope)."""
+    """Run the search request in its own httpx client (asyncio.run scope).
+
+    Raises the fatal statuses as typed errors: unlike an analysis, the
+    search has no degraded mode to fall back to.
+    """
 
     async def run() -> dict | None:
         cache = Cache(config.cache.dir, config.cache.ttl_hours * 3600)
@@ -1011,7 +1028,24 @@ def search(
         _SEARCH_MAX_PER_PAGE,
         max(_SEARCH_MIN_PER_PAGE, limit * _SEARCH_CANDIDATE_FACTOR),
     )
-    envelope = _run_search(config, query, per_page, sort_by)
+    try:
+        envelope = _run_search(config, query, per_page, sort_by)
+    except GitHubAuthError as exc:
+        console.print(
+            f"[red]{t('cli_error')}[/red] {t('search_error_auth', detail=exc)}"
+        )
+        sys.exit(1)
+    except GitHubRateLimitError as exc:
+        console.print(
+            f"[red]{t('cli_error')}[/red] "
+            f"{t('search_error_rate_limit', detail=exc, reset=_reset_hint(exc))}"
+        )
+        sys.exit(1)
+    except GitHubQueryError as exc:
+        console.print(
+            f"[red]{t('cli_error')}[/red] {t('search_error_query', detail=exc)}"
+        )
+        sys.exit(1)
     if envelope is None:
         console.print(f"[red]{t('cli_error')}[/red] {t('search_error')} · {query}")
         sys.exit(1)

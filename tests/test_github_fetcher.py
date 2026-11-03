@@ -10,7 +10,10 @@ import pytest
 from gh_score.config import Config
 from gh_score.core.cache import Cache
 from gh_score.core.fetchers.github import (
+    GitHubAuthError,
     GitHubFetcher,
+    GitHubQueryError,
+    GitHubRateLimitError,
     _classify_license,
     _is_security_update,
     _parse_datetime,
@@ -857,3 +860,112 @@ class TestGetRobustness:
 
         result = await fetcher._get("https://api.github.com/repos/o/r")
         assert result == {"name": "repo"}
+
+
+class TestFatalStatuses:
+    """Statuses that poison a whole run are named when asked for.
+
+    An analysis degrades with a warning (one lost request beats a lost
+    report); a search has nothing to degrade to, so it must say *why*.
+    """
+
+    @staticmethod
+    def _response(status: int, payload, headers: dict | None = None) -> httpx.Response:
+        request = httpx.Request("GET", GitHubFetcher.SEARCH_URL)
+        return httpx.Response(
+            status, json=payload, headers=headers or {}, request=request
+        )
+
+    @pytest.mark.asyncio
+    async def test_rejected_token_is_named(self, tmp_path):
+        """The reported bug: a dead PAT produced "search failed" with no
+        reason, while the fix costs one string."""
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.client = SimpleNamespace(
+            get=AsyncMock(
+                return_value=self._response(401, {"message": "Bad credentials"})
+            )
+        )
+
+        with pytest.raises(GitHubAuthError) as exc:
+            await fetcher.search_repositories("netflix")
+
+        assert str(exc.value) == "401: Bad credentials"
+        # A failed request must never be cached as if it had answered.
+        assert (
+            fetcher.cache.get_json(
+                f"github:{GitHubFetcher.SEARCH_URL}:"
+                '{"per_page": "30", "q": "netflix"}'
+            )
+            is None
+        )
+
+    @pytest.mark.asyncio
+    async def test_exhausted_quota_carries_the_reset_time(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.client = SimpleNamespace(
+            get=AsyncMock(
+                return_value=self._response(
+                    403,
+                    {"message": "API rate limit exceeded"},
+                    {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1700000000"},
+                )
+            )
+        )
+
+        with pytest.raises(GitHubRateLimitError) as exc:
+            await fetcher.search_repositories("netflix")
+
+        assert exc.value.reset_at == datetime.fromtimestamp(1700000000, UTC)
+
+    @pytest.mark.asyncio
+    async def test_429_is_a_rate_limit_even_without_headers(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.client = SimpleNamespace(
+            get=AsyncMock(return_value=self._response(429, {}))
+        )
+
+        with pytest.raises(GitHubRateLimitError) as exc:
+            await fetcher.search_repositories("netflix")
+
+        assert exc.value.reset_at is None
+
+    @pytest.mark.asyncio
+    async def test_refused_query_is_named(self, tmp_path):
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.client = SimpleNamespace(
+            get=AsyncMock(
+                return_value=self._response(
+                    422, {"message": "Validation Failed: bad qualifier"}
+                )
+            )
+        )
+
+        with pytest.raises(GitHubQueryError) as exc:
+            await fetcher.search_repositories("netflix in:nowhere")
+
+        assert "bad qualifier" in str(exc.value)
+
+    @pytest.mark.asyncio
+    async def test_a_forbidden_without_quota_marks_still_degrades(self, tmp_path):
+        """403 with no rate-limit signal (permissions, abuse): keep the old
+        None so a single restricted repository does not abort a comparison."""
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.client = SimpleNamespace(
+            get=AsyncMock(return_value=self._response(403, {"message": "Forbidden"}))
+        )
+
+        assert await fetcher.search_repositories("netflix") is None
+
+    @pytest.mark.asyncio
+    async def test_analysis_still_degrades_on_a_rejected_token(self, tmp_path):
+        """Default ``_get`` keeps returning None: the analysis path relies
+        on it to emit its localized warning instead of crashing."""
+        fetcher = _make_fetcher(tmp_path)
+        fetcher.client = SimpleNamespace(
+            get=AsyncMock(
+                return_value=self._response(401, {"message": "Bad credentials"})
+            )
+        )
+
+        assert await fetcher.fetch_meta(URL) == RepositoryMeta()

@@ -587,6 +587,97 @@ class TestSearchCommand:
         assert result.exit_code == 1
         assert "GitHub search failed" in result.output
 
+    def test_rejected_token_says_so_instead_of_failing_generic(self, monkeypatch):
+        """The bug that started this: a dead PAT printed "search failed"
+        and nothing else. A rejected token is worse than no token, so it
+        must name itself."""
+        from click.testing import CliRunner
+
+        from gh_score.cli.main import cli
+        from gh_score.core.fetchers.github import GitHubAuthError
+
+        monkeypatch.setenv("LANG", "en_US.UTF-8")
+        with patch(
+            "gh_score.cli.main._run_search",
+            side_effect=GitHubAuthError("401: Bad credentials"),
+        ):
+            result = CliRunner().invoke(cli, ["search", "netflix", "--no-analyze"])
+
+        assert result.exit_code == 1
+        assert "GitHub token rejected" in result.output
+        assert "401: Bad credentials" in result.output
+        assert "GH_SCORE_GITHUB_TOKEN" in result.output
+        assert "GitHub search failed" not in result.output
+
+    def test_rejected_token_is_localized(self, monkeypatch):
+        from click.testing import CliRunner
+
+        from gh_score.cli.main import cli
+        from gh_score.core.fetchers.github import GitHubAuthError
+
+        monkeypatch.setenv("LANG", "fr_FR.UTF-8")
+        with patch(
+            "gh_score.cli.main._run_search",
+            side_effect=GitHubAuthError("401: Bad credentials"),
+        ):
+            result = CliRunner().invoke(cli, ["search", "netflix", "--no-analyze"])
+
+        assert result.exit_code == 1
+        assert "Jeton GitHub rejeté" in result.output
+
+    def test_exhausted_quota_reports_the_reset_time(self, monkeypatch):
+        from datetime import UTC, datetime, timedelta
+
+        from click.testing import CliRunner
+
+        from gh_score.cli.main import cli
+        from gh_score.core.fetchers.github import GitHubRateLimitError
+
+        monkeypatch.setenv("LANG", "en_US.UTF-8")
+        reset = datetime.now(UTC) + timedelta(minutes=12)
+        with patch(
+            "gh_score.cli.main._run_search",
+            side_effect=GitHubRateLimitError("403: rate limit", reset_at=reset),
+        ):
+            result = CliRunner().invoke(cli, ["search", "netflix", "--no-analyze"])
+
+        assert result.exit_code == 1
+        assert "quota exhausted" in result.output
+        assert reset.astimezone().strftime("%H:%M") in result.output
+
+    def test_quota_without_reset_header_stays_readable(self, monkeypatch):
+        from click.testing import CliRunner
+
+        from gh_score.cli.main import cli
+        from gh_score.core.fetchers.github import GitHubRateLimitError
+
+        monkeypatch.setenv("LANG", "en_US.UTF-8")
+        with patch(
+            "gh_score.cli.main._run_search",
+            side_effect=GitHubRateLimitError("429: too many requests"),
+        ):
+            result = CliRunner().invoke(cli, ["search", "netflix", "--no-analyze"])
+
+        assert result.exit_code == 1
+        assert "retry after a moment" in result.output
+
+    def test_refused_query_surfaces_githubs_message(self, monkeypatch):
+        from click.testing import CliRunner
+
+        from gh_score.cli.main import cli
+        from gh_score.core.fetchers.github import GitHubQueryError
+
+        monkeypatch.setenv("LANG", "en_US.UTF-8")
+        with patch(
+            "gh_score.cli.main._run_search",
+            side_effect=GitHubQueryError("422: Validation Failed"),
+        ):
+            result = CliRunner().invoke(cli, ["search", "vega", "--no-analyze"])
+
+        assert result.exit_code == 1
+        assert "refused the query" in result.output
+        assert "422: Validation Failed" in result.output
+
     def test_missing_token_warns_about_the_cost(self):
         from click.testing import CliRunner
 

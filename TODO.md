@@ -1,16 +1,17 @@
 # TODO
 
 Remaining actions after the comparison feature
-(suite at 90% coverage, 789 tests). Last updated: 2026-11-02.
+(suite at 90% coverage, 800 tests). Last updated: 2026-11-03.
 
 ## Tests / coverage
 
-- [ ] `cli/main.py` (82%) — direct tests for the Markdown renderers
+- [ ] `cli/main.py` (83%) — direct tests for the Markdown renderers
       (`_md_*`), `_render_json` and the CLI commands (`analyze`, `report`,
       `config`).
-- [ ] `fetchers/github.py` (80%) — cover `_get` (rate-limit warning,
-      cache write), `fetch_community_files` (base64 FUNDING.yml),
-      `fetch_all` (asyncio.gather).
+- [ ] `fetchers/github.py` (86%) — `_get`'s fatal-status branches
+      (401/422/quota) are covered; still missing: the cache-hit path,
+      `fetch_commits` (rolling window), `fetch_community_files` (base64
+      FUNDING.yml) and `fetch_all` (asyncio.gather).
 - [ ] `fetchers/website.py` (93%) — cover the remaining error branches:
       `_classify_request_error` OTHER fallback and the cache round-trip
       error/typo paths.
@@ -28,6 +29,13 @@ Remaining actions after the comparison feature
       feature landed (2026-08-07).
 
 ## Code smells (spotted while writing tests)
+
+- [ ] The cache key (`github:{url}:{params}`) ignores *who* asked: a
+      successful search/analysis cached with a valid token keeps being
+      served after that token expires or is revoked, which hides an auth
+      failure behind stale data (and, conversely, two configs share one
+      cache). Same blind spot as the token itself — key it on a
+      credential fingerprint (or an env-derived namespace).
 
 - [x] (done 2026-09-30) License fallback when GitHub Licensee fails —
       `pybind11` reports `NOASSERTION` (its `LICENSE` carries an extra
